@@ -103,3 +103,22 @@ seenly_project_*
 seenly_project_updated - *
 seenly_section_header_fix/
 sozdanieemulato/
+
+# Local project notes / backups / generated artifacts
+BUNNY_SYSTEM.md
+BUNNY_SYSTEM.*
+CHANGES.md
+CHANGES.*
+
+# Ignore zip files and project copies
+*.zip
+seenly_project_*
+seenly_project_updated - *
+
+# Ignore temporary local folders
+seenly_section_header_fix/
+
+# Optional examples:
+# notes.txt
+# temp/
+# *.log

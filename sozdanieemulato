@@ -1,0 +1,11 @@
+flutter emulators --launch Medium_Phone_API_36.1
+docker compose down -v - ЕСЛИ КЭШ ОШИБКА КАКАЯ ТО ТО КЭШ МБ НЕ СБРОШЕН
+taskkill /F /IM qemu-system-x86_64.exe - если зависло
+
+ДЛЯ ЗАПУСКА ЕСЛИ ПОСТЕРЫ НЕ ГРУЗЯТСЯ -
+
+& "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd Medium_Phone_API_36.1 -dns-server 8.8.8.8,1.1.1.1
+не менять не удалять файл!!
+
+
+docker exec -it seenlyclean-db-1 psql -U seenly -d seenly -c "DELETE FROM cached_feed_snapshots WHERE cache_key = 'feed:discover';"
