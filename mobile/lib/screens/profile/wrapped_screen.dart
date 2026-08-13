@@ -489,17 +489,33 @@ class _WrappedCarouselState extends State<_WrappedCarousel> {
         // little dots — one star per screen in this chapter, lighting up
         // and connecting to the last as you move forward.
         Positioned.fill(child: _ConstellationBackdrop(page: _page, pageCount: _pages.length)),
-        SafeArea(child: _WrappedCarouselContent(
-          page: _page,
-          pages: _pages,
-          controller: _controller,
-          onPageChanged: (i) => setState(() => _page = i),
-          onNext: _next,
-          onPrev: _prev,
-          periodLabel: widget.summary.periodLabel,
-          onPickPeriod: widget.onPickPeriod,
-          onClose: () => Navigator.of(context).pop(),
-        )),
+        // A soft one-shot bloom for the whole deck the moment Wrapped
+        // opens — the sky and the constellation are already there
+        // instantly, but the cards themselves rise and fade in gently
+        // rather than snapping onto the screen. Only plays once: since
+        // begin/end/duration below never change, TweenAnimationBuilder
+        // settles at the target and stays there through every later
+        // rebuild (page swipes, period changes, etc.).
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 640),
+          curve: Curves.easeOutCubic,
+          builder: (context, t, child) => Opacity(
+            opacity: t,
+            child: Transform.translate(offset: Offset(0, (1 - t) * 18), child: child),
+          ),
+          child: SafeArea(child: _WrappedCarouselContent(
+            page: _page,
+            pages: _pages,
+            controller: _controller,
+            onPageChanged: (i) => setState(() => _page = i),
+            onNext: _next,
+            onPrev: _prev,
+            periodLabel: widget.summary.periodLabel,
+            onPickPeriod: widget.onPickPeriod,
+            onClose: () => Navigator.of(context).pop(),
+          )),
+        ),
       ],
     );
   }
@@ -578,23 +594,21 @@ class _WrappedCarouselContent extends StatelessWidget {
         Expanded(
           child: Stack(
             children: [
-              PageView(
+              PageView.builder(
                 controller: controller,
                 onPageChanged: onPageChanged,
-                children: [
-                  for (var i = 0; i < pages.length; i++)
-                    Padding(
-                      // Cards are full width but no longer forced to full
-                      // device height (see _CardShell) — short-content
-                      // screens (a single poster + a line of text) were
-                      // getting stretched to fill the whole viewport and
-                      // just floating, tiny, in a sea of dead color.
-                      // Centering a content-sized card here means every
-                      // screen is exactly as tall as what it's showing.
-                      padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                      child: Center(child: pages[i]),
-                    ),
-                ],
+                itemCount: pages.length,
+                itemBuilder: (context, i) => Padding(
+                  // Cards are full width but no longer forced to full
+                  // device height (see _CardShell) — short-content
+                  // screens (a single poster + a line of text) were
+                  // getting stretched to fill the whole viewport and
+                  // just floating, tiny, in a sea of dead color.
+                  // Centering a content-sized card here means every
+                  // screen is exactly as tall as what it's showing.
+                  padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
+                  child: Center(child: _CardSwipeMotion(controller: controller, index: i, fallbackPage: page, child: pages[i])),
+                ),
               ),
               if (page > 0)
                 Positioned(
@@ -636,6 +650,151 @@ class _NavChevron extends StatelessWidget {
         height: 26,
         decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
         child: Icon(icon, size: 16, color: SeenlyPalette.inkMuted),
+      ),
+    );
+  }
+}
+
+/// Wraps one card so it responds to the live scroll position rather than
+/// only snapping between two fixed states — as the person drags between
+/// screens, the outgoing card softly sinks, fades, and shrinks a touch
+/// while the incoming one rises and grows into place, all in the same
+/// motion as the finger. This one widget is what makes every screen in
+/// the deck animate, rather than hand-animating each of the fourteen
+/// cards separately.
+class _CardSwipeMotion extends StatelessWidget {
+  final PageController controller;
+  final int index;
+  final int fallbackPage;
+  final Widget child;
+  const _CardSwipeMotion({
+    required this.controller,
+    required this.index,
+    required this.fallbackPage,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        double page = fallbackPage.toDouble();
+        // controller.page throws if no PageView is attached yet (the very
+        // first frame) — falls back to the known current index then.
+        if (controller.hasClients) {
+          try {
+            page = controller.page ?? fallbackPage.toDouble();
+          } catch (_) {}
+        }
+        final delta = (page - index).clamp(-1.0, 1.0);
+        final settle = delta.abs();
+        return Opacity(
+          opacity: 1 - settle * 0.55,
+          child: Transform.translate(
+            offset: Offset(0, settle * 22),
+            child: Transform.scale(
+              scale: 1 - settle * 0.08,
+              child: child,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// A number that softly counts up to [value] the first time it appears —
+/// used for the deck's headline stats rather than having them just pop
+/// into place fully-formed.
+class _CountUp extends StatelessWidget {
+  final int value;
+  final TextStyle style;
+  final String Function(int)? format;
+  final Duration duration;
+  const _CountUp({required this.value, required this.style, this.format, this.duration = const Duration(milliseconds: 900)});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: value.toDouble()),
+      duration: duration,
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) {
+        final n = v.round();
+        return Text(format != null ? format!(n) : '$n', style: style);
+      },
+    );
+  }
+}
+
+/// Fades and gently rises into place after a per-item delay — used to
+/// stagger a list or a row of chips in one after another instead of
+/// having them all pop in at once.
+class _StaggerFade extends StatefulWidget {
+  final int index;
+  final Widget child;
+  final Duration gap;
+  const _StaggerFade({required this.index, required this.child, this.gap = const Duration(milliseconds: 70)});
+
+  @override
+  State<_StaggerFade> createState() => _StaggerFadeState();
+}
+
+class _StaggerFadeState extends State<_StaggerFade> {
+  bool _visible = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(widget.gap * widget.index, () {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _visible ? 1 : 0,
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSlide(
+        offset: _visible ? Offset.zero : const Offset(0, 0.12),
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// A bar that grows from zero to [height] on entrance, its start staggered
+/// by [delay] (0..1, the bar's position within the row) so a chart fills
+/// in left-to-right rather than every bar snapping up at once.
+class _GrowBar extends StatelessWidget {
+  final double height;
+  final Color color;
+  final double delay;
+  final BorderRadius borderRadius;
+  const _GrowBar({required this.height, required this.color, required this.delay, this.borderRadius = const BorderRadius.vertical(top: Radius.circular(3))});
+
+  @override
+  Widget build(BuildContext context) {
+    final start = delay.clamp(0.0, 0.55);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: height),
+      duration: const Duration(milliseconds: 800),
+      curve: Interval(start, (start + 0.45).clamp(0.45, 1.0), curve: Curves.easeOutCubic),
+      builder: (context, h, _) => Container(
+        height: h,
+        decoration: BoxDecoration(color: color, borderRadius: borderRadius),
       ),
     );
   }
@@ -1352,32 +1511,84 @@ class _PosterThumb extends StatelessWidget {
 /// A GitHub-contributions-style texture standing in for "your year" —
 /// deterministic per [seed] (not re-randomized on every rebuild) so it
 /// doesn't flicker as the person swipes back and forth.
-class _YearGrid extends StatelessWidget {
+class _YearGrid extends StatefulWidget {
   final int seed;
   final Color color;
   final int columns;
   const _YearGrid({required this.seed, required this.color, this.columns = 18});
 
   @override
+  State<_YearGrid> createState() => _YearGridState();
+}
+
+class _YearGridState extends State<_YearGrid> with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final rnd = math.Random(seed == 0 ? 1 : seed);
+    final rnd = math.Random(widget.seed == 0 ? 1 : widget.seed);
     final cells = List.generate(54, (_) => rnd.nextDouble());
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: cells.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columns,
-        mainAxisSpacing: 3,
-        crossAxisSpacing: 3,
-      ),
-      itemBuilder: (context, i) {
-        final v = cells[i];
-        final opacity = v > .82 ? 1.0 : v > .6 ? .62 : v > .35 ? .34 : .14;
-        return DecoratedBox(
-          decoration: BoxDecoration(color: color.withOpacity(opacity), borderRadius: BorderRadius.circular(2)),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: cells.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: widget.columns,
+            mainAxisSpacing: 3,
+            crossAxisSpacing: 3,
+          ),
+          itemBuilder: (context, i) {
+            final v = cells[i];
+            final target = v > .82 ? 1.0 : v > .6 ? .62 : v > .35 ? .34 : .14;
+            // Cells light up one after another rather than all at once —
+            // a soft "filling in the year" sweep instead of a hard pop.
+            final delay = i / cells.length;
+            final local = ((_controller.value - delay * 0.6) / 0.4).clamp(0.0, 1.0);
+            return DecoratedBox(
+              decoration: BoxDecoration(color: widget.color.withOpacity(target * local), borderRadius: BorderRadius.circular(2)),
+            );
+          },
         );
       },
+    );
+  }
+}
+
+/// Sweeps an `_ArcPainter` ring in from empty to [target] the first time
+/// it's built, instead of appearing already fully drawn.
+class _AnimatedRing extends StatelessWidget {
+  final double target;
+  final Color color;
+  final Color backgroundColor;
+  final double size;
+  final double strokeWidth;
+  const _AnimatedRing({
+    required this.target,
+    required this.color,
+    required this.backgroundColor,
+    required this.size,
+    required this.strokeWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: target),
+      duration: const Duration(milliseconds: 1100),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) => CustomPaint(
+        size: Size(size, size),
+        painter: _ArcPainter(values: [v], colors: [color], backgroundColor: backgroundColor, strokeWidth: strokeWidth),
+      ),
     );
   }
 }
@@ -1478,9 +1689,22 @@ class _DigitalClock extends StatelessWidget {
 /// A dawn→day→dusk→night gradient strip with a marker pinned at the
 /// person's peak viewing hour — literal "where in the day" context for
 /// the digital clock above it.
-class _DayGradientBar extends StatelessWidget {
+class _DayGradientBar extends StatefulWidget {
   final double hourFraction; // 0..1 across a 24h day
   const _DayGradientBar({required this.hourFraction});
+
+  @override
+  State<_DayGradientBar> createState() => _DayGradientBarState();
+}
+
+class _DayGradientBarState extends State<_DayGradientBar> with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1512,15 +1736,25 @@ class _DayGradientBar extends StatelessWidget {
               ),
             ),
             Positioned(
-              left: (w * hourFraction.clamp(0.0, 1.0) - 11).clamp(0.0, w - 22),
+              left: (w * widget.hourFraction.clamp(0.0, 1.0) - 11).clamp(0.0, w - 22),
               top: -1,
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: SeenlyPalette.ink,
-                  border: Border.all(color: const Color(0xFFF0C878), width: 3),
+              // Same slow, soft breathing scale as the archetype badge —
+              // marks "this is you, right now" on the day scale without
+              // demanding attention.
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  final scale = 1 + Curves.easeInOut.transform(_controller.value) * 0.12;
+                  return Transform.scale(scale: scale, child: child);
+                },
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: SeenlyPalette.ink,
+                    border: Border.all(color: const Color(0xFFF0C878), width: 3),
+                  ),
                 ),
               ),
             ),
@@ -1626,18 +1860,26 @@ class _BalanceScale extends StatelessWidget {
   Widget build(BuildContext context) {
     final total = (leftValue + rightValue).clamp(1, 1 << 30);
     final tilt = ((rightValue - leftValue) / total).clamp(-0.35, 0.35).toDouble();
-    return SizedBox(
-      height: 128,
-      child: CustomPaint(
-        painter: _ScalePainter(tilt: tilt, color: color),
-        child: Padding(
-          padding: const EdgeInsets.only(top: 78),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _scaleLabel('$leftValue', leftLabel),
-              _scaleLabel('$rightValue', rightLabel),
-            ],
+    return TweenAnimationBuilder<double>(
+      // Settles from level (0) to its final tilt on entrance, the way a
+      // real scale would gently find its balance rather than starting
+      // already tipped.
+      tween: Tween(begin: 0, end: tilt),
+      duration: const Duration(milliseconds: 1100),
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedTilt, _) => SizedBox(
+        height: 128,
+        child: CustomPaint(
+          painter: _ScalePainter(tilt: animatedTilt, color: color),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 78),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _scaleLabel('$leftValue', leftLabel),
+                _scaleLabel('$rightValue', rightLabel),
+              ],
+            ),
           ),
         ),
       ),
@@ -1699,13 +1941,39 @@ class _ScalePainter extends CustomPainter {
 /// A five-point star ribbon badge — generic enough to sit under any
 /// archetype label (which comes from the backend as free text, not a
 /// fixed set), unlike a literal illustration tied to one specific label.
-class _BadgeIcon extends StatelessWidget {
+class _BadgeIcon extends StatefulWidget {
   final Color color;
   final double size;
   const _BadgeIcon({required this.color, this.size = 78});
 
   @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size * 1.18, child: CustomPaint(painter: _BadgePainter(color)));
+  State<_BadgeIcon> createState() => _BadgeIconState();
+}
+
+class _BadgeIconState extends State<_BadgeIcon> with SingleTickerProviderStateMixin {
+  // A slow, soft breathing scale — small enough (±3%) that it reads as
+  // "quietly alive" rather than a bouncing animation competing for
+  // attention. Same duration family as the constellation's twinkle
+  // (2600ms) so the deck's ambient motion feels like one shared tempo.
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final scale = 1 + Curves.easeInOut.transform(_controller.value) * 0.035;
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: SizedBox(width: widget.size, height: widget.size * 1.18, child: CustomPaint(painter: _BadgePainter(widget.color))),
+    );
+  }
 }
 
 class _BadgePainter extends CustomPainter {
@@ -1884,7 +2152,7 @@ class _OverviewSessionsCard extends StatelessWidget {
             const SizedBox(height: 16),
             _Eyebrow(summary.scope == 'all' ? 'твоё кино за всё время' : 'твой ${summary.periodLabel} в кино'),
             const SizedBox(height: 6),
-            Text('${summary.totalLogged}', style: SeenlyText.serif(size: 64, weight: FontWeight.w700, color: fg)),
+            _CountUp(value: summary.totalLogged, style: SeenlyText.serif(size: 64, weight: FontWeight.w700, color: fg)),
             Text(_overviewSubtitle(summary), style: SeenlyText.serif(size: 16, weight: FontWeight.w500, color: fg)),
             const SizedBox(height: 18),
             SizedBox(width: 200, child: _YearGrid(seed: summary.totalLogged, color: fg)),
@@ -2091,7 +2359,9 @@ class _GenreStripCard extends StatelessWidget {
               ),
               const SizedBox(height: 22),
               for (int i = 0; i < mix.length; i++)
-                Padding(
+                _StaggerFade(
+                  index: i,
+                  child: Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
@@ -2100,6 +2370,7 @@ class _GenreStripCard extends StatelessWidget {
                       Expanded(child: Text(mix[i].genre, style: SeenlyText.serif(size: 14, weight: FontWeight.w500, color: fg))),
                       Text('${mix[i].percent.round()}%', style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.7))),
                     ],
+                  ),
                   ),
                 ),
             ] else
@@ -2213,7 +2484,9 @@ class _DirectorsCard extends StatelessWidget {
                 child: Column(
                   children: [
                     for (int i = 0; i < directors.length; i++)
-                      Padding(
+                      _StaggerFade(
+                        index: i,
+                        child: Padding(
                         padding: const EdgeInsets.only(bottom: 14),
                         child: Row(
                           children: [
@@ -2237,6 +2510,7 @@ class _DirectorsCard extends StatelessWidget {
                             ),
                             Text('×${directors[i].count}', style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.7))),
                           ],
+                        ),
                         ),
                       ),
                   ],
@@ -2290,10 +2564,11 @@ class _DecadeCard extends StatelessWidget {
                     for (int i = 0; i < decades.length; i++)
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 5),
-                        child: Container(
+                        child: SizedBox(
                           width: 26,
-                          height: math.max(14, 88 * (decades[i].percent / maxPercent)),
-                          decoration: BoxDecoration(
+                          child: _GrowBar(
+                            height: math.max(14, 88 * (decades[i].percent / maxPercent)),
+                            delay: decades.length <= 1 ? 0 : i / (decades.length - 1),
                             color: i == 0 ? fg : fg.withOpacity(0.32),
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
                           ),
@@ -2404,21 +2679,16 @@ class _TimelineCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  for (final b in buckets)
+                  for (int i = 0; i < buckets.length; i++)
                     Expanded(
                       child: Padding(
                         padding: EdgeInsets.symmetric(horizontal: isMonth ? 1 : 2.5),
-                        child: Container(
-                          height: maxCount == 0 ? 3 : (4 + (b.count / maxCount) * 112),
-                          decoration: BoxDecoration(
-                            // Empty buckets still get a visible track (not just the
-                            // bare background) so the chart reads as "12 months,
-                            // most empty" rather than looking broken/incomplete.
-                            color: b.count == 0
-                                ? fg.withOpacity(0.15)
-                                : (b.count == maxCount ? fg : fg.withOpacity(0.4)),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
+                        child: _GrowBar(
+                          height: maxCount == 0 ? 3 : (4 + (buckets[i].count / maxCount) * 112),
+                          delay: buckets.length <= 1 ? 0 : i / (buckets.length - 1),
+                          color: buckets[i].count == 0
+                              ? fg.withOpacity(0.15)
+                              : (buckets[i].count == maxCount ? fg : fg.withOpacity(0.4)),
                         ),
                       ),
                     ),
@@ -2500,12 +2770,11 @@ class _WeekdayCard extends StatelessWidget {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 5),
-                        child: Container(
+                        child: _GrowBar(
                           height: maxCount == 0 ? 3 : (4 + (weekdays[i].count / maxCount) * 104),
-                          decoration: BoxDecoration(
-                            color: (i == 5 || i == 6) && weekdays[i].count > 0 ? fg : fg.withOpacity(0.28),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
+                          delay: weekdays.length <= 1 ? 0 : i / (weekdays.length - 1),
+                          color: (i == 5 || i == 6) && weekdays[i].count > 0 ? fg : fg.withOpacity(0.28),
+                          borderRadius: BorderRadius.circular(3),
                         ),
                       ),
                     ),
@@ -2566,15 +2835,7 @@ class _SoloCompanyCard extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  CustomPaint(
-                    size: const Size(168, 168),
-                    painter: _ArcPainter(
-                      values: [summary.soloPercent / 100],
-                      colors: [fg],
-                      backgroundColor: fg.withOpacity(0.22),
-                      strokeWidth: 15,
-                    ),
-                  ),
+                  _AnimatedRing(target: summary.soloPercent / 100, color: fg, backgroundColor: fg.withOpacity(0.22), size: 168, strokeWidth: 15),
                   Text('${summary.soloPercent.round()}%', style: SeenlyText.serif(size: 30, weight: FontWeight.w700, color: fg)),
                 ],
               ),
@@ -2728,7 +2989,7 @@ class _ReviewsOverviewCard extends StatelessWidget {
             _PosterThumb(url: headerPoster, width: 64, height: 92, elevated: true),
             const SizedBox(height: 16),
             _Eyebrow('твои рецензии'),
-            Text('${summary.reviewCount}', style: SeenlyText.serif(size: 46, weight: FontWeight.w700, color: fg)),
+            _CountUp(value: summary.reviewCount, style: SeenlyText.serif(size: 46, weight: FontWeight.w700, color: fg)),
             Text('фильма получили оценку', style: SeenlyText.serif(size: 14, weight: FontWeight.w500, color: fg)),
             const SizedBox(height: 10),
             Text(
@@ -2739,19 +3000,22 @@ class _ReviewsOverviewCard extends StatelessWidget {
             const SizedBox(height: 18),
             const _TicketDash(),
             const SizedBox(height: 16),
-            for (final r in summary.topReviews)
-              Padding(
+            for (int i = 0; i < summary.topReviews.length; i++)
+              _StaggerFade(
+                index: i,
+                child: Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Row(
                   children: [
-                    _PosterThumb(url: r.posterUrl, width: 34, height: 50),
+                    _PosterThumb(url: summary.topReviews[i].posterUrl, width: 34, height: 50),
                     const SizedBox(width: 12),
-                    Expanded(child: Text(r.title, style: SeenlyText.serif(size: 13, weight: FontWeight.w500, color: fg), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                    if (r.rating != null)
-                      _ToneHearts(value: r.rating!)
+                    Expanded(child: Text(summary.topReviews[i].title, style: SeenlyText.serif(size: 13, weight: FontWeight.w500, color: fg), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    if (summary.topReviews[i].rating != null)
+                      _ToneHearts(value: summary.topReviews[i].rating!)
                     else
                       Text('—', style: SeenlyText.mono(size: 12, color: fg.withOpacity(0.5))),
                   ],
+                ),
                 ),
               ),
           ],

@@ -1,4 +1,5 @@
 import '../models/co_view_poll_session.dart';
+import '../models/media_item.dart';
 import 'api_client.dart';
 import 'co_view_vote_service.dart' show CoViewVotePoolSource;
 
@@ -15,6 +16,21 @@ class CoViewPollService {
   /// same "whoever taps first" reasoning as CoViewVoteService.start.
   Future<CoViewPollSession> start({String source = CoViewVotePoolSource.personal}) async {
     final json = await _client.post('/partner/co-viewing/poll/start?source=$source') as Map<String, dynamic>;
+    return CoViewPollSession.fromJson(json);
+  }
+
+  /// Starts a poll on a client-supplied candidate set instead of one
+  /// built server-side from a `source` — what a filtered pool (type/
+  /// genre/year narrowed down first, see DecideFiltersScreen) hands off
+  /// to once it's ready to become an actual round. Same "hand back
+  /// whatever's already active" behavior as [start]. NOTE: needs the
+  /// matching backend endpoint, POST /partner/co-viewing/poll/propose
+  /// (mirrors vote's own propose_vote) — not present yet if this hasn't
+  /// been added to co_view_poll.py.
+  Future<CoViewPollSession> propose(List<MediaItem> items) async {
+    final json = await _client.post('/partner/co-viewing/poll/propose', body: {
+      'items': items.map((e) => e.toJson()).toList(),
+    }) as Map<String, dynamic>;
     return CoViewPollSession.fromJson(json);
   }
 

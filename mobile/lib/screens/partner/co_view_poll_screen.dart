@@ -12,7 +12,8 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
-import 'co_view_vote_screen.dart' show PoolSourcePicker;
+import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
+import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker;
 
 const _pollInterval = Duration(seconds: 2);
 const _tickInterval = Duration(seconds: 1);
@@ -69,6 +70,52 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         _phase = _Phase.error;
       });
     }
+  }
+
+  /// Same as [_start], but for a poll seeded from a client-filtered pool
+  /// (type/genre/year narrowed down first — see DecideFiltersScreen)
+  /// instead of one built server-side straight from [_source].
+  Future<void> _startFiltered(List<MediaItem> pool) async {
+    setState(() {
+      _phase = _Phase.starting;
+      _errorMessage = null;
+    });
+    try {
+      final session = await context.read<AppState>().coViewPoll.propose(pool);
+      if (!mounted) return;
+      setState(() {
+        _session = session;
+        _phase = session.isDone ? _Phase.done : _Phase.voting;
+      });
+      if (!session.isDone) _startPolling();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = "couldn't start a vote just now — try again";
+        _phase = _Phase.error;
+      });
+    }
+  }
+
+  void _narrowDown() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DecideFiltersScreen(
+          poolLoader: () => context.read<AppState>().coViewVote.deck(source: _source),
+          persistPrefs: false,
+          onFinished: (ctx, pool, filters) {
+            if (pool.length < 2) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(content: Text("need at least two titles to vote between — try loosening the filters")),
+              );
+              return;
+            }
+            Navigator.of(ctx).pop();
+            _startFiltered(pool);
+          },
+        ),
+      ),
+    );
   }
 
   void _startPolling() {
@@ -224,7 +271,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             const SizedBox(height: 18),
             PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
             const SizedBox(height: 26),
-            PrimaryButton(label: 'start the vote', onTap: _start),
+            NarrowDownPrompt(onNarrowDown: _narrowDown, onTakeItAll: _start),
           ],
         );
       case _Phase.starting:

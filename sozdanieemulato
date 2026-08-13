@@ -9,3 +9,8 @@ taskkill /F /IM qemu-system-x86_64.exe - если зависло
 
 
 docker exec -it seenlyclean-db-1 psql -U seenly -d seenly -c "DELETE FROM cached_feed_snapshots WHERE cache_key = 'feed:discover';"
+
+git status
+git add .
+git commit -m "Some update"
+git push

@@ -56,7 +56,33 @@ const _kSteps = ['type', 'genre', 'year'];
 /// someone who only cares about type can blow through genre and year in
 /// two taps.
 class DecideFiltersScreen extends StatefulWidget {
-  const DecideFiltersScreen({super.key});
+  // Overrides where the pool being narrowed down comes from — defaults
+  // to the whole-app feed (Home's own "can't decide?" entry). Passed by
+  // co-viewing's own entry points (see co_view_vote_screen.dart) to run
+  // this exact same three-step wizard over whichever pool_source was
+  // picked there instead (personal/coview/both/catalog).
+  final Future<List<MediaItem>> Function()? poolLoader;
+  // Overrides what happens once all three steps are confirmed — defaults
+  // to pushing [DecideMethodScreen]. Co-viewing's entry points supply
+  // their own instead, since "random"/"reel" there just carries the
+  // filtered pool on to the same reveal screens Home uses, while
+  // "swipe"/"poll" needs to open the filtered pool up as a *round* both
+  // phones look at (see propose()), not just hand it to one method
+  // screen locally.
+  final void Function(BuildContext context, List<MediaItem> pool, DecideFilters filters)? onFinished;
+  // Whether picking here should overwrite DecidePrefsService's
+  // remembered type/genre/year for next time. True for Home's own
+  // solo flow; co-viewing's entry points pass false so a filter picked
+  // for tonight's circle round doesn't quietly become the default the
+  // next time someone opens the solo can't-decide flow.
+  final bool persistPrefs;
+
+  const DecideFiltersScreen({
+    super.key,
+    this.poolLoader,
+    this.onFinished,
+    this.persistPrefs = true,
+  });
 
   @override
   State<DecideFiltersScreen> createState() => _DecideFiltersScreenState();
@@ -102,7 +128,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
     });
     try {
       final app = context.read<AppState>();
-      final feed = await app.feed.feed();
+      final feed = await (widget.poolLoader?.call() ?? app.feed.feed());
       if (!mounted) return;
       setState(() {
         _fullFeed = feed;
@@ -268,7 +294,14 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
       genres: _selectedGenres,
       decade: _selectedDecade,
     );
-    unawaited(_prefs.save(types: filters.types, genres: filters.genres, decade: filters.decade));
+    if (widget.persistPrefs) {
+      unawaited(_prefs.save(types: filters.types, genres: filters.genres, decade: filters.decade));
+    }
+    final onFinished = widget.onFinished;
+    if (onFinished != null) {
+      onFinished(context, _filteredPool, filters);
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => DecideMethodScreen(pool: _filteredPool, filters: filters),

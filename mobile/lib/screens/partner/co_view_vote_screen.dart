@@ -13,6 +13,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
+import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import '../title/title_detail_screen.dart';
 
 const _pollInterval = Duration(seconds: 2);
@@ -73,6 +74,50 @@ class PoolSourcePicker extends StatelessWidget {
       children: [
         for (final (key, label) in _options)
           PillChip(label: label, active: value == key, onTap: () => onChanged(key)),
+      ],
+    );
+  }
+}
+
+/// Second half of "what should it come from?" — once a pool's picked,
+/// whether to narrow it down by type/genre/year first (the exact same
+/// three-step wizard Home's own solo can't-decide uses — see
+/// DecideFiltersScreen) or just take the whole pool as-is. Shared
+/// between every entry point that asks the pool-source question, same
+/// reasoning as [PoolSourcePicker] itself.
+class NarrowDownPrompt extends StatelessWidget {
+  final VoidCallback onNarrowDown;
+  final VoidCallback onTakeItAll;
+  final bool loading;
+  const NarrowDownPrompt({
+    super.key,
+    required this.onNarrowDown,
+    required this.onTakeItAll,
+    this.loading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PrimaryButton(
+          label: 'narrow it down first',
+          onTap: loading ? null : onNarrowDown,
+        ),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: loading ? null : onTakeItAll,
+          child: Center(
+            child: Text(
+              loading ? 'loading…' : 'no, just take the whole pool',
+              style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent).copyWith(
+                decoration: TextDecoration.underline,
+                decorationColor: SeenlyPalette.accent,
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -153,6 +198,59 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
         _errorMessage = "couldn't start a round — check your connection and try again";
       });
     }
+  }
+
+  /// Same as [_start], but for a round seeded from a client-filtered
+  /// pool (type/genre/year narrowed down first — see DecideFiltersScreen)
+  /// instead of one built server-side straight from [_source]. Reuses
+  /// propose() — the deck itself is already decided, this just turns it
+  /// into an actual synced round.
+  Future<void> _startFiltered(List<MediaItem> pool) async {
+    setState(() {
+      _phase = _Phase.starting;
+      _errorMessage = null;
+    });
+    try {
+      final session = await context.read<AppState>().coViewVote.propose(pool);
+      if (!mounted) return;
+      setState(() {
+        _session = session;
+        _source = session.poolSource;
+        _myIndex = session.myDecided.length;
+        _phase = session.isDone ? _Phase.matched : _Phase.swiping;
+      });
+      if (session.isDone && session.matched) {
+        _matchPulseTick++;
+      }
+      _startPolling();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _phase = _Phase.error;
+        _errorMessage = "couldn't start a round — check your connection and try again";
+      });
+    }
+  }
+
+  void _narrowDown() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DecideFiltersScreen(
+          poolLoader: () => context.read<AppState>().coViewVote.deck(source: _source),
+          persistPrefs: false,
+          onFinished: (ctx, pool, filters) {
+            if (pool.isEmpty) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(content: Text("nothing matches that in this pool — try loosening it up")),
+              );
+              return;
+            }
+            Navigator.of(ctx).pop();
+            _startFiltered(pool);
+          },
+        ),
+      ),
+    );
   }
 
   void _startPolling() {
@@ -293,6 +391,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
           source: _source,
           onSourceChanged: (v) => setState(() => _source = v),
           onStart: _start,
+          onNarrowDown: _narrowDown,
         );
       case _Phase.starting:
         return const Center(
@@ -935,8 +1034,14 @@ class _SetupView extends StatelessWidget {
   final String source;
   final ValueChanged<String> onSourceChanged;
   final VoidCallback onStart;
+  final VoidCallback onNarrowDown;
 
-  const _SetupView({required this.source, required this.onSourceChanged, required this.onStart});
+  const _SetupView({
+    required this.source,
+    required this.onSourceChanged,
+    required this.onStart,
+    required this.onNarrowDown,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -954,7 +1059,7 @@ class _SetupView extends StatelessWidget {
         const SizedBox(height: 18),
         PoolSourcePicker(value: source, onChanged: onSourceChanged),
         const SizedBox(height: 26),
-        PrimaryButton(label: 'start voting', onTap: onStart),
+        NarrowDownPrompt(onNarrowDown: onNarrowDown, onTakeItAll: onStart),
       ],
     );
   }

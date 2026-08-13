@@ -7,27 +7,27 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/co_view_pick_sheets.dart' show coViewEmptyPoolHint;
-import '../../widgets/small_pieces.dart';
+import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import '../decide/decide_random_screen.dart';
 import '../decide/decide_roulette_screen.dart';
-import 'co_view_vote_screen.dart' show PoolSourcePicker, proposeToCircle;
+import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker, proposeToCircle;
 
 enum CoViewPickMethod { random, reel }
 
 /// Step one of "random pick" / "spin the reel" from the co-viewing
-/// can't-decide grid — just the "what should it come from?" choice on
-/// its own full screen, same [PoolSourcePicker] the swipe and poll
-/// methods already ask up front, rather than folding it into the same
-/// small card as the pick itself.
+/// can't-decide grid — the "what should it come from?" pool choice,
+/// then whether to narrow that pool down by type/genre/year first (same
+/// [NarrowDownPrompt] the swipe and poll methods ask too) or just take
+/// it as-is, all on its own full screen.
 ///
-/// Once a source is picked, this fetches that pool and hands off to the
-/// *exact same* [DecideRandomScreen] / [DecideRouletteScreen] Home's
-/// own solo can't-decide uses (see their own docs) — same reveal, same
-/// reroll/spin, same everything — just with the secondary button
-/// swapped from "plan to watch" to proposing the pick to the whole
-/// circle. Replaces itself (pushReplacement) rather than stacking on
-/// top, so popping the reveal screen lands back on whatever opened this
-/// step, not on this one.
+/// Once that's settled, this fetches the (possibly filtered) pool and
+/// hands off to the *exact same* [DecideRandomScreen] /
+/// [DecideRouletteScreen] Home's own solo can't-decide uses (see their
+/// own docs) — same reveal, same reroll/spin, same everything — just
+/// with the secondary button swapped from "plan to watch" to proposing
+/// the pick to the whole circle. Replaces itself (pushReplacement)
+/// rather than stacking on top, so popping the reveal screen lands back
+/// on whatever opened this step, not on this one.
 class CoViewPoolSourceScreen extends StatefulWidget {
   final CoViewPickMethod method;
   const CoViewPoolSourceScreen({super.key, required this.method});
@@ -46,7 +46,32 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
     return proposeToCircle(context, item, onRetry: () => Navigator.of(context).pop());
   }
 
-  Future<void> _continue() async {
+  void _openReveal(List<MediaItem> pool) {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement<MediaItem?, void>(
+      MaterialPageRoute(
+        builder: (_) => _isReel
+            ? DecideRouletteScreen(
+                pool: pool,
+                onSecondary: _propose,
+                secondaryLabel: 'propose it',
+                secondaryDoneLabel: 'proposed',
+                secondaryIcon: Icons.how_to_vote_outlined,
+                secondaryDoneIcon: Icons.how_to_vote,
+              )
+            : DecideRandomScreen(
+                pool: pool,
+                onSecondary: _propose,
+                secondaryLabel: 'propose it',
+                secondaryDoneLabel: 'proposed',
+                secondaryIcon: Icons.how_to_vote_outlined,
+                secondaryDoneIcon: Icons.how_to_vote,
+              ),
+      ),
+    );
+  }
+
+  Future<void> _takeItAll() async {
     if (_loading) return;
     setState(() => _loading = true);
     try {
@@ -59,27 +84,7 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
         );
         return;
       }
-      Navigator.of(context).pushReplacement<MediaItem?, void>(
-        MaterialPageRoute(
-          builder: (_) => _isReel
-              ? DecideRouletteScreen(
-                  pool: pool,
-                  onSecondary: _propose,
-                  secondaryLabel: 'propose it',
-                  secondaryDoneLabel: 'proposed',
-                  secondaryIcon: Icons.how_to_vote_outlined,
-                  secondaryDoneIcon: Icons.how_to_vote,
-                )
-              : DecideRandomScreen(
-                  pool: pool,
-                  onSecondary: _propose,
-                  secondaryLabel: 'propose it',
-                  secondaryDoneLabel: 'proposed',
-                  secondaryIcon: Icons.how_to_vote_outlined,
-                  secondaryDoneIcon: Icons.how_to_vote,
-                ),
-        ),
-      );
+      _openReveal(pool);
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -87,6 +92,26 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
         const SnackBar(content: Text("couldn't load that pool just now — try again")),
       );
     }
+  }
+
+  void _narrowDown() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => DecideFiltersScreen(
+          poolLoader: () => context.read<AppState>().coViewVote.deck(source: _source),
+          persistPrefs: false,
+          onFinished: (ctx, pool, filters) {
+            if (pool.isEmpty) {
+              ScaffoldMessenger.of(ctx).showSnackBar(
+                const SnackBar(content: Text("nothing matches that in this pool — try loosening it up")),
+              );
+              return;
+            }
+            _openReveal(pool);
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -147,7 +172,11 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
-              child: PrimaryButton(label: 'continue', onTap: _continue, loading: _loading),
+              child: NarrowDownPrompt(
+                onNarrowDown: _narrowDown,
+                onTakeItAll: _takeItAll,
+                loading: _loading,
+              ),
             ),
           ],
         ),
