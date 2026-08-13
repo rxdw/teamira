@@ -1,0 +1,3 @@
+flutter emulators --launch Medium_Phone_API_36.1
+docker compose down -v - ЕСЛИ КЭШ ОШИБКА КАКАЯ ТО ТО КЭШ МБ НЕ СБРОШЕН
+taskkill /F /IM qemu-system-x86_64.exe - если зависло

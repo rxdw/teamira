@@ -1,0 +1,23 @@
+# Kodi Media Center language file
+msgid ""
+msgstr ""
+
+msgctxt "#30000"
+msgid "General"
+msgstr ""
+
+msgctxt "#30001"
+msgid "teamira server URL"
+msgstr ""
+
+msgctxt "#30002"
+msgid "Your teamira backend's base URL, e.g. https://your-server.example.com — no trailing slash. Find it in the teamira app under Settings > auto-tracking > kodi."
+msgstr ""
+
+msgctxt "#30003"
+msgid "Integration token"
+msgstr ""
+
+msgctxt "#30004"
+msgid "From the teamira app: Settings > auto-tracking > kodi."
+msgstr ""

@@ -1,0 +1,113 @@
+name: teamira
+description: A cozy evening diary for what you've watched and played.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+
+  # Networking — plain `http`, no code-gen, easy to read end to end.
+  http: ^1.2.1
+  url_launcher: ^6.3.1
+
+  # Simple global state: an AuthState + a couple of small screen-level
+  # ChangeNotifiers, exposed with provider. Deliberately not riverpod/bloc —
+  # this app's state shape is small enough that the extra ceremony isn't
+  # worth it yet.
+  provider: ^6.1.2
+
+  # Token + "which base URL worked last time" persistence.
+  shared_preferences: ^2.2.3
+
+  # Date formatting ("today", "yesterday", "july 2") for the Diary tab.
+  intl: ^0.19.0
+
+  # Native share sheet — used to share the "share this evening" / "share
+  # your year" cards as an image, the way Letterboxd shares a diary entry.
+  share_plus: ^10.1.2
+
+  # Unbounded (headings/titles) + Comfortaa (everything else) — bundled
+  # via Google Fonts so the look is identical on iOS and Android instead
+  # of silently falling back to each platform's default serif/mono.
+  google_fonts: ^6.2.1
+
+  # Real, pannable OpenStreetMap tiles for the coach theme's "watching
+  # now" screen — same free, keyless OSM ecosystem as GeoCityService's
+  # Nominatim/Overpass calls, just the map-tile half of it. No API key,
+  # no billing account, just the standard OSM tile server usage policy
+  # (a real User-Agent, which we already set for Nominatim/Overpass).
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Trailers ("for you" cards/reels, movie detail) open externally in the
+  # YouTube app/browser via url_launcher (see above) rather than an inline
+  # WebView embed. As of mid-2026 YouTube requires embedded IFrame players
+  # inside Android apps to pass an app-attestation check (the Android
+  # WebView Media Integrity API) before they'll play — not something a
+  # hobby project's debug build (or even most signed release builds) can
+  # realistically satisfy, and the failure modes only get stricter over
+  # time. Opening YouTube's own app sidesteps that entirely: no embedding
+  # rules apply there, and it can't quietly break again next time YouTube
+  # tightens something. webview_flutter and friends are no longer a
+  # dependency because of this.
+
+  # QR pairing for co-viewing: showing your pending pairing code as a
+  # scannable code (qr_flutter, pure-Dart rendering, no native code) and
+  # scanning the other person's (mobile_scanner, needs the camera
+  # permission entries added in android/app/src/main/AndroidManifest.xml
+  # and ios/Runner/Info.plist). See widgets/pairing_qr.dart.
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.2.3
+
+  # Ticket-scan quick add: snap a photo of a physical cinema ticket with
+  # the device camera (image_picker — same CAMERA permission entry
+  # mobile_scanner already needed above) and run on-device text
+  # recognition on it (google_mlkit_text_recognition) to pull out
+  # candidate title text, no server round trip needed. Latin-script
+  # recognizer only — see the caveat in ticket_scan_screen.dart's own
+  # doc comment. See screens/scan/ticket_scan_screen.dart.
+  image_picker: ^1.1.2
+  google_mlkit_text_recognition: ^0.13.1
+
+  # Referral links (see backend/app/routers/linking.py's module
+  # docstring for the whole design) — listens for the app being opened
+  # via the `seenly://invite?code=...` custom scheme (already-installed
+  # case) or an https App/Universal Link once those are configured
+  # natively. Cross-platform, actively maintained successor to the now
+  # effectively unmaintained uni_links.
+  app_links: ^6.3.2
+  # Android's own free equivalent of the clipboard trick above — Play
+  # Install Referrer API, official Google Play Services API for exactly
+  # this ("what referrer string was on the store link this app got
+  # installed from"), no clipboard/permission dance needed on this
+  # platform. See ReferralLinkService.checkPlayInstallReferrerOnce.
+  android_play_install_referrer: ^0.4.0
+
+  # Title detail screen's background wash — a soft tint pulled from the
+  # poster's own colors (see theme/poster_palette.dart). Just does the
+  # k-means color quantization on a downscaled copy of the image; all the
+  # "keep it pale, keep it warm" softening happens in our own code.
+  palette_generator: ^0.3.3+2
+
+  # Onboarding's Welcome step: the hero orbit drifts a little with the
+  # device's own tilt (see _TiltParallax in onboarding_screen.dart), not
+  # just with a finger drag. Reads the accelerometer's gravity component
+  # rather than the raw gyroscope — see _TiltParallax's own doc comment
+  # for why. Nowhere else in the app touches a motion sensor, so this is
+  # a small, self-contained addition.
+  sensors_plus: ^6.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/mascot/

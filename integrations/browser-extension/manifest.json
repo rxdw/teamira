@@ -1,0 +1,79 @@
+{
+  "manifest_version": 3,
+  "name": "Seenly Auto-Tracking",
+  "version": "0.1.0",
+  "description": "Logs what you finish watching on streaming sites straight into Seenly — no need to open the app.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.netflix.com/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/netflix.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.hulu.com/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/hulu.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.disneyplus.com/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/disneyplus.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.crunchyroll.com/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/crunchyroll.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.rutube.ru/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/rutube.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["*://*.kinopoisk.ru/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/kinopoisk.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://*.ivi.ru/*", "*://*.ivi.tv/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/ivi.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://*.okko.tv/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/okko.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://*.wink.ru/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/wink.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://*.start.ru/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/start.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://*.kion.ru/*"],
+      "js": ["lib/seenly-scrobbler.js", "sites/kion.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings version="1">
+  <section id="service.seenly.scrobbler">
+    <category id="general" label="30000">
+      <group id="1">
+        <setting id="server_url" type="string" label="30001" help="30002">
+          <default></default>
+          <constraints>
+            <allowempty>true</allowempty>
+          </constraints>
+          <control type="edit" format="string">
+            <heading>30001</heading>
+          </control>
+        </setting>
+        <setting id="token" type="string" label="30003" help="30004">
+          <default></default>
+          <constraints>
+            <allowempty>true</allowempty>
+          </constraints>
+          <control type="edit" format="string">
+            <heading>30003</heading>
+          </control>
+        </setting>
+      </group>
+    </category>
+  </section>
+</settings>

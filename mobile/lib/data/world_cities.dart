@@ -1,0 +1,408 @@
+import 'dart:math' as math;
+
+/// A single real-world city — just enough to place it on the globe and
+/// estimate an "on the rails" duration to any other city in the list.
+/// Not a geocoding service, just a broad, real spread of cities so
+/// "from" isn't limited to the handful of city pairs in
+/// [coach_routes.dart] — see journey_select_screen.dart's route picker.
+class WorldCity {
+  final String name;
+  final String country;
+  final double lat;
+  final double lng;
+  const WorldCity({required this.name, required this.country, required this.lat, required this.lng});
+
+  @override
+  String toString() => name;
+}
+
+/// A broad, real spread of cities across every inhabited continent —
+/// enough that "change" in the route picker feels like it really does
+/// cover the world, not just Central Europe.
+const List<WorldCity> worldCities = [
+  // Europe
+  WorldCity(name: 'Vienna', country: 'Austria', lat: 48.2082, lng: 16.3738),
+  WorldCity(name: 'Bratislava', country: 'Slovakia', lat: 48.1486, lng: 17.1077),
+  WorldCity(name: 'Budapest', country: 'Hungary', lat: 47.4979, lng: 19.0402),
+  WorldCity(name: 'Prague', country: 'Czechia', lat: 50.0755, lng: 14.4378),
+  WorldCity(name: 'Brno', country: 'Czechia', lat: 49.1951, lng: 16.6068),
+  WorldCity(name: 'Graz', country: 'Austria', lat: 47.0707, lng: 15.4395),
+  WorldCity(name: 'Linz', country: 'Austria', lat: 48.3069, lng: 14.2858),
+  WorldCity(name: 'Salzburg', country: 'Austria', lat: 47.8095, lng: 13.0550),
+  WorldCity(name: 'Sopron', country: 'Hungary', lat: 47.6849, lng: 16.5845),
+  WorldCity(name: 'Munich', country: 'Germany', lat: 48.1351, lng: 11.5820),
+  WorldCity(name: 'Berlin', country: 'Germany', lat: 52.5200, lng: 13.4050),
+  WorldCity(name: 'Dresden', country: 'Germany', lat: 51.0504, lng: 13.7373),
+  WorldCity(name: 'Frankfurt', country: 'Germany', lat: 50.1109, lng: 8.6821),
+  WorldCity(name: 'Mannheim', country: 'Germany', lat: 49.4875, lng: 8.4660),
+  WorldCity(name: 'Hamburg', country: 'Germany', lat: 53.5511, lng: 9.9937),
+  WorldCity(name: 'Bremen', country: 'Germany', lat: 53.0793, lng: 8.8017),
+  WorldCity(name: 'Zürich', country: 'Switzerland', lat: 47.3769, lng: 8.5417),
+  WorldCity(name: 'Basel', country: 'Switzerland', lat: 47.5596, lng: 7.5886),
+  WorldCity(name: 'Geneva', country: 'Switzerland', lat: 46.2044, lng: 6.1432),
+  WorldCity(name: 'Milan', country: 'Italy', lat: 45.4642, lng: 9.1900),
+  WorldCity(name: 'Turin', country: 'Italy', lat: 45.0703, lng: 7.6869),
+  WorldCity(name: 'Genoa', country: 'Italy', lat: 44.4056, lng: 8.9463),
+  WorldCity(name: 'Florence', country: 'Italy', lat: 43.7696, lng: 11.2558),
+  WorldCity(name: 'Bologna', country: 'Italy', lat: 44.4949, lng: 11.3426),
+  WorldCity(name: 'Rome', country: 'Italy', lat: 41.9028, lng: 12.4964),
+  WorldCity(name: 'Naples', country: 'Italy', lat: 40.8518, lng: 14.2681),
+  WorldCity(name: 'Venice', country: 'Italy', lat: 45.4408, lng: 12.3155),
+  WorldCity(name: 'Paris', country: 'France', lat: 48.8566, lng: 2.3522),
+  WorldCity(name: 'Lyon', country: 'France', lat: 45.7640, lng: 4.8357),
+  WorldCity(name: 'Marseille', country: 'France', lat: 43.2965, lng: 5.3698),
+  WorldCity(name: 'Nice', country: 'France', lat: 43.7102, lng: 7.2620),
+  WorldCity(name: 'Bordeaux', country: 'France', lat: 44.8378, lng: -0.5792),
+  WorldCity(name: 'Toulouse', country: 'France', lat: 43.6047, lng: 1.4442),
+  WorldCity(name: 'Madrid', country: 'Spain', lat: 40.4168, lng: -3.7038),
+  WorldCity(name: 'Barcelona', country: 'Spain', lat: 41.3851, lng: 2.1734),
+  WorldCity(name: 'Girona', country: 'Spain', lat: 41.9794, lng: 2.8214),
+  WorldCity(name: 'Valencia', country: 'Spain', lat: 39.4699, lng: -0.3763),
+  WorldCity(name: 'Alicante', country: 'Spain', lat: 38.3452, lng: -0.4810),
+  WorldCity(name: 'Seville', country: 'Spain', lat: 37.3891, lng: -5.9845),
+  WorldCity(name: 'Porto', country: 'Portugal', lat: 41.1579, lng: -8.6291),
+  WorldCity(name: 'Braga', country: 'Portugal', lat: 41.5454, lng: -8.4265),
+  WorldCity(name: 'Lisbon', country: 'Portugal', lat: 38.7223, lng: -9.1393),
+  WorldCity(name: 'Amsterdam', country: 'Netherlands', lat: 52.3676, lng: 4.9041),
+  WorldCity(name: 'Rotterdam', country: 'Netherlands', lat: 51.9244, lng: 4.4777),
+  WorldCity(name: 'Brussels', country: 'Belgium', lat: 50.8503, lng: 4.3517),
+  WorldCity(name: 'Antwerp', country: 'Belgium', lat: 51.2194, lng: 4.4025),
+  WorldCity(name: 'Copenhagen', country: 'Denmark', lat: 55.6761, lng: 12.5683),
+  WorldCity(name: 'Malmö', country: 'Sweden', lat: 55.6050, lng: 13.0038),
+  WorldCity(name: 'Stockholm', country: 'Sweden', lat: 59.3293, lng: 18.0686),
+  WorldCity(name: 'Uppsala', country: 'Sweden', lat: 59.8586, lng: 17.6389),
+  WorldCity(name: 'Gothenburg', country: 'Sweden', lat: 57.7089, lng: 11.9746),
+  WorldCity(name: 'Oslo', country: 'Norway', lat: 59.9139, lng: 10.7522),
+  WorldCity(name: 'Helsinki', country: 'Finland', lat: 60.1699, lng: 24.9384),
+  WorldCity(name: 'Edinburgh', country: 'United Kingdom', lat: 55.9533, lng: -3.1883),
+  WorldCity(name: 'Glasgow', country: 'United Kingdom', lat: 55.8642, lng: -4.2518),
+  WorldCity(name: 'London', country: 'United Kingdom', lat: 51.5072, lng: -0.1276),
+  WorldCity(name: 'Manchester', country: 'United Kingdom', lat: 53.4808, lng: -2.2426),
+  WorldCity(name: 'Dublin', country: 'Ireland', lat: 53.3498, lng: -6.2603),
+  WorldCity(name: 'Belfast', country: 'United Kingdom', lat: 54.5973, lng: -5.9301),
+  WorldCity(name: 'Warsaw', country: 'Poland', lat: 52.2297, lng: 21.0122),
+  WorldCity(name: 'Łódź', country: 'Poland', lat: 51.7592, lng: 19.4560),
+  WorldCity(name: 'Kraków', country: 'Poland', lat: 50.0647, lng: 19.9450),
+  WorldCity(name: 'Katowice', country: 'Poland', lat: 50.2649, lng: 19.0238),
+  WorldCity(name: 'Wrocław', country: 'Poland', lat: 51.1079, lng: 17.0385),
+  WorldCity(name: 'Vilnius', country: 'Lithuania', lat: 54.6872, lng: 25.2797),
+  WorldCity(name: 'Riga', country: 'Latvia', lat: 56.9496, lng: 24.1052),
+  WorldCity(name: 'Tallinn', country: 'Estonia', lat: 59.4370, lng: 24.7536),
+  WorldCity(name: 'Zagreb', country: 'Croatia', lat: 45.8150, lng: 15.9819),
+  WorldCity(name: 'Ljubljana', country: 'Slovenia', lat: 46.0569, lng: 14.5058),
+  WorldCity(name: 'Belgrade', country: 'Serbia', lat: 44.7866, lng: 20.4489),
+  WorldCity(name: 'Novi Sad', country: 'Serbia', lat: 45.2671, lng: 19.8335),
+  WorldCity(name: 'Sofia', country: 'Bulgaria', lat: 42.6977, lng: 23.3219),
+  WorldCity(name: 'Plovdiv', country: 'Bulgaria', lat: 42.1354, lng: 24.7453),
+  WorldCity(name: 'Bucharest', country: 'Romania', lat: 44.4268, lng: 26.1025),
+  WorldCity(name: 'Athens', country: 'Greece', lat: 37.9838, lng: 23.7275),
+  WorldCity(name: 'Thessaloniki', country: 'Greece', lat: 40.6401, lng: 22.9444),
+  WorldCity(name: 'Istanbul', country: 'Türkiye', lat: 41.0082, lng: 28.9784),
+  WorldCity(name: 'Moscow', country: 'Russia', lat: 55.7558, lng: 37.6173),
+  WorldCity(name: 'Saint Petersburg', country: 'Russia', lat: 59.9311, lng: 30.3609),
+  WorldCity(name: 'Kyiv', country: 'Ukraine', lat: 50.4501, lng: 30.5234),
+  WorldCity(name: 'Reykjavík', country: 'Iceland', lat: 64.1466, lng: -21.9426),
+
+  // Asia
+  WorldCity(name: 'Tokyo', country: 'Japan', lat: 35.6762, lng: 139.6503),
+  WorldCity(name: 'Osaka', country: 'Japan', lat: 34.6937, lng: 135.5023),
+  WorldCity(name: 'Kyoto', country: 'Japan', lat: 35.0116, lng: 135.7681),
+  WorldCity(name: 'Seoul', country: 'South Korea', lat: 37.5665, lng: 126.9780),
+  WorldCity(name: 'Busan', country: 'South Korea', lat: 35.1796, lng: 129.0756),
+  WorldCity(name: 'Beijing', country: 'China', lat: 39.9042, lng: 116.4074),
+  WorldCity(name: 'Shanghai', country: 'China', lat: 31.2304, lng: 121.4737),
+  WorldCity(name: 'Hong Kong', country: 'China', lat: 22.3193, lng: 114.1694),
+  WorldCity(name: 'Taipei', country: 'Taiwan', lat: 25.0330, lng: 121.5654),
+  WorldCity(name: 'Bangkok', country: 'Thailand', lat: 13.7563, lng: 100.5018),
+  WorldCity(name: 'Singapore', country: 'Singapore', lat: 1.3521, lng: 103.8198),
+  WorldCity(name: 'Kuala Lumpur', country: 'Malaysia', lat: 3.1390, lng: 101.6869),
+  WorldCity(name: 'Jakarta', country: 'Indonesia', lat: -6.2088, lng: 106.8456),
+  WorldCity(name: 'Manila', country: 'Philippines', lat: 14.5995, lng: 120.9842),
+  WorldCity(name: 'Hanoi', country: 'Vietnam', lat: 21.0278, lng: 105.8342),
+  WorldCity(name: 'Ho Chi Minh City', country: 'Vietnam', lat: 10.8231, lng: 106.6297),
+  WorldCity(name: 'Mumbai', country: 'India', lat: 19.0760, lng: 72.8777),
+  WorldCity(name: 'Delhi', country: 'India', lat: 28.7041, lng: 77.1025),
+  WorldCity(name: 'Bengaluru', country: 'India', lat: 12.9716, lng: 77.5946),
+  WorldCity(name: 'Dubai', country: 'United Arab Emirates', lat: 25.2048, lng: 55.2708),
+  WorldCity(name: 'Abu Dhabi', country: 'United Arab Emirates', lat: 24.4539, lng: 54.3773),
+  WorldCity(name: 'Doha', country: 'Qatar', lat: 25.2854, lng: 51.5310),
+  WorldCity(name: 'Tel Aviv', country: 'Israel', lat: 32.0853, lng: 34.7818),
+  WorldCity(name: 'Jerusalem', country: 'Israel', lat: 31.7683, lng: 35.2137),
+  WorldCity(name: 'Tbilisi', country: 'Georgia', lat: 41.7151, lng: 44.8271),
+  WorldCity(name: 'Yerevan', country: 'Armenia', lat: 40.1792, lng: 44.4991),
+  WorldCity(name: 'Almaty', country: 'Kazakhstan', lat: 43.2220, lng: 76.8512),
+
+  // Americas
+  WorldCity(name: 'New York', country: 'United States', lat: 40.7128, lng: -74.0060),
+  WorldCity(name: 'Boston', country: 'United States', lat: 42.3601, lng: -71.0589),
+  WorldCity(name: 'Philadelphia', country: 'United States', lat: 39.9526, lng: -75.1652),
+  WorldCity(name: 'Washington', country: 'United States', lat: 38.9072, lng: -77.0369),
+  WorldCity(name: 'Chicago', country: 'United States', lat: 41.8781, lng: -87.6298),
+  WorldCity(name: 'Los Angeles', country: 'United States', lat: 34.0522, lng: -118.2437),
+  WorldCity(name: 'San Francisco', country: 'United States', lat: 37.7749, lng: -122.4194),
+  WorldCity(name: 'Seattle', country: 'United States', lat: 47.6062, lng: -122.3321),
+  WorldCity(name: 'Austin', country: 'United States', lat: 30.2672, lng: -97.7431),
+  WorldCity(name: 'Miami', country: 'United States', lat: 25.7617, lng: -80.1918),
+  WorldCity(name: 'Toronto', country: 'Canada', lat: 43.6532, lng: -79.3832),
+  WorldCity(name: 'Montreal', country: 'Canada', lat: 45.5019, lng: -73.5674),
+  WorldCity(name: 'Vancouver', country: 'Canada', lat: 49.2827, lng: -123.1207),
+  WorldCity(name: 'Mexico City', country: 'Mexico', lat: 19.4326, lng: -99.1332),
+  WorldCity(name: 'Guadalajara', country: 'Mexico', lat: 20.6597, lng: -103.3496),
+  WorldCity(name: 'Bogotá', country: 'Colombia', lat: 4.7110, lng: -74.0721),
+  WorldCity(name: 'Lima', country: 'Peru', lat: -12.0464, lng: -77.0428),
+  WorldCity(name: 'Santiago', country: 'Chile', lat: -33.4489, lng: -70.6693),
+  WorldCity(name: 'Buenos Aires', country: 'Argentina', lat: -34.6037, lng: -58.3816),
+  WorldCity(name: 'Montevideo', country: 'Uruguay', lat: -34.9011, lng: -56.1645),
+  WorldCity(name: 'São Paulo', country: 'Brazil', lat: -23.5505, lng: -46.6333),
+  WorldCity(name: 'Rio de Janeiro', country: 'Brazil', lat: -22.9068, lng: -43.1729),
+  WorldCity(name: 'Brasília', country: 'Brazil', lat: -15.7939, lng: -47.8828),
+
+  // Africa
+  WorldCity(name: 'Cairo', country: 'Egypt', lat: 30.0444, lng: 31.2357),
+  WorldCity(name: 'Casablanca', country: 'Morocco', lat: 33.5731, lng: -7.5898),
+  WorldCity(name: 'Marrakesh', country: 'Morocco', lat: 31.6295, lng: -7.9811),
+  WorldCity(name: 'Tunis', country: 'Tunisia', lat: 36.8065, lng: 10.1815),
+  WorldCity(name: 'Lagos', country: 'Nigeria', lat: 6.5244, lng: 3.3792),
+  WorldCity(name: 'Nairobi', country: 'Kenya', lat: -1.2921, lng: 36.8219),
+  WorldCity(name: 'Addis Ababa', country: 'Ethiopia', lat: 9.0300, lng: 38.7400),
+  WorldCity(name: 'Cape Town', country: 'South Africa', lat: -33.9249, lng: 18.4241),
+  WorldCity(name: 'Johannesburg', country: 'South Africa', lat: -26.2041, lng: 28.0473),
+  WorldCity(name: 'Accra', country: 'Ghana', lat: 5.6037, lng: -0.1870),
+
+  // Oceania
+  WorldCity(name: 'Sydney', country: 'Australia', lat: -33.8688, lng: 151.2093),
+  WorldCity(name: 'Melbourne', country: 'Australia', lat: -37.8136, lng: 144.9631),
+  WorldCity(name: 'Brisbane', country: 'Australia', lat: -27.4698, lng: 153.0251),
+  WorldCity(name: 'Perth', country: 'Australia', lat: -31.9505, lng: 115.8605),
+  WorldCity(name: 'Auckland', country: 'New Zealand', lat: -36.8485, lng: 174.7633),
+  WorldCity(name: 'Wellington', country: 'New Zealand', lat: -41.2865, lng: 174.7762),
+
+  // Russia — dense coverage so a search from Moscow or St Petersburg
+  // has plenty of genuinely nearby cities, not just other capitals.
+  WorldCity(name: 'Tver', country: 'Russia', lat: 56.8587, lng: 35.9176),
+  WorldCity(name: 'Yaroslavl', country: 'Russia', lat: 57.6261, lng: 39.8845),
+  WorldCity(name: 'Vladimir', country: 'Russia', lat: 56.1366, lng: 40.3966),
+  WorldCity(name: 'Ryazan', country: 'Russia', lat: 54.6296, lng: 39.7357),
+  WorldCity(name: 'Kaluga', country: 'Russia', lat: 54.5293, lng: 36.2754),
+  WorldCity(name: 'Tula', country: 'Russia', lat: 54.1961, lng: 37.6182),
+  WorldCity(name: 'Smolensk', country: 'Russia', lat: 54.7818, lng: 32.0401),
+  WorldCity(name: 'Kolomna', country: 'Russia', lat: 55.0794, lng: 38.7783),
+  WorldCity(name: 'Kostroma', country: 'Russia', lat: 57.7665, lng: 40.9269),
+  WorldCity(name: 'Ivanovo', country: 'Russia', lat: 57.0004, lng: 40.9739),
+  WorldCity(name: 'Bryansk', country: 'Russia', lat: 53.2521, lng: 34.3717),
+  WorldCity(name: 'Orel', country: 'Russia', lat: 52.9651, lng: 36.0785),
+  WorldCity(name: 'Pskov', country: 'Russia', lat: 57.8136, lng: 28.3496),
+  WorldCity(name: 'Veliky Novgorod', country: 'Russia', lat: 58.5215, lng: 31.2755),
+  WorldCity(name: 'Petrozavodsk', country: 'Russia', lat: 61.7849, lng: 34.3469),
+  WorldCity(name: 'Murmansk', country: 'Russia', lat: 68.9707, lng: 33.0754),
+  WorldCity(name: 'Arkhangelsk', country: 'Russia', lat: 64.5401, lng: 40.5433),
+  WorldCity(name: 'Vologda', country: 'Russia', lat: 59.2181, lng: 39.8886),
+  WorldCity(name: 'Nizhny Novgorod', country: 'Russia', lat: 56.2965, lng: 43.9361),
+  WorldCity(name: 'Kazan', country: 'Russia', lat: 55.8304, lng: 49.0661),
+  WorldCity(name: 'Cheboksary', country: 'Russia', lat: 56.1439, lng: 47.2489),
+  WorldCity(name: 'Saransk', country: 'Russia', lat: 54.1838, lng: 45.1749),
+  WorldCity(name: 'Penza', country: 'Russia', lat: 53.2007, lng: 45.0046),
+  WorldCity(name: 'Voronezh', country: 'Russia', lat: 51.6720, lng: 39.1843),
+  WorldCity(name: 'Lipetsk', country: 'Russia', lat: 52.6088, lng: 39.5992),
+  WorldCity(name: 'Tambov', country: 'Russia', lat: 52.7213, lng: 41.4523),
+  WorldCity(name: 'Kursk', country: 'Russia', lat: 51.7304, lng: 36.1926),
+  WorldCity(name: 'Belgorod', country: 'Russia', lat: 50.5977, lng: 36.5858),
+  WorldCity(name: 'Rostov-on-Don', country: 'Russia', lat: 47.2357, lng: 39.7015),
+  WorldCity(name: 'Krasnodar', country: 'Russia', lat: 45.0355, lng: 38.9753),
+  WorldCity(name: 'Sochi', country: 'Russia', lat: 43.6028, lng: 39.7342),
+  WorldCity(name: 'Volgograd', country: 'Russia', lat: 48.7080, lng: 44.5133),
+  WorldCity(name: 'Astrakhan', country: 'Russia', lat: 46.3497, lng: 48.0408),
+  WorldCity(name: 'Saratov', country: 'Russia', lat: 51.5462, lng: 46.0177),
+  WorldCity(name: 'Samara', country: 'Russia', lat: 53.2001, lng: 50.1500),
+  WorldCity(name: 'Ulyanovsk', country: 'Russia', lat: 54.3142, lng: 48.4031),
+  WorldCity(name: 'Togliatti', country: 'Russia', lat: 53.5303, lng: 49.3461),
+  WorldCity(name: 'Ufa', country: 'Russia', lat: 54.7388, lng: 55.9721),
+  WorldCity(name: 'Perm', country: 'Russia', lat: 58.0105, lng: 56.2502),
+  WorldCity(name: 'Izhevsk', country: 'Russia', lat: 56.8526, lng: 53.2114),
+  WorldCity(name: 'Yekaterinburg', country: 'Russia', lat: 56.8389, lng: 60.6057),
+  WorldCity(name: 'Chelyabinsk', country: 'Russia', lat: 55.1644, lng: 61.4368),
+  WorldCity(name: 'Tyumen', country: 'Russia', lat: 57.1522, lng: 65.5272),
+  WorldCity(name: 'Kurgan', country: 'Russia', lat: 55.4500, lng: 65.3333),
+  WorldCity(name: 'Omsk', country: 'Russia', lat: 54.9885, lng: 73.3242),
+  WorldCity(name: 'Novosibirsk', country: 'Russia', lat: 55.0084, lng: 82.9357),
+  WorldCity(name: 'Tomsk', country: 'Russia', lat: 56.4977, lng: 84.9744),
+  WorldCity(name: 'Barnaul', country: 'Russia', lat: 53.3606, lng: 83.7636),
+  WorldCity(name: 'Krasnoyarsk', country: 'Russia', lat: 56.0184, lng: 92.8672),
+  WorldCity(name: 'Irkutsk', country: 'Russia', lat: 52.2870, lng: 104.3050),
+  WorldCity(name: 'Ulan-Ude', country: 'Russia', lat: 51.8335, lng: 107.5843),
+  WorldCity(name: 'Chita', country: 'Russia', lat: 52.0340, lng: 113.4994),
+  WorldCity(name: 'Yakutsk', country: 'Russia', lat: 62.0355, lng: 129.6755),
+  WorldCity(name: 'Khabarovsk', country: 'Russia', lat: 48.4827, lng: 135.0838),
+  WorldCity(name: 'Vladivostok', country: 'Russia', lat: 43.1155, lng: 131.8855),
+  WorldCity(name: 'Kaliningrad', country: 'Russia', lat: 54.7104, lng: 20.4522),
+  WorldCity(name: 'Sortavala', country: 'Russia', lat: 61.7053, lng: 30.6906),
+  WorldCity(name: 'Vyborg', country: 'Russia', lat: 60.7098, lng: 28.7469),
+
+  // More of Central & Eastern Europe / Baltics
+  WorldCity(name: 'Poznań', country: 'Poland', lat: 52.4064, lng: 16.9252),
+  WorldCity(name: 'Gdańsk', country: 'Poland', lat: 54.3520, lng: 18.6466),
+  WorldCity(name: 'Szczecin', country: 'Poland', lat: 53.4285, lng: 14.5528),
+  WorldCity(name: 'Lublin', country: 'Poland', lat: 51.2465, lng: 22.5684),
+  WorldCity(name: 'Ostrava', country: 'Czechia', lat: 49.8209, lng: 18.2625),
+  WorldCity(name: 'Plzeň', country: 'Czechia', lat: 49.7384, lng: 13.3736),
+  WorldCity(name: 'Košice', country: 'Slovakia', lat: 48.7164, lng: 21.2611),
+  WorldCity(name: 'Debrecen', country: 'Hungary', lat: 47.5316, lng: 21.6273),
+  WorldCity(name: 'Cluj-Napoca', country: 'Romania', lat: 46.7712, lng: 23.6236),
+  WorldCity(name: 'Timișoara', country: 'Romania', lat: 45.7489, lng: 21.2087),
+  WorldCity(name: 'Chișinău', country: 'Moldova', lat: 47.0105, lng: 28.8638),
+  WorldCity(name: 'Minsk', country: 'Belarus', lat: 53.9006, lng: 27.5590),
+  WorldCity(name: 'Lviv', country: 'Ukraine', lat: 49.8397, lng: 24.0297),
+  WorldCity(name: 'Odesa', country: 'Ukraine', lat: 46.4825, lng: 30.7233),
+  WorldCity(name: 'Kharkiv', country: 'Ukraine', lat: 49.9935, lng: 36.2304),
+  WorldCity(name: 'Kaunas', country: 'Lithuania', lat: 54.8985, lng: 23.9036),
+  WorldCity(name: 'Klaipėda', country: 'Lithuania', lat: 55.7033, lng: 21.1443),
+  WorldCity(name: 'Daugavpils', country: 'Latvia', lat: 55.8747, lng: 26.5363),
+  WorldCity(name: 'Tartu', country: 'Estonia', lat: 58.3776, lng: 26.7290),
+  WorldCity(name: 'Skopje', country: 'North Macedonia', lat: 41.9973, lng: 21.4280),
+  WorldCity(name: 'Sarajevo', country: 'Bosnia and Herzegovina', lat: 43.8563, lng: 18.4131),
+  WorldCity(name: 'Podgorica', country: 'Montenegro', lat: 42.4304, lng: 19.2594),
+  WorldCity(name: 'Tirana', country: 'Albania', lat: 41.3275, lng: 19.8187),
+
+  // More of Western Europe
+  WorldCity(name: 'Nuremberg', country: 'Germany', lat: 49.4521, lng: 11.0767),
+  WorldCity(name: 'Stuttgart', country: 'Germany', lat: 48.7758, lng: 9.1829),
+  WorldCity(name: 'Cologne', country: 'Germany', lat: 50.9375, lng: 6.9603),
+  WorldCity(name: 'Düsseldorf', country: 'Germany', lat: 51.2277, lng: 6.7735),
+  WorldCity(name: 'Leipzig', country: 'Germany', lat: 51.3397, lng: 12.3731),
+  WorldCity(name: 'Innsbruck', country: 'Austria', lat: 47.2692, lng: 11.4041),
+  WorldCity(name: 'Bern', country: 'Switzerland', lat: 46.9480, lng: 7.4474),
+  WorldCity(name: 'Lucerne', country: 'Switzerland', lat: 47.0502, lng: 8.3093),
+  WorldCity(name: 'Lille', country: 'France', lat: 50.6292, lng: 3.0573),
+  WorldCity(name: 'Strasbourg', country: 'France', lat: 48.5734, lng: 7.7521),
+  WorldCity(name: 'Nantes', country: 'France', lat: 47.2184, lng: -1.5536),
+  WorldCity(name: 'Birmingham', country: 'United Kingdom', lat: 52.4862, lng: -1.8904),
+  WorldCity(name: 'Leeds', country: 'United Kingdom', lat: 53.8008, lng: -1.5491),
+  WorldCity(name: 'Liverpool', country: 'United Kingdom', lat: 53.4084, lng: -2.9916),
+  WorldCity(name: 'Cardiff', country: 'United Kingdom', lat: 51.4816, lng: -3.1791),
+  WorldCity(name: 'Cork', country: 'Ireland', lat: 51.8985, lng: -8.4756),
+  WorldCity(name: 'Utrecht', country: 'Netherlands', lat: 52.0907, lng: 5.1214),
+  WorldCity(name: 'Eindhoven', country: 'Netherlands', lat: 51.4416, lng: 5.4697),
+  WorldCity(name: 'Ghent', country: 'Belgium', lat: 51.0543, lng: 3.7174),
+  WorldCity(name: 'Bergen', country: 'Norway', lat: 60.3913, lng: 5.3221),
+  WorldCity(name: 'Aarhus', country: 'Denmark', lat: 56.1629, lng: 10.2039),
+  WorldCity(name: 'Turku', country: 'Finland', lat: 60.4518, lng: 22.2666),
+  WorldCity(name: 'Palermo', country: 'Italy', lat: 38.1157, lng: 13.3615),
+  WorldCity(name: 'Verona', country: 'Italy', lat: 45.4384, lng: 10.9916),
+  WorldCity(name: 'Bilbao', country: 'Spain', lat: 43.2630, lng: -2.9350),
+  WorldCity(name: 'Málaga', country: 'Spain', lat: 36.7213, lng: -4.4214),
+  WorldCity(name: 'Coimbra', country: 'Portugal', lat: 40.2033, lng: -8.4103),
+
+  // More of Asia
+  WorldCity(name: 'Nagoya', country: 'Japan', lat: 35.1815, lng: 136.9066),
+  WorldCity(name: 'Sapporo', country: 'Japan', lat: 43.0618, lng: 141.3545),
+  WorldCity(name: 'Fukuoka', country: 'Japan', lat: 33.5904, lng: 130.4017),
+  WorldCity(name: 'Incheon', country: 'South Korea', lat: 37.4563, lng: 126.7052),
+  WorldCity(name: 'Daegu', country: 'South Korea', lat: 35.8714, lng: 128.6014),
+  WorldCity(name: 'Guangzhou', country: 'China', lat: 23.1291, lng: 113.2644),
+  WorldCity(name: 'Shenzhen', country: 'China', lat: 22.5431, lng: 114.0579),
+  WorldCity(name: 'Chengdu', country: 'China', lat: 30.5728, lng: 104.0668),
+  WorldCity(name: 'Xi\'an', country: 'China', lat: 34.3416, lng: 108.9398),
+  WorldCity(name: 'Chennai', country: 'India', lat: 13.0827, lng: 80.2707),
+  WorldCity(name: 'Kolkata', country: 'India', lat: 22.5726, lng: 88.3639),
+  WorldCity(name: 'Hyderabad', country: 'India', lat: 17.3850, lng: 78.4867),
+  WorldCity(name: 'Pune', country: 'India', lat: 18.5204, lng: 73.8567),
+  WorldCity(name: 'Jaipur', country: 'India', lat: 26.9124, lng: 75.7873),
+  WorldCity(name: 'Karachi', country: 'Pakistan', lat: 24.8607, lng: 67.0011),
+  WorldCity(name: 'Lahore', country: 'Pakistan', lat: 31.5497, lng: 74.3436),
+  WorldCity(name: 'Islamabad', country: 'Pakistan', lat: 33.6844, lng: 73.0479),
+  WorldCity(name: 'Dhaka', country: 'Bangladesh', lat: 23.8103, lng: 90.4125),
+  WorldCity(name: 'Colombo', country: 'Sri Lanka', lat: 6.9271, lng: 79.8612),
+  WorldCity(name: 'Riyadh', country: 'Saudi Arabia', lat: 24.7136, lng: 46.6753),
+  WorldCity(name: 'Jeddah', country: 'Saudi Arabia', lat: 21.4858, lng: 39.1925),
+  WorldCity(name: 'Amman', country: 'Jordan', lat: 31.9454, lng: 35.9284),
+  WorldCity(name: 'Beirut', country: 'Lebanon', lat: 33.8938, lng: 35.5018),
+  WorldCity(name: 'Baku', country: 'Azerbaijan', lat: 40.4093, lng: 49.8671),
+  WorldCity(name: 'Tashkent', country: 'Uzbekistan', lat: 41.2995, lng: 69.2401),
+  WorldCity(name: 'Bishkek', country: 'Kyrgyzstan', lat: 42.8746, lng: 74.5698),
+  WorldCity(name: 'Ulaanbaatar', country: 'Mongolia', lat: 47.8864, lng: 106.9057),
+
+  // More of the Americas
+  WorldCity(name: 'Denver', country: 'United States', lat: 39.7392, lng: -104.9903),
+  WorldCity(name: 'Dallas', country: 'United States', lat: 32.7767, lng: -96.7970),
+  WorldCity(name: 'Houston', country: 'United States', lat: 29.7604, lng: -95.3698),
+  WorldCity(name: 'Atlanta', country: 'United States', lat: 33.7490, lng: -84.3880),
+  WorldCity(name: 'Detroit', country: 'United States', lat: 42.3314, lng: -83.0458),
+  WorldCity(name: 'Minneapolis', country: 'United States', lat: 44.9778, lng: -93.2650),
+  WorldCity(name: 'Portland', country: 'United States', lat: 45.5152, lng: -122.6784),
+  WorldCity(name: 'Phoenix', country: 'United States', lat: 33.4484, lng: -112.0740),
+  WorldCity(name: 'San Diego', country: 'United States', lat: 32.7157, lng: -117.1611),
+  WorldCity(name: 'Calgary', country: 'Canada', lat: 51.0447, lng: -114.0719),
+  WorldCity(name: 'Ottawa', country: 'Canada', lat: 45.4215, lng: -75.6972),
+  WorldCity(name: 'Monterrey', country: 'Mexico', lat: 25.6866, lng: -100.3161),
+  WorldCity(name: 'San José', country: 'Costa Rica', lat: 9.9281, lng: -84.0907),
+  WorldCity(name: 'Panama City', country: 'Panama', lat: 8.9824, lng: -79.5199),
+  WorldCity(name: 'Havana', country: 'Cuba', lat: 23.1136, lng: -82.3666),
+  WorldCity(name: 'Santo Domingo', country: 'Dominican Republic', lat: 18.4861, lng: -69.9312),
+  WorldCity(name: 'Quito', country: 'Ecuador', lat: -0.1807, lng: -78.4678),
+  WorldCity(name: 'Caracas', country: 'Venezuela', lat: 10.4806, lng: -66.9036),
+  WorldCity(name: 'La Paz', country: 'Bolivia', lat: -16.5000, lng: -68.1500),
+  WorldCity(name: 'Asunción', country: 'Paraguay', lat: -25.2637, lng: -57.5759),
+  WorldCity(name: 'Curitiba', country: 'Brazil', lat: -25.4284, lng: -49.2733),
+  WorldCity(name: 'Porto Alegre', country: 'Brazil', lat: -30.0346, lng: -51.2177),
+  WorldCity(name: 'Salvador', country: 'Brazil', lat: -12.9777, lng: -38.5016),
+  WorldCity(name: 'Recife', country: 'Brazil', lat: -8.0476, lng: -34.8770),
+  WorldCity(name: 'Córdoba', country: 'Argentina', lat: -31.4201, lng: -64.1888),
+  WorldCity(name: 'Mendoza', country: 'Argentina', lat: -32.8895, lng: -68.8458),
+
+  // More of Africa
+  WorldCity(name: 'Alexandria', country: 'Egypt', lat: 31.2001, lng: 29.9187),
+  WorldCity(name: 'Rabat', country: 'Morocco', lat: 34.0209, lng: -6.8416),
+  WorldCity(name: 'Algiers', country: 'Algeria', lat: 36.7538, lng: 3.0588),
+  WorldCity(name: 'Khartoum', country: 'Sudan', lat: 15.5007, lng: 32.5599),
+  WorldCity(name: 'Dar es Salaam', country: 'Tanzania', lat: -6.7924, lng: 39.2083),
+  WorldCity(name: 'Kampala', country: 'Uganda', lat: 0.3476, lng: 32.5825),
+  WorldCity(name: 'Kigali', country: 'Rwanda', lat: -1.9706, lng: 30.1044),
+  WorldCity(name: 'Kinshasa', country: 'DR Congo', lat: -4.4419, lng: 15.2663),
+  WorldCity(name: 'Luanda', country: 'Angola', lat: -8.8390, lng: 13.2894),
+  WorldCity(name: 'Dakar', country: 'Senegal', lat: 14.7167, lng: -17.4677),
+  WorldCity(name: 'Abidjan', country: 'Ivory Coast', lat: 5.3599, lng: -4.0083),
+  WorldCity(name: 'Durban', country: 'South Africa', lat: -29.8587, lng: 31.0218),
+  WorldCity(name: 'Harare', country: 'Zimbabwe', lat: -17.8252, lng: 31.0335),
+  WorldCity(name: 'Lusaka', country: 'Zambia', lat: -15.3875, lng: 28.3228),
+
+  // More of Oceania
+  WorldCity(name: 'Adelaide', country: 'Australia', lat: -34.9285, lng: 138.6007),
+  WorldCity(name: 'Canberra', country: 'Australia', lat: -35.2809, lng: 149.1300),
+  WorldCity(name: 'Christchurch', country: 'New Zealand', lat: -43.5321, lng: 172.6362),
+  WorldCity(name: 'Suva', country: 'Fiji', lat: -18.1416, lng: 178.4419),
+];
+
+/// Great-circle distance in kilometers between two points (haversine).
+double distanceKm(WorldCity a, WorldCity b) {
+  const earthRadiusKm = 6371.0;
+  final dLat = _deg2rad(b.lat - a.lat);
+  final dLng = _deg2rad(b.lng - a.lng);
+  final lat1 = _deg2rad(a.lat);
+  final lat2 = _deg2rad(b.lat);
+  final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
+      math.sin(dLng / 2) * math.sin(dLng / 2) * math.cos(lat1) * math.cos(lat2);
+  final c = 2 * math.atan2(math.sqrt(h), math.sqrt(1 - h));
+  return earthRadiusKm * c;
+}
+
+double _deg2rad(double deg) => deg * (math.pi / 180);
+
+/// A plausible "on the rails" duration for a distance — an average
+/// regional coach/rail speed plus a little fixed overhead for stations,
+/// boarding, and the odd stop along the way. Ballpark, not a booking.
+int estimateMinutesForDistance(double km) {
+  const avgSpeedKmh = 85.0;
+  const overheadMinutes = 12;
+  final minutes = (km / avgSpeedKmh * 60).round() + overheadMinutes;
+  return minutes < 20 ? 20 : minutes;
+}
+
+/// Finds the [WorldCity] whose name matches (case-insensitively),
+/// falling back to the first city in the list if nothing matches —
+/// used to seed a sensible default "from" city.
+WorldCity findCityByName(String name, {WorldCity? fallback}) {
+  for (final c in worldCities) {
+    if (c.name.toLowerCase() == name.toLowerCase()) return c;
+  }
+  return fallback ?? worldCities.first;
+}

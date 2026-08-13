@@ -1,0 +1,82 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for every network call the app makes (backend API, poster/
+         cover images from TMDB/IGDB/Open Library/Shikimori, etc). Only the
+         debug/profile manifests had this (Flutter adds it there
+         automatically for hot reload) — it was missing from the release
+         manifest, so a release/profile build had no network access at all:
+         Image.network's errorBuilder silently swaps in the flat-color
+         fallback tile for every poster (see poster_tile.dart), which reads
+         as "posters don't load" even though the real problem is broader. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Camera access for scanning a partner's co-viewing pairing QR code (mobile_scanner). -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <application
+        android:label="teamira"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:taskAffinity=""
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+            <!-- Specifies an Android theme to apply to this Activity as soon as
+                 the Android process has started. This theme is visible to the user
+                 while the Flutter UI initializes. After that, this theme continues
+                 to determine the Window background behind the Flutter UI. -->
+            <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme"
+              />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Referral links (see backend/app/routers/linking.py). Custom
+                 scheme works with zero extra setup and is what GET /i/{code}
+                 falls back to. The second, https, filter is Android App
+                 Links proper — only actually verified (i.e. skips the
+                 browser/landing page and opens straight here) once
+                 android:host below is the real domain and
+                 /.well-known/assetlinks.json on that domain has the release
+                 signing cert's real fingerprint (see config.py's
+                 android_cert_sha256_fingerprints) — until then Android just
+                 treats it as a normal link and opens the landing page. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="seenly" android:host="invite"/>
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <!-- TODO: replace with the real domain once
+                     Settings.public_web_base_url is set, and flip
+                     autoVerify's practical effect on by publishing a
+                     matching assetlinks.json there. -->
+                <data android:scheme="https" android:host="seenly.app" android:pathPrefix="/i/"/>
+            </intent-filter>
+        </activity>
+        <!-- Don't delete the meta-data below.
+             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+    </application>
+    <!-- Required to query activities that can process text, see:
+         https://developer.android.com/training/package-visibility and
+         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
+
+         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.PROCESS_TEXT"/>
+            <data android:mimeType="text/plain"/>
+        </intent>
+    </queries>
+</manifest>

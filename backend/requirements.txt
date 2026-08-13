@@ -1,0 +1,27 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+sqlalchemy==2.0.35
+psycopg2-binary==2.9.9
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.0
+httpx==0.27.2
+python-dotenv==1.0.1
+python-multipart==0.0.9
+
+# Local semantic embeddings for Ask Teamira (app/embeddings.py) — ONNX
+# Runtime under the hood via fastembed, CPU-only, no torch/GPU needed.
+# Not a third-party AI API call: model weights are baked into the image
+# at build time (see backend/Dockerfile) and everything runs in this
+# container. 0.3.6 predates `fastembed.common.model_description`
+# (PoolingType/ModelSource), which app/embeddings.py needs to register
+# intfloat/multilingual-e5-small via add_custom_model — it was never one
+# of fastembed's built-in models, registering it explicitly is fastembed's
+# own documented way to use it, not a version-specific workaround.
+fastembed==0.6.1
+
+# Russian morphological normalization for reference-title matching
+# (app/ru_morph.py) — dictionary/rules-based, not a model.
+pymorphy3==2.0.2
+pymorphy3-dicts-ru==2.4.417150.4580142

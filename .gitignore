@@ -1,0 +1,105 @@
+# =========================
+# OS / Editor files
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Python backend
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.venv*
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+
+# Local DB / uploads / caches
+backend/uploads/
+backend/*.sqlite3
+backend/*.db
+backend/.cache/
+backend/logs/
+logs/
+*.log
+
+# =========================
+# Docker / local infra
+# =========================
+postgres-data/
+docker-data/
+*.tar
+
+# =========================
+# Node / frontend (if any)
+# =========================
+node_modules/
+dist/
+build/
+.next/
+out/
+coverage/
+
+# =========================
+# Flutter / Mobile
+# =========================
+mobile/build/
+mobile/.dart_tool/
+mobile/.packages
+mobile/.metadata
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.idea/
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/windows/flutter/ephemeral/
+mobile/linux/flutter/ephemeral/
+mobile/macos/Flutter/Generated.xcconfig
+mobile/macos/Flutter/ephemeral/
+
+# =========================
+# Generic generated files
+# =========================
+*.tmp
+*.bak
+*.orig
+
+# =========================
+# Keep template/example env files tracked
+# =========================
+!env.example
+!backend/.env.example
+
+
+
+
+
+
+*.zip
+seenly_project_*
+seenly_project_updated - *
+seenly_section_header_fix/
+sozdanieemulato/
