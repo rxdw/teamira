@@ -15,7 +15,8 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../home/ask_teamira_results_screen.dart';
 import '../decide/decide_ask_teamira_screen.dart';
 import '../decide/decide_filters_screen.dart' show DecideFilters, kDecidePickableTypes;
-import '../../widgets/wow_motion.dart' show ShimmerBlock, PressScale;
+import '../../widgets/wow_motion.dart' show ShimmerBlock, PressScale, Entrance;
+import '../../widgets/scroll_reveal.dart';
 
 class SearchScreen extends StatefulWidget {
   // Prefilled and auto-searched on open — used by the ticket-scan flow
@@ -184,17 +185,16 @@ class _SearchScreenState extends State<SearchScreen> {
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 12),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: SeenlyPalette.paper,
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
-                      onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: SeenlyPalette.paper,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -223,21 +223,20 @@ class _SearchScreenState extends State<SearchScreen> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: SeenlyPalette.paper,
-                      shape: BoxShape.circle,
+                  PressScale(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const TicketScanScreen()),
                     ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.confirmation_number_outlined,
-                          size: 15, color: SeenlyPalette.inkMuted),
-                      tooltip: 'scan a ticket',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const TicketScanScreen()),
+                    haptics: true,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: SeenlyPalette.paper,
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.confirmation_number_outlined,
+                          size: 15, color: SeenlyPalette.inkMuted),
                     ),
                   ),
                 ],
@@ -261,44 +260,54 @@ class _SearchScreenState extends State<SearchScreen> {
             if (!_loading && _results.isEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 14, 22, 0),
-                child: _AskTeamiraInvite(
-                  query: _controller.text.trim().isEmpty ? null : _controller.text.trim(),
-                  onPickMood: _askTeamira,
-                  onWriteOwn: _openTeamiraCompose,
+                child: Entrance(
+                  child: _AskTeamiraInvite(
+                    query: _controller.text.trim().isEmpty ? null : _controller.text.trim(),
+                    onPickMood: _askTeamira,
+                    onWriteOwn: _openTeamiraCompose,
+                  ),
                 ),
               ),
             const SizedBox(height: 14),
             Expanded(
-              child: _loading
-                  ? const Center(child: ThemedLoadingIndicator())
-                  : _results.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 28),
-                            child: Text(
-                              _controller.text.trim().isEmpty
-                                  ? 'or start typing to look through teamira\'s catalog'
-                                  : 'nothing turned up for that in the catalog itself',
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.serif(
-                                  italic: true, color: SeenlyPalette.placeholder),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: _loading
+                    ? const Center(key: ValueKey('loading'), child: ThemedLoadingIndicator())
+                    : _results.isEmpty
+                        ? Center(
+                            key: const ValueKey('empty'),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 28),
+                              child: Text(
+                                _controller.text.trim().isEmpty
+                                    ? 'or start typing to look through teamira\'s catalog'
+                                    : 'nothing turned up for that in the catalog itself',
+                                textAlign: TextAlign.center,
+                                style: SeenlyText.serif(
+                                    italic: true, color: SeenlyPalette.placeholder),
+                              ),
                             ),
+                          )
+                        : ListView.separated(
+                            key: const ValueKey('results'),
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
+                            itemCount: _results.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, i) {
+                              final item = _results[i];
+                              final status = _statusByKey['${item.source}:${item.id}'];
+                              return ScrollRevealEntrance(
+                                index: i,
+                                child: _ResultRow(
+                                  item: item,
+                                  status: status,
+                                  onAddToWatchLater: () => _addToWatchLater(item),
+                                ),
+                              );
+                            },
                           ),
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                          itemCount: _results.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
-                          itemBuilder: (context, i) {
-                            final item = _results[i];
-                            final status = _statusByKey['${item.source}:${item.id}'];
-                            return _ResultRow(
-                              item: item,
-                              status: status,
-                              onAddToWatchLater: () => _addToWatchLater(item),
-                            );
-                          },
-                        ),
+              ),
             ),
           ],
         ),
@@ -526,7 +535,7 @@ class _ResultRow extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-            child: GestureDetector(
+            child: PressScale(
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => TitleDetailScreen(
@@ -625,26 +634,33 @@ class _AddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget icon;
     if (status == 'watched') {
-      return const Icon(Icons.check_circle, size: 20, color: SeenlyPalette.accent);
-    }
-    if (status == 'watching') {
-      return const Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.accent);
-    }
-    if (status == 'watch_later') {
-      return const Icon(Icons.bookmark, size: 20, color: SeenlyPalette.accent);
-    }
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 26,
-        height: 26,
-        decoration: const BoxDecoration(
-          color: SeenlyPalette.background,
-          shape: BoxShape.circle,
+      icon = const Icon(Icons.check_circle, key: ValueKey('watched'), size: 20, color: SeenlyPalette.accent);
+    } else if (status == 'watching') {
+      icon = const Icon(Icons.play_circle_fill, key: ValueKey('watching'), size: 20, color: SeenlyPalette.accent);
+    } else if (status == 'watch_later') {
+      icon = const Icon(Icons.bookmark, key: ValueKey('watch_later'), size: 20, color: SeenlyPalette.accent);
+    } else {
+      icon = PressScale(
+        key: const ValueKey('add'),
+        onTap: onTap,
+        haptics: true,
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: const BoxDecoration(
+            color: SeenlyPalette.background,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.bookmark_add_outlined, size: 14, color: SeenlyPalette.accent),
         ),
-        child: const Icon(Icons.bookmark_add_outlined, size: 14, color: SeenlyPalette.accent),
-      ),
+      );
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 220),
+      transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+      child: icon,
     );
   }
 }

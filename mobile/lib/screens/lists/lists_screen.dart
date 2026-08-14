@@ -7,7 +7,9 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import 'list_detail_screen.dart';
+import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 
 /// Profile → "your lists": the user's own made-up collections, distinct
 /// from the editorial shelves on the Collections tab. "Cozy rainy-day
@@ -70,15 +72,22 @@ class _ListsScreenState extends State<ListsScreen> {
               padding: const EdgeInsets.fromLTRB(8, 8, 20, 4),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                    onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(child: Text('your lists', style: SeenlyText.screenTitle)),
-                  IconButton(
-                    icon: const Icon(Icons.add, size: 22, color: SeenlyPalette.accent),
-                    onPressed: _createList,
+                  PressScale(
+                    onTap: _createList,
+                    haptics: true,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.add, size: 22, color: SeenlyPalette.accent),
+                    ),
                   ),
                 ],
               ),
@@ -106,17 +115,26 @@ class _ListsScreenState extends State<ListsScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
                         children: [
-                          Text('no lists yet',
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.serif(italic: true, size: 15)),
+                          Entrance(
+                            child: Text('no lists yet',
+                                textAlign: TextAlign.center,
+                                style: SeenlyText.serif(italic: true, size: 15)),
+                          ),
                           const SizedBox(height: 8),
-                          Text(
-                            'group whatever you like together — a mood, a marathon, favorites you keep coming back to',
-                            textAlign: TextAlign.center,
-                            style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder),
+                          Entrance(
+                            delay: const Duration(milliseconds: 60),
+                            child: Text(
+                              'group whatever you like together — a mood, a marathon, favorites you keep coming back to',
+                              textAlign: TextAlign.center,
+                              style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder),
+                            ),
                           ),
                           const SizedBox(height: 20),
-                          PrimaryButton(label: 'new list', onTap: _createList),
+                          Entrance(
+                            delay: const Duration(milliseconds: 110),
+                            riseBy: 14,
+                            child: PrimaryButton(label: 'new list', onTap: _createList),
+                          ),
                         ],
                       ),
                     );
@@ -129,15 +147,18 @@ class _ListsScreenState extends State<ListsScreen> {
                       padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
                       itemCount: lists.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) => _ListRow(
-                        list: lists[i],
-                        onTap: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => ListDetailScreen(listId: lists[i].id)),
-                          );
-                          _refresh();
-                        },
+                      itemBuilder: (context, i) => ScrollRevealEntrance(
+                        index: i,
+                        child: _ListRow(
+                          list: lists[i],
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                                MaterialPageRoute(
+                                    builder: (_) => ListDetailScreen(listId: lists[i].id)),
+                            );
+                            _refresh();
+                          },
+                        ),
                       ),
                     ),
                   );
@@ -158,7 +179,7 @@ class _ListRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -215,9 +236,11 @@ class _Collage extends StatelessWidget {
                 children: [
                   for (var i = 0; i < 4; i++)
                     i < posters.length
-                        ? Image.network(posters[i], fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                Container(color: SeenlyPalette.background))
+                        ? FadeInNetworkImage(
+                            url: posters[i],
+                            fit: BoxFit.cover,
+                            placeholder: Container(color: SeenlyPalette.background),
+                          )
                         : Container(color: SeenlyPalette.background),
                 ],
               ),
@@ -268,32 +291,42 @@ class _NewListSheetState extends State<_NewListSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('new list',
-                textAlign: TextAlign.center,
-                style: SeenlyText.serif(italic: true, size: 16)),
+            Entrance(
+              child: Text('new list',
+                  textAlign: TextAlign.center,
+                  style: SeenlyText.serif(italic: true, size: 16)),
+            ),
             const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: SeenlyPalette.background,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: TextField(
-                controller: _controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.sentences,
-                onSubmitted: (_) => _submit(),
-                style: SeenlyText.serif(size: 14),
-                decoration: InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                  hintText: 'cozy rainy-day picks…',
-                  hintStyle: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder),
+            Entrance(
+              delay: const Duration(milliseconds: 60),
+              riseBy: 14,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                decoration: BoxDecoration(
+                  color: SeenlyPalette.background,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: TextField(
+                  controller: _controller,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.sentences,
+                  onSubmitted: (_) => _submit(),
+                  style: SeenlyText.serif(size: 14),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: 'cozy rainy-day picks…',
+                    hintStyle: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder),
+                  ),
                 ),
               ),
             ),
             const SizedBox(height: 18),
-            PrimaryButton(label: 'create', onTap: _submit),
+            Entrance(
+              delay: const Duration(milliseconds: 110),
+              riseBy: 14,
+              child: PrimaryButton(label: 'create', onTap: _submit),
+            ),
           ],
         ),
       ),

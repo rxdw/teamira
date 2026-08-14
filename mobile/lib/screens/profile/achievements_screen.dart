@@ -10,7 +10,9 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/achievement_badge.dart';
 import '../../widgets/rabbit_mascot.dart';
+import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 
 const _kMaxPinned = 3;
 
@@ -133,9 +135,12 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 8, 20, 4),
                       child: Row(
                         children: [
-                          IconButton(
-                            icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                            onPressed: () => Navigator.of(context).pop(),
+                          PressScale(
+                            onTap: () => Navigator.of(context).pop(),
+                            child: const Padding(
+                              padding: EdgeInsets.all(8),
+                              child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                            ),
                           ),
                           const SizedBox(width: 4),
                           Text('badges', style: SeenlyText.screenTitle),
@@ -176,15 +181,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 60),
                         children: [
-                          Text('couldn\'t load your badges',
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: _refresh,
-                            child: Text('pull down, or tap here, to try again',
+                          Entrance(
+                            child: Text('couldn\'t load your badges',
                                 textAlign: TextAlign.center,
-                                style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+                                style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
+                          ),
+                          const SizedBox(height: 10),
+                          Entrance(
+                            delay: const Duration(milliseconds: 60),
+                            child: PressScale(
+                              onTap: _refresh,
+                              child: Text('pull down, or tap here, to try again',
+                                  textAlign: TextAlign.center,
+                                  style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+                            ),
                           ),
                         ],
                       ),
@@ -210,62 +220,75 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(21, 6, 21, 32),
                       children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.emoji_events, size: 17, color: SeenlyPalette.mustard),
-                            const SizedBox(width: 7),
-                            Text.rich(
-                              TextSpan(
-                                style: SeenlyText.serif(size: 15, weight: FontWeight.w600),
-                                children: [
-                                  TextSpan(text: '${data.unlockedCount}'),
-                                  TextSpan(
-                                    text: ' of ${data.totalCount} unlocked',
-                                    style: SeenlyText.serif(size: 15, color: SeenlyPalette.inkMuted),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          decoration: BoxDecoration(
-                            color: SeenlyPalette.accent.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                        Entrance(
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  LogThemeCopy.achievementsHonesty(theme),
-                                  style: SeenlyText.serif(
-                                      italic: true, size: 11.5, color: SeenlyPalette.accent),
+                              const Icon(Icons.emoji_events, size: 17, color: SeenlyPalette.mustard),
+                              const SizedBox(width: 7),
+                              Text.rich(
+                                TextSpan(
+                                  style: SeenlyText.serif(size: 15, weight: FontWeight.w600),
+                                  children: [
+                                    TextSpan(text: '${data.unlockedCount}'),
+                                    TextSpan(
+                                      text: ' of ${data.totalCount} unlocked',
+                                      style: SeenlyText.serif(size: 15, color: SeenlyPalette.inkMuted),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        Entrance(
+                          delay: const Duration(milliseconds: 60),
+                          riseBy: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: SeenlyPalette.accent.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    LogThemeCopy.achievementsHonesty(theme),
+                                    style: SeenlyText.serif(
+                                        italic: true, size: 11.5, color: SeenlyPalette.accent),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 20),
-                        Row(
-                          children: [
-                            for (final r in BadgeRarity.values)
-                              _RarityTab(
-                                rarity: r,
-                                count: byRarity[r]!.where((a) => a.unlocked).length,
-                                active: _activeRarity == r,
-                                onTap: () => setState(() => _activeRarity = r),
-                              ),
-                          ],
+                        Entrance(
+                          delay: const Duration(milliseconds: 110),
+                          child: Row(
+                            children: [
+                              for (final r in BadgeRarity.values)
+                                _RarityTab(
+                                  rarity: r,
+                                  count: byRarity[r]!.where((a) => a.unlocked).length,
+                                  active: _activeRarity == r,
+                                  onTap: () => setState(() => _activeRarity = r),
+                                ),
+                            ],
+                          ),
                         ),
                         const SizedBox(height: 18),
-                        Text(
-                          '$shownUnlocked of ${shown.length} ${_activeRarity.label} badges earned',
-                          style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            '$shownUnlocked of ${shown.length} ${_activeRarity.label} badges earned',
+                            key: ValueKey(_activeRarity),
+                            style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -273,35 +296,52 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                         ),
                         const SizedBox(height: 18),
-                        if (shown.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 30),
-                            child: Text(
-                              'nothing here yet',
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 260),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+                                  .animate(animation),
+                              child: child,
                             ),
-                          )
-                        else
-                          GridView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: shown.length,
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              mainAxisSpacing: 22,
-                              crossAxisSpacing: 8,
-                              childAspectRatio: 0.74,
-                            ),
-                            itemBuilder: (context, i) {
-                              final a = shown[i];
-                              return _BadgeShowcaseTile(
-                                achievement: a,
-                                pinned: _pinnedIds.contains(a.id),
-                                onTap: () => _showBadgeDetail(a),
-                              );
-                            },
                           ),
+                          child: shown.isEmpty
+                              ? Padding(
+                                  key: const ValueKey('empty'),
+                                  padding: const EdgeInsets.symmetric(vertical: 30),
+                                  child: Text(
+                                    'nothing here yet',
+                                    textAlign: TextAlign.center,
+                                    style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+                                  ),
+                                )
+                              : GridView.builder(
+                                  key: ValueKey(_activeRarity),
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: shown.length,
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    mainAxisSpacing: 22,
+                                    crossAxisSpacing: 8,
+                                    childAspectRatio: 0.74,
+                                  ),
+                                  itemBuilder: (context, i) {
+                                    final a = shown[i];
+                                    return ScrollRevealEntrance(
+                                      index: i,
+                                      child: _BadgeShowcaseTile(
+                                        achievement: a,
+                                        pinned: _pinnedIds.contains(a.id),
+                                        onTap: () => _showBadgeDetail(a),
+                                      ),
+                                    );
+                                  },
+                                ),
+                        ),
                       ],
                     ),
                   );
@@ -512,7 +552,7 @@ class _BadgeShowcaseTile extends StatelessWidget {
     );
 
     if (onTap == null) return content;
-    return GestureDetector(onTap: onTap, behavior: HitTestBehavior.opaque, child: content);
+    return PressScale(onTap: onTap, haptics: true, child: content);
   }
 }
 

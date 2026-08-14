@@ -13,6 +13,7 @@ import 'coach_log_screen.dart';
 import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
 import 'journey_select_screen.dart';
+import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 
 /// First step of logging a title — whether tonight's evening already
 /// happened or is happening right now. Full-bleed split screen: the top
@@ -174,6 +175,7 @@ class WatchingChoiceScreen extends StatelessWidget {
                   subtitle: 'rate it and log the evening now',
                   background: SeenlyPalette.paper,
                   contentAlignment: const Alignment(0, 0.35),
+                  entranceDelay: const Duration(milliseconds: 40),
                   onTap: () => _alreadyWatched(context, theme),
                 ),
               ),
@@ -185,6 +187,7 @@ class WatchingChoiceScreen extends StatelessWidget {
                   subtitle: _watchingNowSubtitle(theme),
                   background: SeenlyPalette.periwinkle.withOpacity(0.08),
                   contentAlignment: const Alignment(0, -0.35),
+                  entranceDelay: const Duration(milliseconds: 90),
                   onTap: () => _watchingNow(context, theme),
                 ),
               ),
@@ -196,13 +199,15 @@ class WatchingChoiceScreen extends StatelessWidget {
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 36),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('how far in are we?', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
-                    const SizedBox(height: 10),
-                    _PosterSeamCard(item: item),
-                  ],
+                child: Entrance(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('how far in are we?', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
+                      const SizedBox(height: 10),
+                      _PosterSeamCard(item: item),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -210,25 +215,32 @@ class WatchingChoiceScreen extends StatelessWidget {
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 12,
-            child: _RoundBackButton(onTap: () => Navigator.of(context).pop()),
+            child: Entrance(
+              riseBy: 10,
+              child: _RoundBackButton(onTap: () => Navigator.of(context).pop()),
+            ),
           ),
           if (showBanner)
             Positioned(
               left: 16,
               right: 16,
               bottom: MediaQuery.of(context).padding.bottom + 14,
-              child: _QuickLogBanner(
-                onLogNow: () => _quickLog(context),
-                onDismiss: () async {
-                  await context.read<RitualPrefsService>().dismissBanner();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("won't ask again — turn on \"skip the ritual\" in settings any time"),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
+              child: Entrance(
+                delay: const Duration(milliseconds: 160),
+                riseBy: 18,
+                child: _QuickLogBanner(
+                  onLogNow: () => _quickLog(context),
+                  onDismiss: () async {
+                    await context.read<RitualPrefsService>().dismissBanner();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("won't ask again — turn on \"skip the ritual\" in settings any time"),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
         ],
@@ -242,13 +254,14 @@ class WatchingChoiceScreen extends StatelessWidget {
 /// in its half. [contentAlignment] nudges the icon/title toward the
 /// outer edge of each half (away from the seam) so neither half's
 /// content crowds the floating poster card in the middle.
-class _ChoiceHalf extends StatelessWidget {
+class _ChoiceHalf extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
   final String title;
   final String subtitle;
   final Color background;
   final Alignment contentAlignment;
+  final Duration entranceDelay;
   final VoidCallback onTap;
   const _ChoiceHalf({
     required this.icon,
@@ -257,38 +270,58 @@ class _ChoiceHalf extends StatelessWidget {
     required this.subtitle,
     required this.background,
     required this.contentAlignment,
+    this.entranceDelay = Duration.zero,
     required this.onTap,
   });
 
   @override
+  State<_ChoiceHalf> createState() => _ChoiceHalfState();
+}
+
+class _ChoiceHalfState extends State<_ChoiceHalf> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
       behavior: HitTestBehavior.opaque,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
         width: double.infinity,
-        color: background,
+        color: Color.alphaBlend(
+          widget.iconColor.withOpacity(_pressed ? 0.06 : 0),
+          widget.background,
+        ),
         child: Align(
-          alignment: contentAlignment,
+          alignment: widget.contentAlignment,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 36),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(color: iconColor.withOpacity(0.14), shape: BoxShape.circle),
-                  alignment: Alignment.center,
-                  child: Icon(icon, size: 24, color: iconColor),
-                ),
-                const SizedBox(height: 14),
-                Text(title, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                Text(subtitle,
-                    textAlign: TextAlign.center,
-                    style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
-              ],
+            child: Entrance(
+              delay: widget.entranceDelay,
+              riseBy: 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(color: widget.iconColor.withOpacity(0.14), shape: BoxShape.circle),
+                    alignment: Alignment.center,
+                    child: Icon(widget.icon, size: 24, color: widget.iconColor),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(widget.title, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Text(widget.subtitle,
+                      textAlign: TextAlign.center,
+                      style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
+                ],
+              ),
             ),
           ),
         ),
@@ -324,10 +357,11 @@ class _PosterSeamCard extends StatelessWidget {
               width: 40,
               height: 56,
               child: item.posterUrl != null
-                  ? Image.network(item.posterUrl!,
+                  ? FadeInNetworkImage(
+                      url: item.posterUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          Container(color: SeenlyPalette.mediaColor(item.mediaType)))
+                      placeholder: Container(color: SeenlyPalette.mediaColor(item.mediaType)),
+                    )
                   : Container(color: SeenlyPalette.mediaColor(item.mediaType)),
             ),
           ),
@@ -358,7 +392,7 @@ class _RoundBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         width: 34,
@@ -412,7 +446,7 @@ class _QuickLogBanner extends StatelessWidget {
                   style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                 ),
                 const SizedBox(height: 8),
-                GestureDetector(
+                PressScale(
                   onTap: onLogNow,
                   child: Text(
                     'log it now →',
@@ -422,9 +456,8 @@ class _QuickLogBanner extends StatelessWidget {
               ],
             ),
           ),
-          GestureDetector(
+          PressScale(
             onTap: onDismiss,
-            behavior: HitTestBehavior.opaque,
             child: const Padding(
               padding: EdgeInsets.all(6),
               child: Icon(Icons.close, size: 16, color: SeenlyPalette.inkFaint),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../widgets/themed_loading_indicator.dart';
+import '../widgets/wow_motion.dart' show PressScale;
 
 /// Shared timing for every underline-tab switch in the app (Profile,
 /// friend profile, co-viewing, Collections, Sources, Search's media
@@ -132,7 +133,9 @@ class PillChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Container(
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
       width: fullWidth ? double.infinity : null,
       alignment: fullWidth ? Alignment.center : null,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -145,17 +148,20 @@ class PillChip extends StatelessWidget {
               )
             : null,
       ),
-      child: Text(
-        label,
-        textAlign: fullWidth ? TextAlign.center : null,
-        overflow: fullWidth ? TextOverflow.ellipsis : null,
+      child: AnimatedDefaultTextStyle(
+        duration: const Duration(milliseconds: 220),
         style: SeenlyText.mono(
           size: 11,
           color: active ? SeenlyPalette.accentOnAccent : SeenlyPalette.inkMuted,
         ),
+        child: Text(
+          label,
+          textAlign: fullWidth ? TextAlign.center : null,
+          overflow: fullWidth ? TextOverflow.ellipsis : null,
+        ),
       ),
     );
-    return GestureDetector(onTap: onTap, child: child);
+    return PressScale(onTap: onTap, child: child);
   }
 }
 

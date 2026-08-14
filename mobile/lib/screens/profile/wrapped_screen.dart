@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -801,6 +802,115 @@ class _GrowBar extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Scrapbook details — grain, handwriting, taped photos. Layered on top of
+// the full-bleed ticket rather than replacing it: the color, shape, and
+// notches stay; these are the "this was assembled by hand" touches.
+// ---------------------------------------------------------------------------
+
+/// A quiet, static speckle of noise over the card's color wash — cheap
+/// enough to paint once (not animated) since it's meant to be felt more
+/// than seen.
+class _PaperGrain extends StatelessWidget {
+  const _PaperGrain();
+  @override
+  Widget build(BuildContext context) => CustomPaint(painter: _PaperGrainPainter(), size: Size.infinite);
+}
+
+class _PaperGrainPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rnd = math.Random(7);
+    final paint = Paint();
+    final count = (size.width * size.height / 900).clamp(120, 900).round();
+    for (int i = 0; i < count; i++) {
+      final dx = rnd.nextDouble() * size.width;
+      final dy = rnd.nextDouble() * size.height;
+      paint.color = Colors.white.withOpacity(rnd.nextDouble() * 0.05);
+      canvas.drawCircle(Offset(dx, dy), 0.6, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PaperGrainPainter oldDelegate) => false;
+}
+
+/// A handwritten-feeling accent style — used sparingly, alongside (not
+/// instead of) the app's own Unbounded/Comfortaa pairing, for the one or
+/// two lines per screen that read like something the person themselves
+/// jotted down rather than a stat the app is reporting.
+TextStyle _handwriting({double size = 19, Color color = SeenlyPalette.ink, FontWeight weight = FontWeight.w700}) {
+  return GoogleFonts.caveat(fontSize: size, color: color, fontWeight: weight, height: 1.15);
+}
+
+/// A small photo, white-bordered like a Polaroid, held down by two
+/// crossed strips of tape and tilted a few degrees off true — the one
+/// deliberately "handmade" element on a screen that's otherwise built
+/// from straight lines and flat color.
+class _TapedPolaroid extends StatelessWidget {
+  final String? posterUrl;
+  final Color placeholderColor;
+  final double width;
+  final double rotation;
+  const _TapedPolaroid({this.posterUrl, required this.placeholderColor, this.width = 118, this.rotation = -0.08});
+
+  @override
+  Widget build(BuildContext context) {
+    final photoHeight = width * 0.72;
+    return Transform.rotate(
+      angle: rotation,
+      child: SizedBox(
+        width: width + 20,
+        height: photoHeight + 44,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 10,
+              top: 10,
+              child: Container(
+                width: width,
+                padding: const EdgeInsets.fromLTRB(6, 6, 6, 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFDF9F2),
+                  boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 12, offset: Offset(0, 8))],
+                ),
+                child: AspectRatio(
+                  aspectRatio: width / photoHeight,
+                  child: (posterUrl == null || posterUrl!.isEmpty)
+                      ? DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          colors: [placeholderColor, Color.lerp(placeholderColor, Colors.black, 0.35)!],
+                        )))
+                      : Image.network(posterUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => DecoratedBox(
+                          decoration: BoxDecoration(color: placeholderColor))),
+                ),
+              ),
+            ),
+            // Two rotated washi-tape strips, corner-pinning the photo.
+            Positioned(
+              left: -2,
+              top: -4,
+              child: Transform.rotate(
+                angle: -0.55,
+                child: Container(width: 42, height: 16, color: SeenlyPalette.mustard.withOpacity(0.55)),
+              ),
+            ),
+            Positioned(
+              right: -2,
+              top: -4,
+              child: Transform.rotate(
+                angle: 0.5,
+                child: Container(width: 42, height: 16, color: SeenlyPalette.periwinkle.withOpacity(0.5)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared card shell
 // ---------------------------------------------------------------------------
 
@@ -836,6 +946,31 @@ class _CardShell extends StatelessWidget {
   Color get _fg => light ? SeenlyPalette.paper : SeenlyPalette.ink;
   Color get _chipBg => light ? Colors.white.withOpacity(0.16) : SeenlyPalette.ink.withOpacity(0.10);
 
+  // A soft two-stop radial wash instead of one flat fill — lighter near
+  // the top-left, settling into the true color toward the bottom-right —
+  // so the ticket reads as lit rather than a flat cutout. Derived from
+  // the single `background` color every card already passes in, so this
+  // upgrade applies everywhere without touching any of the 14 call sites.
+  RadialGradient get _wash => RadialGradient(
+        center: const Alignment(-0.4, -0.9),
+        radius: 1.3,
+        colors: [
+          Color.lerp(background, Colors.white, 0.16)!,
+          background,
+          Color.lerp(background, Colors.black, 0.14)!,
+        ],
+        stops: const [0.0, 0.55, 1.0],
+      );
+
+  // Heavier and warmer than the app's everyday SeenlyPalette.softShadow —
+  // Wrapped's tickets sit on a night sky (see _WrappedNightBackdrop), so
+  // they read best with real weight under them, like a printed card
+  // actually resting on a dark table rather than pasted flat onto it.
+  static const _wrappedShadow = [
+    BoxShadow(color: Color(0x8A0F0A14), blurRadius: 40, offset: Offset(0, 20), spreadRadius: -10),
+    BoxShadow(color: Color(0x5C0F0A14), blurRadius: 14, offset: Offset(0, 5), spreadRadius: -3),
+  ];
+
   @override
   Widget build(BuildContext context) {
     // A cinema ticket, not a floating paper card: two punched notches at
@@ -868,32 +1003,36 @@ class _CardShell extends StatelessWidget {
                   width: double.infinity,
                   clipBehavior: Clip.antiAlias,
                   decoration: ShapeDecoration(
-                    color: background,
+                    gradient: _wash,
                     shape: const _TicketNotchBorder(),
-                    shadows: SeenlyPalette.softShadow,
+                    shadows: _wrappedShadow,
                   ),
-                  padding: EdgeInsets.fromLTRB(24, compact ? 18 : 22, 24, compact ? 18 : 22),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  child: Stack(
                     children: [
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-                          decoration: BoxDecoration(color: _chipBg, borderRadius: BorderRadius.circular(20)),
-                          child: Text(
-                            bonusLabel.toUpperCase(),
-                            style: SeenlyText.mono(size: 11, color: _fg, weight: FontWeight.w700),
-                          ),
+                      // A faint paper grain over the color wash — the same
+                      // "this is a physical object, not a flat rectangle"
+                      // idea as the shadow above, just up close instead of
+                      // underneath.
+                      const Positioned.fill(child: IgnorePointer(child: _PaperGrain())),
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(24, compact ? 18 : 22, 24, compact ? 18 : 22),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // The "ЭКРАН N ИЗ M" chip that used to sit here
+                            // was removed — the constellation behind the
+                            // whole screen (see _ConstellationBackdrop)
+                            // already shows how far along you are, so the
+                            // chip was just repeating that in words.
+                            child,
+                            if (shareButton != null) ...[
+                              const SizedBox(height: 16),
+                              shareButton!,
+                            ],
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 18),
-                      child,
-                      if (shareButton != null) ...[
-                        const SizedBox(height: 16),
-                        shareButton!,
-                      ],
                     ],
                   ),
                 ),
@@ -1668,9 +1807,12 @@ class _DigitalClock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF3A322C),
+        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF463C34), Color(0xFF2A241F)]),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2A241F), width: 3),
+        border: Border.all(color: const Color(0xFF201B17), width: 3),
+        boxShadow: const [
+          BoxShadow(color: Color(0x66000000), blurRadius: 22, offset: Offset(0, 10)),
+        ],
       ),
       child: Text(
         time,
@@ -1678,8 +1820,9 @@ class _DigitalClock extends StatelessWidget {
           fontFamily: 'monospace',
           fontSize: 40,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFFF0C878),
+          color: const Color(0xFFF5D08E),
           letterSpacing: 2,
+          shadows: const [Shadow(color: Color(0x8CF0C878), blurRadius: 18)],
         ),
       ),
     );
@@ -1971,7 +2114,15 @@ class _BadgeIconState extends State<_BadgeIcon> with SingleTickerProviderStateMi
         final scale = 1 + Curves.easeInOut.transform(_controller.value) * 0.035;
         return Transform.scale(scale: scale, child: child);
       },
-      child: SizedBox(width: widget.size, height: widget.size * 1.18, child: CustomPaint(painter: _BadgePainter(widget.color))),
+      child: Container(
+        width: widget.size,
+        height: widget.size * 1.18,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: widget.color.withOpacity(0.35), blurRadius: 26, spreadRadius: 2)],
+        ),
+        child: CustomPaint(painter: _BadgePainter(widget.color)),
+      ),
     );
   }
 }
@@ -2148,12 +2299,18 @@ class _OverviewSessionsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _ClapperIcon(color: fg),
-            const SizedBox(height: 16),
+            _TapedPolaroid(
+              posterUrl: summary.posterUrls.isNotEmpty ? summary.posterUrls.first : null,
+              placeholderColor: SeenlyPalette.coral,
+            ),
+            const SizedBox(height: 14),
             _Eyebrow(summary.scope == 'all' ? 'твоё кино за всё время' : 'твой ${summary.periodLabel} в кино'),
             const SizedBox(height: 6),
             _CountUp(value: summary.totalLogged, style: SeenlyText.serif(size: 64, weight: FontWeight.w700, color: fg)),
-            Text(_overviewSubtitle(summary), style: SeenlyText.serif(size: 16, weight: FontWeight.w500, color: fg)),
+            Text(
+              _overviewSubtitle(summary),
+              style: _handwriting(size: 19, color: fg),
+            ),
             const SizedBox(height: 18),
             SizedBox(width: 200, child: _YearGrid(seed: summary.totalLogged, color: fg)),
             const SizedBox(height: 18),
@@ -2294,14 +2451,14 @@ class _ClockCard extends StatelessWidget {
           children: [
             _Eyebrow('когда ты смотришь'),
             const SizedBox(height: 6),
-            Text('твой киночас', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
-            const SizedBox(height: 26),
+            Text('твой киночас', style: _handwriting(size: 24, color: fg)),
+            const SizedBox(height: 22),
             _DigitalClock(time: hour != null ? '${hour.toString().padLeft(2, '0')}:00' : '--:--'),
             const SizedBox(height: 20),
             SizedBox(width: 200, child: _DayGradientBar(hourFraction: (hour ?? 12) / 24)),
             const SizedBox(height: 10),
             if (hour != null)
-              Text(_dayPartLabel(hour), style: SeenlyText.mono(size: 12, color: fg, weight: FontWeight.w700)),
+              Text(_dayPartLabel(hour), style: _handwriting(size: 17, color: fg)),
             const SizedBox(height: 20),
             const _TicketDash(),
             const SizedBox(height: 14),
@@ -2347,7 +2504,7 @@ class _GenreStripCard extends StatelessWidget {
           children: [
             _Eyebrow('из чего состоял год'),
             const SizedBox(height: 6),
-            Text('твоя плёнка', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
+            Text('твоя плёнка', style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 22),
             if (mix.isNotEmpty) ...[
               SizedBox(
@@ -2411,7 +2568,7 @@ class _FirstLastCard extends StatelessWidget {
           children: [
             _Eyebrow('старт и финиш'),
             const SizedBox(height: 6),
-            Text('первый и последний', style: SeenlyText.serif(size: 18, weight: FontWeight.w700, color: fg)),
+            Text('первый и последний', style: _handwriting(size: 22, color: fg)),
             const SizedBox(height: 8),
             SizedBox(
               height: 60,
@@ -2440,8 +2597,8 @@ class _FirstLastCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _PosterThumb(url: posterUrl, width: 96, height: 140, elevated: true),
-        const SizedBox(height: 10),
+        _TapedPolaroid(posterUrl: posterUrl, placeholderColor: SeenlyPalette.sage, width: 92, rotation: date == '' ? 0 : (title.hashCode.isEven ? -0.06 : 0.06)),
+        const SizedBox(height: 4),
         Text(date, style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.7))),
         const SizedBox(height: 2),
         Text(title,
@@ -2474,7 +2631,7 @@ class _DirectorsCard extends StatelessWidget {
           children: [
             _Eyebrow('режиссёры года'),
             const SizedBox(height: 6),
-            Text('твой топ-${directors.length.clamp(1, 4)}', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
+            Text('твой топ-${directors.length.clamp(1, 4)}', style: _handwriting(size: 26, color: fg)),
             const SizedBox(height: 24),
             if (directors.isEmpty)
               Text('пока не хватает данных', style: SeenlyText.mono(size: 12, color: fg.withOpacity(0.6)))
@@ -2519,8 +2676,7 @@ class _DirectorsCard extends StatelessWidget {
             const SizedBox(height: 8),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('режиссёры, к которым ты возвращалась чаще всего',
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 12, color: fg.withOpacity(0.75))),
+            Text('режиссёры, к которым ты возвращалась чаще всего', textAlign: TextAlign.center, style: _handwriting(size: 16, color: fg)),
           ],
         );
       }),
@@ -2552,7 +2708,7 @@ class _DecadeCard extends StatelessWidget {
           children: [
             _Eyebrow('из какого времени твои фильмы'),
             const SizedBox(height: 6),
-            Text(topLabel != null ? 'в основном $topLabel' : '—', style: SeenlyText.serif(size: 21, weight: FontWeight.w700, color: fg)),
+            Text(topLabel != null ? 'в основном $topLabel' : '—', style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 26),
             if (decades.isNotEmpty) ...[
               SizedBox(
@@ -2599,7 +2755,7 @@ class _DecadeCard extends StatelessWidget {
               const _TicketDash(),
               const SizedBox(height: 12),
               Text('${decades.first.percent.round()}% фильмов из этого времени',
-                  textAlign: TextAlign.center, style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8))),
+                  textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
             ],
           ],
         );
@@ -2629,7 +2785,7 @@ class _NewVsRewatchCard extends StatelessWidget {
           children: [
             _Eyebrow('новое или знакомое'),
             const SizedBox(height: 6),
-            Text('баланс года', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
+            Text('баланс года', style: _handwriting(size: 26, color: fg)),
             const SizedBox(height: 6),
             _BalanceScale(
               leftValue: summary.newCount,
@@ -2642,7 +2798,7 @@ class _NewVsRewatchCard extends StatelessWidget {
             const _TicketDash(),
             const SizedBox(height: 14),
             Text('чуть больше половины года — $more',
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.78))),
+                textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
       }),
@@ -2672,7 +2828,7 @@ class _TimelineCard extends StatelessWidget {
           children: [
             _Eyebrow(isMonth ? 'самый плотный день' : 'месяц года'),
             const SizedBox(height: 6),
-            Text(summary.busiestTimelineLabel ?? '—', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
+            Text(summary.busiestTimelineLabel ?? '—', style: _handwriting(size: 26, color: fg)),
             const SizedBox(height: 22),
             SizedBox(
               height: 120,
@@ -2726,7 +2882,7 @@ class _TimelineCard extends StatelessWidget {
             const _TicketDash(),
             const SizedBox(height: 12),
             Text('${_daysLabel(summary.longestStreakDays)} подряд — твой самый длинный стрик',
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8))),
+                textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
       }),
@@ -2759,7 +2915,7 @@ class _WeekdayCard extends StatelessWidget {
             _Eyebrow('какой день — твой'),
             const SizedBox(height: 6),
             Text('${summary.weekendPercent.round()}% на выходных',
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
+                textAlign: TextAlign.center, style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 22),
             SizedBox(
               height: 116,
@@ -2800,7 +2956,7 @@ class _WeekdayCard extends StatelessWidget {
             const _TicketDash(),
             const SizedBox(height: 12),
             Text('суббота и воскресенье — твои главные киновечера',
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8))),
+                textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
       }),
@@ -2827,7 +2983,7 @@ class _SoloCompanyCard extends StatelessWidget {
           children: [
             _Eyebrow('как ты смотрела'),
             const SizedBox(height: 6),
-            Text('соло или компания', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: fg)),
+            Text('соло или компания', style: _handwriting(size: 25, color: fg)),
             const SizedBox(height: 20),
             SizedBox(
               width: 168,
@@ -2864,8 +3020,7 @@ class _SoloCompanyCard extends StatelessWidget {
             const SizedBox(height: 18),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('почти две трети сеансов — в одиночку',
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8))),
+            Text('почти две трети сеансов — в одиночку', textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
       }),
@@ -2901,7 +3056,7 @@ class _ArchetypeCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(summary.archetypeLabel,
                 textAlign: TextAlign.center,
-                style: SeenlyText.serif(size: 26, weight: FontWeight.w700, color: fg),
+                style: _handwriting(size: 32, color: fg),
                 maxLines: 3),
             const SizedBox(height: 6),
             Text(
@@ -2986,11 +3141,11 @@ class _ReviewsOverviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _PosterThumb(url: headerPoster, width: 64, height: 92, elevated: true),
-            const SizedBox(height: 16),
+            _TapedPolaroid(posterUrl: headerPoster, placeholderColor: SeenlyPalette.coral, width: 84, rotation: -0.07),
+            const SizedBox(height: 12),
             _Eyebrow('твои рецензии'),
             _CountUp(value: summary.reviewCount, style: SeenlyText.serif(size: 46, weight: FontWeight.w700, color: fg)),
-            Text('фильма получили оценку', style: SeenlyText.serif(size: 14, weight: FontWeight.w500, color: fg)),
+            Text('фильма получили оценку', style: _handwriting(size: 18, color: fg)),
             const SizedBox(height: 10),
             Text(
               'средняя оценка ${summary.averageRating.toStringAsFixed(1)} · ${summary.fullMarksCount} полных пятёрок',
@@ -3044,8 +3199,8 @@ class _FavoriteReviewCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _PosterThumb(url: r.posterUrl, width: 100, height: 146, elevated: true),
-            const SizedBox(height: 16),
+            _TapedPolaroid(posterUrl: r.posterUrl, placeholderColor: SeenlyPalette.pink, width: 128, rotation: -0.05),
+            const SizedBox(height: 10),
             _Eyebrow('рецензия · ${r.dateLabel ?? ''}'),
             const SizedBox(height: 6),
             Text(r.title, style: SeenlyText.serif(size: 19, weight: FontWeight.w700, color: fg), textAlign: TextAlign.center),
@@ -3121,7 +3276,7 @@ class _LetterCard extends StatelessWidget {
                   style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.7))),
             ),
             const SizedBox(height: 10),
-            Text(letterText, style: SeenlyText.serif(size: 14, color: fg)),
+            Text(letterText, style: _handwriting(size: 20, color: fg, weight: FontWeight.w600).copyWith(height: 1.35)),
             if (summary.favoriteReview?.note != null) ...[
               const SizedBox(height: 14),
               Container(

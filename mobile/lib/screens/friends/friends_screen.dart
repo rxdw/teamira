@@ -199,9 +199,12 @@ class _FriendsScreenState extends State<FriendsScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 20, 4),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                    onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Text('friends', style: SeenlyText.screenTitle),
@@ -221,12 +224,18 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   : RefreshIndicator(
                       onRefresh: _load,
                       color: SeenlyPalette.accent,
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-                        children: showingSearch
-                            ? _searchSection()
-                            : _mainSections(data),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 240),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        child: ListView(
+                          key: ValueKey(showingSearch),
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+                          children: showingSearch
+                              ? _searchSection()
+                              : _mainSections(data),
+                        ),
                       ),
                     ),
             ),
@@ -247,17 +256,23 @@ class _FriendsScreenState extends State<FriendsScreen> {
     }
     if (_searchResults.isEmpty) {
       return [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Text('no one on teamira has that username',
-              style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted)),
+        Entrance(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Text('no one on teamira has that username',
+                style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted)),
+          ),
         ),
       ];
     }
-    return _searchResults.map((r) => _SearchResultRow(
-          result: r,
-          busy: _busy.contains(r.username),
-          onAdd: () => _sendRequest(r.username),
+    return _searchResults.asMap().entries.map((entry) => Entrance(
+          delay: Duration(milliseconds: 30 * entry.key.clamp(0, 8)),
+          riseBy: 10,
+          child: _SearchResultRow(
+            result: entry.value,
+            busy: _busy.contains(entry.value.username),
+            onAdd: () => _sendRequest(entry.value.username),
+          ),
         )).toList();
   }
 
@@ -387,7 +402,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 )),
                 corner: _busy.contains(f.userId)
                     ? _cornerStamp(onTap: null, icon: Icons.more_horiz, bg: SeenlyPalette.paper, fg: SeenlyPalette.inkFaint, busy: true)
-                    : GestureDetector(
+                    : PressScale(
                         onTap: () => _remove(f.userId, f.username),
                         child: Container(
                           width: 28,
@@ -543,7 +558,7 @@ class _PolaroidCard extends StatelessWidget {
 
     final rotated = Transform.rotate(angle: angle, child: card);
     if (onTap == null) return rotated;
-    return GestureDetector(onTap: onTap, behavior: HitTestBehavior.opaque, child: rotated);
+    return PressScale(onTap: onTap, child: rotated);
   }
 }
 
@@ -622,8 +637,9 @@ Widget _cornerStamp({required VoidCallback? onTap, required IconData icon, requi
       child: const SizedBox(width: 12, height: 12, child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
     );
   }
-  return GestureDetector(
+  return PressScale(
     onTap: onTap,
+    haptics: true,
     child: Container(
       width: 28,
       height: 28,
@@ -645,7 +661,7 @@ class _InviteRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
@@ -724,8 +740,9 @@ class _SearchResultRow extends StatelessWidget {
       case 'pending_incoming':
         return Text('respond above', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
       default:
-        return GestureDetector(
+        return PressScale(
           onTap: onAdd,
+          haptics: true,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
             decoration: BoxDecoration(color: SeenlyPalette.accent, borderRadius: BorderRadius.circular(16)),

@@ -94,13 +94,18 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
                 ),
               ),
             ),
-            // FlexibleSpaceBar only reads this to position its *own* title
-            // while collapsing — it doesn't reach into our FittedBox below.
-            // Without it, the collapsed title sits left-aligned next to the
-            // back button on Android while the expanded (hero) title reads
-            // as centered, so the text visibly jumps sides mid-scroll.
+            // Centers the *collapsed* toolbar title (next to the back
+            // button) once the sliver is pinned and scrolled up.
             centerTitle: true,
             flexibleSpace: FlexibleSpaceBar(
+              // FlexibleSpaceBar has its own separate centerTitle — it does
+              // NOT inherit the SliverAppBar's centerTitle above, which only
+              // governs the collapsed toolbar row. Left unset, this defaults
+              // to false on Android, so the expanded (hero) title is
+              // start-aligned inside its titlePadding box instead of truly
+              // centered — it visibly sits left of center. Setting it here
+              // is what actually centers the hero title.
+              centerTitle: true,
               // Default is 1.5 — FlexibleSpaceBar re-enlarges the title by
               // that factor once fully expanded, on top of whatever
               // FittedBox below already fit it to. That round-trip is what
@@ -112,19 +117,43 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
               // actually centered on screen, not just centered within a
               // lopsided 60/20 box that nudges it right.
               titlePadding: const EdgeInsets.fromLTRB(60, 0, 60, 14),
-              title: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.center,
-                child: Text(
-                  collection.displayTitle,
-                  maxLines: 1,
-                  // AppBar/FlexibleSpaceBar wrap titles in a DefaultTextStyle
-                  // with TextOverflow.ellipsis; without overriding it here,
-                  // that ellipsis was firing before FittedBox got a chance
-                  // to shrink the text to fit.
-                  overflow: TextOverflow.visible,
-                  style: SeenlyText.serif(size: 19, weight: FontWeight.w700, color: SeenlyPalette.paper),
-                ),
+              title: Builder(
+                builder: (context) {
+                  // FlexibleSpaceBarSettings tells us how collapsed the
+                  // sliver currently is. As it collapses, the dark hero
+                  // backdrop scrolls away and the plain paper (light)
+                  // Scaffold/AppBar background shows through instead — so
+                  // the title needs to shift from white (legible over the
+                  // dark backdrop) to dark ink (legible over the light
+                  // collapsed bar), not stay white the whole time.
+                  final settings = context
+                      .dependOnInheritedWidgetOfExactType<FlexibleSpaceBarSettings>();
+                  double collapseProgress = 0;
+                  if (settings != null && settings.maxExtent > settings.minExtent) {
+                    collapseProgress = ((settings.maxExtent - settings.currentExtent) /
+                            (settings.maxExtent - settings.minExtent))
+                        .clamp(0.0, 1.0);
+                  }
+                  final titleColor = Color.lerp(
+                    SeenlyPalette.paper,
+                    SeenlyPalette.ink,
+                    collapseProgress,
+                  )!;
+                  return FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: Text(
+                      collection.displayTitle,
+                      maxLines: 1,
+                      // AppBar/FlexibleSpaceBar wrap titles in a DefaultTextStyle
+                      // with TextOverflow.ellipsis; without overriding it here,
+                      // that ellipsis was firing before FittedBox got a chance
+                      // to shrink the text to fit.
+                      overflow: TextOverflow.visible,
+                      style: SeenlyText.serif(size: 19, weight: FontWeight.w700, color: titleColor),
+                    ),
+                  );
+                },
               ),
               background: _CollectionHeroBackdrop(collection: collection),
             ),

@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/wow_motion.dart' show Entrance;
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -58,55 +59,86 @@ class _RegisterScreenState extends State<RegisterScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('start your diary',
-                    textAlign: TextAlign.center,
-                    style: SeenlyText.serif(size: 24, weight: FontWeight.w600)),
+                Entrance(
+                  child: Text('start your diary',
+                      textAlign: TextAlign.center,
+                      style: SeenlyText.serif(size: 24, weight: FontWeight.w600)),
+                ),
                 const SizedBox(height: 6),
-                Text('a shelf just for you — takes a minute',
-                    textAlign: TextAlign.center,
-                    style: SeenlyText.serif(
-                        italic: true,
-                        size: 13,
-                        color: SeenlyPalette.inkMuted)),
+                Entrance(
+                  delay: const Duration(milliseconds: 60),
+                  child: Text('a shelf just for you — takes a minute',
+                      textAlign: TextAlign.center,
+                      style: SeenlyText.serif(
+                          italic: true,
+                          size: 13,
+                          color: SeenlyPalette.inkMuted)),
+                ),
                 const SizedBox(height: 28),
-                TextField(
-                  controller: _username,
-                  decoration: const InputDecoration(hintText: 'pick a username'),
+                Entrance(
+                  delay: const Duration(milliseconds: 110),
+                  riseBy: 16,
+                  child: TextField(
+                    controller: _username,
+                    decoration: const InputDecoration(hintText: 'pick a username'),
+                  ),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _password,
-                  obscureText: true,
-                  decoration: const InputDecoration(hintText: 'pick a password'),
+                Entrance(
+                  delay: const Duration(milliseconds: 150),
+                  riseBy: 16,
+                  child: TextField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: const InputDecoration(hintText: 'pick a password'),
+                  ),
                 ),
-                if (_showReferralField) ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _referralCode,
-                    textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(hintText: "a friend's invite code"),
-                  ),
-                ] else ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton(
-                      onPressed: () => setState(() => _showReferralField = true),
-                      child: Text('have an invite code?',
-                          style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
-                    ),
-                  ),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: 10),
-                  Text(_error!,
-                      style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
-                ],
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _showReferralField
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: TextField(
+                            controller: _referralCode,
+                            textCapitalization: TextCapitalization.characters,
+                            decoration: const InputDecoration(hintText: "a friend's invite code"),
+                          ),
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton(
+                              onPressed: () => setState(() => _showReferralField = true),
+                              child: Text('have an invite code?',
+                                  style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+                            ),
+                          ),
+                        ),
+                ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: _error == null
+                      ? const SizedBox(width: double.infinity)
+                      : Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Text(_error!,
+                              style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
+                        ),
+                ),
                 const SizedBox(height: 20),
-                PrimaryButton(
-                  label: 'create my diary',
-                  loading: _loading,
-                  onTap: _submit,
+                Entrance(
+                  delay: const Duration(milliseconds: 200),
+                  riseBy: 16,
+                  child: PrimaryButton(
+                    label: 'create my diary',
+                    loading: _loading,
+                    onTap: _submit,
+                  ),
                 ),
               ],
             ),

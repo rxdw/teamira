@@ -7,7 +7,9 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../title/title_detail_screen.dart';
+import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 
 class ListDetailScreen extends StatefulWidget {
   final String listId;
@@ -61,32 +63,42 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('delete "${list.name}"?',
-                textAlign: TextAlign.center,
-                style: SeenlyText.serif(italic: true, size: 16)),
+            Entrance(
+              child: Text('delete "${list.name}"?',
+                  textAlign: TextAlign.center,
+                  style: SeenlyText.serif(italic: true, size: 16)),
+            ),
             const SizedBox(height: 6),
-            Text(
-              'the titles themselves stay in your diary — only the list goes away',
-              textAlign: TextAlign.center,
-              style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
+            Entrance(
+              delay: const Duration(milliseconds: 50),
+              child: Text(
+                'the titles themselves stay in your diary — only the list goes away',
+                textAlign: TextAlign.center,
+                style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
+              ),
             ),
             const SizedBox(height: 20),
-            GestureDetector(
-              onTap: () => Navigator.of(context).pop(true),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                decoration: BoxDecoration(
-                  color: SeenlyPalette.coral,
-                  borderRadius: BorderRadius.circular(24),
+            Entrance(
+              delay: const Duration(milliseconds: 100),
+              riseBy: 14,
+              child: PressScale(
+                onTap: () => Navigator.of(context).pop(true),
+                haptics: true,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: SeenlyPalette.coral,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text('delete',
+                      style: SeenlyText.serif(
+                          italic: true, color: SeenlyPalette.accentOnAccent)),
                 ),
-                alignment: Alignment.center,
-                child: Text('delete',
-                    style: SeenlyText.serif(
-                        italic: true, color: SeenlyPalette.accentOnAccent)),
               ),
             ),
             const SizedBox(height: 10),
-            GestureDetector(
+            PressScale(
               onTap: () => Navigator.of(context).pop(false),
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 13),
@@ -158,11 +170,13 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 32),
-                            child: Text(
-                              'empty for now — add titles here from any title\'s page',
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.serif(
-                                  italic: true, color: SeenlyPalette.placeholder),
+                            child: Entrance(
+                              child: Text(
+                                'empty for now — add titles here from any title\'s page',
+                                textAlign: TextAlign.center,
+                                style: SeenlyText.serif(
+                                    italic: true, color: SeenlyPalette.placeholder),
+                              ),
                             ),
                           ),
                         )
@@ -177,18 +191,21 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                           itemCount: list.items.length,
                           itemBuilder: (context, i) {
                             final item = list.items[i];
-                            return _ListItemTile(
-                              item: item,
-                              busy: _busy,
-                              onRemove: () => _removeItem(item),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => TitleDetailScreen(
-                                    mediaId: item.mediaId,
-                                    source: item.source,
-                                    mediaType: item.mediaType,
-                                    seedTitle: item.displayTitle,
-                                    seedPosterUrl: item.posterUrl,
+                            return ScrollRevealEntrance(
+                              index: i,
+                              child: _ListItemTile(
+                                item: item,
+                                busy: _busy,
+                                onRemove: () => _removeItem(item),
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => TitleDetailScreen(
+                                      mediaId: item.mediaId,
+                                      source: item.source,
+                                      mediaType: item.mediaType,
+                                      seedTitle: item.displayTitle,
+                                      seedPosterUrl: item.posterUrl,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -217,9 +234,12 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 8, 12, 4),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-            onPressed: onBack,
+          PressScale(
+            onTap: onBack,
+            child: const Padding(
+              padding: EdgeInsets.all(8),
+              child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+            ),
           ),
           const SizedBox(width: 4),
           Expanded(
@@ -229,9 +249,12 @@ class _Header extends StatelessWidget {
                 style: SeenlyText.screenTitle),
           ),
           if (onDelete != null)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 19, color: SeenlyPalette.inkFaint),
-              onPressed: onDelete,
+            PressScale(
+              onTap: onDelete,
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.delete_outline, size: 19, color: SeenlyPalette.inkFaint),
+              ),
             ),
         ],
       ),
@@ -254,7 +277,7 @@ class _ListItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +296,7 @@ class _ListItemTile extends StatelessWidget {
                 Positioned(
                   top: 4,
                   right: 4,
-                  child: GestureDetector(
+                  child: PressScale(
                     onTap: busy ? null : onRemove,
                     child: Container(
                       padding: const EdgeInsets.all(4),

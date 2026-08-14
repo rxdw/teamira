@@ -76,28 +76,29 @@ class CoViewDecideMethodScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
-                      onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('how should you decide?', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text(
-                          'whatever you land on, everyone votes yes first',
-                          style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
-                        ),
-                      ],
+                    child: Entrance(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('how should you decide?', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(
+                            'whatever you land on, everyone votes yes first',
+                            style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

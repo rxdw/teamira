@@ -11,6 +11,7 @@ import '../../theme/log_theme_copy.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/rabbit_mascot.dart';
+import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 
 /// The very first thing a signed-in person sees on each cold launch —
 /// a full-bleed "good evening, you're still on {last title}" front door,
@@ -106,10 +107,11 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                       children: [
                         ImageFiltered(
                           imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                          child: Image.network(
-                            last!.posterUrl!,
+                          child: FadeInNetworkImage(
+                            url: last!.posterUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            duration: const Duration(milliseconds: 420),
+                            placeholder: Container(color: SeenlyPalette.ink),
                           ),
                         ),
                         Container(
@@ -142,61 +144,80 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                           padding: const EdgeInsets.only(bottom: 10),
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: RabbitMascot(mood: RabbitMood.content, size: 52),
-                          ),
-                        ),
-                      Row(
-                        children: [
-                          Icon(LogThemeCopy.navIcon(theme, active: true),
-                              size: 16, color: accent),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Text(
-                              hasTitle ? '${_greeting()}, you\'re still on' : _greeting(),
-                              style: SeenlyText.serif(
-                                  italic: true, size: 14, color: Colors.white70),
+                            child: Entrance(
+                              riseBy: 16,
+                              child: RabbitMascot(mood: RabbitMood.content, size: 52),
                             ),
                           ),
-                        ],
+                        ),
+                      Entrance(
+                        delay: const Duration(milliseconds: 70),
+                        child: Row(
+                          children: [
+                            Icon(LogThemeCopy.navIcon(theme, active: true),
+                                size: 16, color: accent),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                hasTitle ? '${_greeting()}, you\'re still on' : _greeting(),
+                                style: SeenlyText.serif(
+                                    italic: true, size: 14, color: Colors.white70),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        hasTitle ? last!.displayTitle : 'your diary is waiting',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: SeenlyText.serif(
-                            size: 34, weight: FontWeight.w700, color: Colors.white),
+                      Entrance(
+                        delay: const Duration(milliseconds: 130),
+                        riseBy: 20,
+                        child: Text(
+                          hasTitle ? last!.displayTitle : 'your diary is waiting',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: SeenlyText.serif(
+                              size: 34, weight: FontWeight.w700, color: Colors.white),
+                        ),
                       ),
                       const Spacer(),
-                      GestureDetector(
-                        onTap: () => widget.onEnter(1), // Diary tab
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: SeenlyPalette.paper,
-                            borderRadius: BorderRadius.circular(28),
+                      Entrance(
+                        delay: const Duration(milliseconds: 220),
+                        riseBy: 16,
+                        child: PressScale(
+                          onTap: () => widget.onEnter(1), // Diary tab
+                          haptics: true,
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            decoration: BoxDecoration(
+                              color: SeenlyPalette.paper,
+                              borderRadius: BorderRadius.circular(28),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text('into the diary',
+                                style: SeenlyText.mono(
+                                    size: 12, color: SeenlyPalette.ink, weight: FontWeight.w700)),
                           ),
-                          alignment: Alignment.center,
-                          child: Text('into the diary',
-                              style: SeenlyText.mono(
-                                  size: 12, color: SeenlyPalette.ink, weight: FontWeight.w700)),
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: _QuickJump(label: 'home', onTap: () => widget.onEnter(0))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _QuickJump(
-                                  label: 'discover', onTap: () => widget.onEnter(2))),
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: _QuickJump(
-                                  label: 'profile', onTap: () => widget.onEnter(3))),
-                        ],
+                      Entrance(
+                        delay: const Duration(milliseconds: 270),
+                        riseBy: 14,
+                        child: Row(
+                          children: [
+                            Expanded(
+                                child: _QuickJump(label: 'home', onTap: () => widget.onEnter(0))),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                child: _QuickJump(
+                                    label: 'discover', onTap: () => widget.onEnter(2))),
+                            const SizedBox(width: 8),
+                            Expanded(
+                                child: _QuickJump(
+                                    label: 'profile', onTap: () => widget.onEnter(3))),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -220,7 +241,7 @@ class _QuickJump extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),

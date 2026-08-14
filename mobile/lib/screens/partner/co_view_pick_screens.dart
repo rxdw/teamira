@@ -10,6 +10,7 @@ import '../../widgets/co_view_pick_sheets.dart' show coViewEmptyPoolHint;
 import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import '../decide/decide_random_screen.dart';
 import '../decide/decide_roulette_screen.dart';
+import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker, proposeToCircle;
 
 enum CoViewPickMethod { random, reel }
@@ -126,14 +127,13 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 0),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
-                      onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -147,35 +147,50 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(
-                      _isReel ? Icons.rotate_right_rounded : Icons.casino_outlined,
-                      size: 28,
-                      color: SeenlyPalette.accent,
+                    Entrance(
+                      child: Icon(
+                        _isReel ? Icons.rotate_right_rounded : Icons.casino_outlined,
+                        size: 28,
+                        color: SeenlyPalette.accent,
+                      ),
                     ),
                     const SizedBox(height: 14),
-                    Text(
-                      "what should it come from?",
-                      style: SeenlyText.serif(size: 18.5, weight: FontWeight.w600),
+                    Entrance(
+                      delay: const Duration(milliseconds: 60),
+                      child: Text(
+                        "what should it come from?",
+                        style: SeenlyText.serif(size: 18.5, weight: FontWeight.w600),
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      _isReel
-                          ? "the reel draws from whichever pool you pick, then everyone votes on where it lands."
-                          : "one title gets drawn from whichever pool you pick, then everyone votes on it.",
-                      style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+                    Entrance(
+                      delay: const Duration(milliseconds: 110),
+                      child: Text(
+                        _isReel
+                            ? "the reel draws from whichever pool you pick, then everyone votes on where it lands."
+                            : "one title gets drawn from whichever pool you pick, then everyone votes on it.",
+                        style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+                      ),
                     ),
                     const SizedBox(height: 22),
-                    PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
+                    Entrance(
+                      delay: const Duration(milliseconds: 160),
+                      child: PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
+                    ),
                   ],
                 ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
-              child: NarrowDownPrompt(
-                onNarrowDown: _narrowDown,
-                onTakeItAll: _takeItAll,
-                loading: _loading,
+              child: Entrance(
+                delay: const Duration(milliseconds: 210),
+                riseBy: 14,
+                child: NarrowDownPrompt(
+                  onNarrowDown: _narrowDown,
+                  onTakeItAll: _takeItAll,
+                  loading: _loading,
+                ),
               ),
             ),
           ],

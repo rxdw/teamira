@@ -12,6 +12,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
+import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker;
 
@@ -232,16 +233,33 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
               padding: const EdgeInsets.fromLTRB(8, 8, 20, 0),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                    onPressed: () => _endAndClose(),
+                  PressScale(
+                    onTap: () => _endAndClose(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    ),
                   ),
                   const Spacer(),
                   Text('vote it out', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 ],
               ),
             ),
-            Expanded(child: _body()),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(begin: const Offset(0, 0.02), end: Offset.zero).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: KeyedSubtree(key: ValueKey(_phase), child: _body()),
+              ),
+            ),
           ],
         ),
       ),
@@ -254,24 +272,40 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(22, 10, 22, 24),
           children: [
-            const Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent),
+            const Entrance(child: Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent)),
             const SizedBox(height: 14),
-            Text('vote it out', style: SeenlyText.screenTitle),
-            const SizedBox(height: 8),
-            Text(
-              "a shortlist, a countdown, whoever's got the most votes when "
-              "time's up — a tie just runs another round between whoever's left.",
-              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+            Entrance(
+              delay: const Duration(milliseconds: 60),
+              child: Text('vote it out', style: SeenlyText.screenTitle),
             ),
             const SizedBox(height: 8),
-            Text(
-              "what should the shortlist come from?",
-              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+            Entrance(
+              delay: const Duration(milliseconds: 110),
+              child: Text(
+                "a shortlist, a countdown, whoever's got the most votes when "
+                "time's up — a tie just runs another round between whoever's left.",
+                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Entrance(
+              delay: const Duration(milliseconds: 150),
+              child: Text(
+                "what should the shortlist come from?",
+                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+              ),
             ),
             const SizedBox(height: 18),
-            PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
+            Entrance(
+              delay: const Duration(milliseconds: 190),
+              child: PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
+            ),
             const SizedBox(height: 26),
-            NarrowDownPrompt(onNarrowDown: _narrowDown, onTakeItAll: _start),
+            Entrance(
+              delay: const Duration(milliseconds: 230),
+              riseBy: 14,
+              child: NarrowDownPrompt(onNarrowDown: _narrowDown, onTakeItAll: _start),
+            ),
           ],
         );
       case _Phase.starting:
@@ -282,17 +316,19 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         return Center(
           child: Padding(
             padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _errorMessage ?? 'something went wrong',
-                  textAlign: TextAlign.center,
-                  style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.inkMuted),
-                ),
-                const SizedBox(height: 20),
-                PrimaryButton(label: 'try again', onTap: _start, expand: false),
-              ],
+            child: Entrance(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _errorMessage ?? 'something went wrong',
+                    textAlign: TextAlign.center,
+                    style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.inkMuted),
+                  ),
+                  const SizedBox(height: 20),
+                  PrimaryButton(label: 'try again', onTap: _start, expand: false),
+                ],
+              ),
             ),
           ),
         );
@@ -304,15 +340,23 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             _PollCard(session: session, onVote: _vote),
             const SizedBox(height: 16),
             Center(
-              child: Text(
-                session.isCompany
-                    ? '${session.votedCount} of ${session.memberCount} in the circle have voted'
-                    : session.votedCount >= 2
-                        ? 'everyone has voted'
-                        : session.hasVoted
-                            ? 'waiting on the others'
-                            : "you haven't voted yet",
-                style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
+              child: Entrance(
+                delay: const Duration(milliseconds: 120),
+                riseBy: 10,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: Text(
+                    session.isCompany
+                        ? '${session.votedCount} of ${session.memberCount} in the circle have voted'
+                        : session.votedCount >= 2
+                            ? 'everyone has voted'
+                            : session.hasVoted
+                                ? 'waiting on the others'
+                                : "you haven't voted yet",
+                    key: ValueKey('${session.votedCount}-${session.hasVoted}'),
+                    style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
+                  ),
+                ),
               ),
             ),
           ],
@@ -323,52 +367,68 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(22, 30, 22, 24),
           children: [
-            const Icon(Icons.check_circle_outline, size: 30, color: SeenlyPalette.accent),
+            const Entrance(child: Icon(Icons.check_circle_outline, size: 30, color: SeenlyPalette.accent)),
             const SizedBox(height: 14),
-            Text(winner != null ? "it's decided" : 'round closed', style: SeenlyText.screenTitle),
+            Entrance(
+              delay: const Duration(milliseconds: 60),
+              child: Text(winner != null ? "it's decided" : 'round closed', style: SeenlyText.screenTitle),
+            ),
             const SizedBox(height: 8),
             if (winner != null) ...[
-              Text(
-                "put on the shared list for tonight.",
-                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+              Entrance(
+                delay: const Duration(milliseconds: 110),
+                child: Text(
+                  "put on the shared list for tonight.",
+                  style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+                ),
               ),
               const SizedBox(height: 20),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 74,
-                    child: ThemedPosterTile(
-                      title: winner.title.display,
-                      posterUrl: winner.posterUrl,
-                      mediaType: winner.mediaType,
-                      fallbackColor: SeenlyPalette.mediaColor(winner.mediaType),
+              Entrance(
+                delay: const Duration(milliseconds: 150),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 74,
+                      child: ThemedPosterTile(
+                        title: winner.title.display,
+                        posterUrl: winner.posterUrl,
+                        mediaType: winner.mediaType,
+                        fallbackColor: SeenlyPalette.mediaColor(winner.mediaType),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(winner.title.display, style: SeenlyText.serif(size: 16, italic: true, weight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        Text(winner.mediaType, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
-                      ],
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(winner.title.display, style: SeenlyText.serif(size: 16, italic: true, weight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text(winner.mediaType, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ] else
-              Text(
-                'nobody voted before time ran out.',
-                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+              Entrance(
+                delay: const Duration(milliseconds: 110),
+                child: Text(
+                  'nobody voted before time ran out.',
+                  style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+                ),
               ),
             const SizedBox(height: 26),
-            PrimaryButton(label: 'done', onTap: () => Navigator.of(context).pop(winner)),
+            Entrance(
+              delay: const Duration(milliseconds: 200),
+              riseBy: 14,
+              child: PrimaryButton(label: 'done', onTap: () => Navigator.of(context).pop(winner)),
+            ),
             const SizedBox(height: 10),
             Center(
-              child: TextButton(
-                onPressed: _voteAgain,
+              child: PressScale(
+                onTap: _voteAgain,
                 child: Text('vote on something else', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
               ),
             ),
@@ -399,52 +459,59 @@ class _PollCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final candidates = session.candidates;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-      decoration: BoxDecoration(
-        color: SeenlyPalette.ink,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: SeenlyPalette.softShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                _deadlineLabel(),
-                style: SeenlyText.serif(size: 17, weight: FontWeight.w600, color: SeenlyPalette.paper),
-              ),
-              const Spacer(),
-              if (session.roundNumber > 1)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: SeenlyPalette.paper.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'runoff · round ${session.roundNumber}',
-                    style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.8)),
-                  ),
+    return Entrance(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+        decoration: BoxDecoration(
+          color: SeenlyPalette.ink,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: SeenlyPalette.softShadow,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  _deadlineLabel(),
+                  style: SeenlyText.serif(size: 17, weight: FontWeight.w600, color: SeenlyPalette.paper),
                 ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Column(
-            children: [
-              for (var i = 0; i < candidates.length; i++) ...[
-                if (i > 0) const SizedBox(height: 10),
-                _CandidateTile(
-                  item: candidates[i],
-                  votes: session.votesFor(i),
-                  selected: session.myVote == i,
-                  onTap: () => onVote(i),
+                const Spacer(),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  child: session.roundNumber > 1
+                      ? Container(
+                          key: ValueKey(session.roundNumber),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: SeenlyPalette.paper.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'runoff · round ${session.roundNumber}',
+                            style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.8)),
+                          ),
+                        )
+                      : const SizedBox.shrink(key: ValueKey('no-round')),
                 ),
               ],
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 16),
+            Column(
+              children: [
+                for (var i = 0; i < candidates.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _CandidateTile(
+                    item: candidates[i],
+                    votes: session.votesFor(i),
+                    selected: session.myVote == i,
+                    onTap: () => onVote(i),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -465,9 +532,12 @@ class _CandidateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
-      child: Container(
+      haptics: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.04),
@@ -505,7 +575,9 @@ class _CandidateTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            Container(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: selected
@@ -513,12 +585,16 @@ class _CandidateTile extends StatelessWidget {
                     : Colors.white.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Text(
-                votes == 1 ? '1 vote' : '$votes votes',
-                style: SeenlyText.mono(
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: selected ? SeenlyPalette.accent : SeenlyPalette.paper.withOpacity(0.85),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  votes == 1 ? '1 vote' : '$votes votes',
+                  key: ValueKey(votes),
+                  style: SeenlyText.mono(
+                    size: 12,
+                    weight: FontWeight.w600,
+                    color: selected ? SeenlyPalette.accent : SeenlyPalette.paper.withOpacity(0.85),
+                  ),
                 ),
               ),
             ),

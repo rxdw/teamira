@@ -13,6 +13,7 @@ import '../../widgets/achievement_badge.dart';
 import '../../widgets/activity_preview.dart';
 import '../../widgets/favorites_showcase_row.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/user_avatar.dart';
@@ -105,9 +106,12 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 20, 4),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                    onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    ),
                   ),
                   const SizedBox(width: 4),
                   Expanded(
@@ -123,19 +127,21 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text("couldn't load this profile",
-                                    textAlign: TextAlign.center,
-                                    style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
-                                const SizedBox(height: 10),
-                                GestureDetector(
-                                  onTap: _load,
-                                  child: Text('tap to try again',
-                                      style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
-                                ),
-                              ],
+                            child: Entrance(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text("couldn't load this profile",
+                                      textAlign: TextAlign.center,
+                                      style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
+                                  const SizedBox(height: 10),
+                                  PressScale(
+                                    onTap: _load,
+                                    child: Text('tap to try again',
+                                        style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         )
@@ -205,18 +211,32 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                                 onChanged: (i) => setState(() => _tab = i),
                               ),
                               const SizedBox(height: 16),
-                              _Shelf(
-                                friendName: data.nameForDisplay,
-                                entries: _tab == 0
-                                    ? data.collections.watched
-                                    : _tab == 1
-                                        ? data.collections.watching
-                                        : data.collections.watchLater,
-                                visible: _tab == 0
-                                    ? data.collections.watchedVisible
-                                    : _tab == 1
-                                        ? data.collections.watchingVisible
-                                        : data.collections.watchLaterVisible,
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 260),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, animation) => FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+                                        .animate(animation),
+                                    child: child,
+                                  ),
+                                ),
+                                child: _Shelf(
+                                  key: ValueKey(_tab),
+                                  friendName: data.nameForDisplay,
+                                  entries: _tab == 0
+                                      ? data.collections.watched
+                                      : _tab == 1
+                                          ? data.collections.watching
+                                          : data.collections.watchLater,
+                                  visible: _tab == 0
+                                      ? data.collections.watchedVisible
+                                      : _tab == 1
+                                          ? data.collections.watchingVisible
+                                          : data.collections.watchLaterVisible,
+                                ),
                               ),
                               const SizedBox(height: 22),
                               _ActivitySection(
@@ -670,7 +690,7 @@ class _ActionRowState extends State<_ActionRow> {
 /// periwinkle for co-viewing, pink for "in your circle") — the same
 /// tinted-chip language already used for genre/status chips across the
 /// app, instead of a flat, meaning-free white oval.
-class _SoftPill extends StatelessWidget {
+class _SoftPill extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool filled;
@@ -687,31 +707,49 @@ class _SoftPill extends StatelessWidget {
   });
 
   @override
+  State<_SoftPill> createState() => _SoftPillState();
+}
+
+class _SoftPillState extends State<_SoftPill> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
-        decoration: BoxDecoration(
-          color: filled ? SeenlyPalette.accent : tint.withOpacity(0.16),
-          borderRadius: BorderRadius.circular(20),
-          border: filled ? null : Border.all(color: tint.withOpacity(0.35), width: 1),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: filled ? SeenlyPalette.accentOnAccent : tint),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: SeenlyText.mono(
-                size: 10,
-                weight: FontWeight.w700,
-                color: filled ? SeenlyPalette.accentOnAccent : tint,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        scale: _pressed ? 0.96 : 1,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 14),
+          decoration: BoxDecoration(
+            color: widget.filled ? SeenlyPalette.accent : widget.tint.withOpacity(0.16),
+            borderRadius: BorderRadius.circular(20),
+            border: widget.filled ? null : Border.all(color: widget.tint.withOpacity(0.35), width: 1),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 13, color: widget.filled ? SeenlyPalette.accentOnAccent : widget.tint),
+              const SizedBox(width: 6),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 220),
+                style: SeenlyText.mono(
+                  size: 10,
+                  weight: FontWeight.w700,
+                  color: widget.filled ? SeenlyPalette.accentOnAccent : widget.tint,
+                ),
+                child: Text(widget.label),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -741,7 +779,7 @@ class _Shelf extends StatelessWidget {
   final String friendName;
   final List<WatchlistEntry> entries;
   final bool visible;
-  const _Shelf({required this.friendName, required this.entries, required this.visible});
+  const _Shelf({super.key, required this.friendName, required this.entries, required this.visible});
 
   @override
   Widget build(BuildContext context) {
@@ -749,10 +787,12 @@ class _Shelf extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 30),
         child: Center(
-          child: Text(
-            '$friendName keeps this shelf private',
-            textAlign: TextAlign.center,
-            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
+          child: Entrance(
+            child: Text(
+              '$friendName keeps this shelf private',
+              textAlign: TextAlign.center,
+              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
+            ),
           ),
         ),
       );
@@ -761,8 +801,10 @@ class _Shelf extends StatelessWidget {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 30),
         child: Center(
-          child: Text('nothing here yet',
-              style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
+          child: Entrance(
+            child: Text('nothing here yet',
+                style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
+          ),
         ),
       );
     }
@@ -778,14 +820,17 @@ class _Shelf extends StatelessWidget {
       itemCount: entries.length,
       itemBuilder: (context, i) {
         final e = entries[i];
-        return ThemedPosterTile(
-          title: e.displayTitle,
-          posterUrl: e.posterUrl,
-          mediaType: e.mediaType,
-          fallbackColor: SeenlyPalette.gridColorFor(i),
-          onTap: () => showWatchedPreview(
-            context,
-            WatchedPreviewData.fromFriendEntry(e, friendLabel: "$friendName's activity"),
+        return ScrollRevealEntrance(
+          index: i,
+          child: ThemedPosterTile(
+            title: e.displayTitle,
+            posterUrl: e.posterUrl,
+            mediaType: e.mediaType,
+            fallbackColor: SeenlyPalette.gridColorFor(i),
+            onTap: () => showWatchedPreview(
+              context,
+              WatchedPreviewData.fromFriendEntry(e, friendLabel: "$friendName's activity"),
+            ),
           ),
         );
       },

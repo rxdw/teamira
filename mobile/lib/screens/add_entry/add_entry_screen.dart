@@ -10,6 +10,7 @@ import '../../widgets/heart_rating.dart';
 import '../../widgets/log_ritual.dart';
 import '../../widgets/mood_tag_picker.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 
 enum _WhenChoice { today, yesterday, custom }
 
@@ -145,14 +146,15 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  GestureDetector(
+                  PressScale(
                     onTap: () => Navigator.of(context).pop(),
                     child: Text('cancel',
                         style: SeenlyText.mono(size: 13, color: SeenlyPalette.inkMuted)),
                   ),
                   Text('new entry', style: SeenlyText.cardTitle),
-                  GestureDetector(
+                  PressScale(
                     onTap: _saving ? null : _save,
+                    haptics: true,
                     child: Text('save',
                         style: SeenlyText.mono(size: 13, color: SeenlyPalette.accent)),
                   ),
@@ -163,125 +165,169 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(24, 14, 24, 10),
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.paper,
-                      borderRadius: BorderRadius.circular(12),
+                  Entrance(
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: SeenlyPalette.paper,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: SizedBox(
+                              width: 52,
+                              height: 74,
+                              child: item.posterUrl != null
+                                  ? FadeInNetworkImage(
+                                      url: item.posterUrl!,
+                                      fit: BoxFit.cover,
+                                      placeholder: Container(color: SeenlyPalette.mediaColor(item.mediaType)),
+                                    )
+                                  : Container(color: SeenlyPalette.mediaColor(item.mediaType)),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(item.title.display, style: SeenlyText.cardTitle),
+                                const SizedBox(height: 3),
+                                Text('${item.mediaType} · ${item.year ?? '—'}',
+                                    style: SeenlyText.metaLabel),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: 22),
+                  Entrance(
+                    delay: const Duration(milliseconds: 60),
+                    child: Text('when', style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                  ),
+                  const SizedBox(height: 10),
+                  Entrance(
+                    delay: const Duration(milliseconds: 90),
+                    riseBy: 12,
                     child: Row(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
-                          child: SizedBox(
-                            width: 52,
-                            height: 74,
-                            child: item.posterUrl != null
-                                ? Image.network(item.posterUrl!, fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        Container(color: SeenlyPalette.mediaColor(item.mediaType)))
-                                : Container(color: SeenlyPalette.mediaColor(item.mediaType)),
-                          ),
+                        PillChip(
+                          label: 'today',
+                          active: _when == _WhenChoice.today,
+                          onTap: () => setState(() => _when = _WhenChoice.today),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.title.display, style: SeenlyText.cardTitle),
-                              const SizedBox(height: 3),
-                              Text('${item.mediaType} · ${item.year ?? '—'}',
-                                  style: SeenlyText.metaLabel),
-                            ],
-                          ),
+                        const SizedBox(width: 8),
+                        PillChip(
+                          label: 'yesterday',
+                          active: _when == _WhenChoice.yesterday,
+                          onTap: () => setState(() => _when = _WhenChoice.yesterday),
+                        ),
+                        const SizedBox(width: 8),
+                        PillChip(
+                          label: _when == _WhenChoice.custom && _customDate != null
+                              ? '${_customDate!.month}/${_customDate!.day}'
+                              : 'pick date',
+                          active: _when == _WhenChoice.custom,
+                          onTap: _pickDate,
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  Text('when', style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      PillChip(
-                        label: 'today',
-                        active: _when == _WhenChoice.today,
-                        onTap: () => setState(() => _when = _WhenChoice.today),
-                      ),
-                      const SizedBox(width: 8),
-                      PillChip(
-                        label: 'yesterday',
-                        active: _when == _WhenChoice.yesterday,
-                        onTap: () => setState(() => _when = _WhenChoice.yesterday),
-                      ),
-                      const SizedBox(width: 8),
-                      PillChip(
-                        label: _when == _WhenChoice.custom && _customDate != null
-                            ? '${_customDate!.month}/${_customDate!.day}'
-                            : 'pick date',
-                        active: _when == _WhenChoice.custom,
-                        onTap: _pickDate,
-                      ),
-                    ],
-                  ),
                   if (_partnerUsername != null) ...[
                     const SizedBox(height: 22),
-                    Text('together',
-                        style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                    Entrance(
+                      delay: const Duration(milliseconds: 120),
+                      child: Text('together',
+                          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                    ),
                     const SizedBox(height: 10),
-                    PillChip(
-                      label: 'watched with $_partnerUsername',
-                      active: _watchedWithPartner,
-                      onTap: () => setState(() => _watchedWithPartner = !_watchedWithPartner),
+                    Entrance(
+                      delay: const Duration(milliseconds: 150),
+                      riseBy: 12,
+                      child: PillChip(
+                        label: 'watched with $_partnerUsername',
+                        active: _watchedWithPartner,
+                        onTap: () => setState(() => _watchedWithPartner = !_watchedWithPartner),
+                      ),
                     ),
                   ],
                   const SizedBox(height: 22),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('how it felt',
-                          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
-                      if (_rating > 0)
-                        Text('$_rating/10',
-                            style: SeenlyText.mono(size: 11, color: SeenlyPalette.ratingColor(_rating))),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  HeartRating(
-                    value: _rating,
-                    max: 10,
-                    size: 22,
-                    onChanged: (v) => setState(() => _rating = v == _rating ? 0 : v),
-                  ),
-                  const SizedBox(height: 22),
-                  Text(vibePromptTitle(_rating), style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
-                  const SizedBox(height: 10),
-                  MoodTagPicker(
-                    selected: _moodTags,
-                    onChanged: (tags) => setState(() => _moodTags = tags),
-                    rating: _rating,
-                  ),
-                  const SizedBox(height: 22),
-                  Text('a note to your future self',
-                      style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
-                  const SizedBox(height: 10),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.paper,
-                      borderRadius: BorderRadius.circular(10),
+                  Entrance(
+                    delay: const Duration(milliseconds: 140),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('how it felt',
+                            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 180),
+                          child: _rating > 0
+                              ? Text('$_rating/10',
+                                  key: ValueKey(_rating),
+                                  style: SeenlyText.mono(size: 11, color: SeenlyPalette.ratingColor(_rating)))
+                              : const SizedBox.shrink(key: ValueKey('none')),
+                        ),
+                      ],
                     ),
-                    padding: const EdgeInsets.all(4),
-                    child: TextField(
-                      controller: _noteController,
-                      minLines: 3,
-                      maxLines: 6,
-                      style: SeenlyText.bodyText,
-                      decoration: InputDecoration(
-                        filled: false,
-                        border: InputBorder.none,
-                        hintText: 'watched it with... felt like...',
-                        hintStyle:
-                            SeenlyText.serif(color: SeenlyPalette.placeholder),
+                  ),
+                  const SizedBox(height: 10),
+                  Entrance(
+                    delay: const Duration(milliseconds: 170),
+                    riseBy: 12,
+                    child: HeartRating(
+                      value: _rating,
+                      max: 10,
+                      size: 22,
+                      onChanged: (v) => setState(() => _rating = v == _rating ? 0 : v),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Entrance(
+                    delay: const Duration(milliseconds: 200),
+                    child: Text(vibePromptTitle(_rating), style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                  ),
+                  const SizedBox(height: 10),
+                  Entrance(
+                    delay: const Duration(milliseconds: 230),
+                    riseBy: 12,
+                    child: MoodTagPicker(
+                      selected: _moodTags,
+                      onChanged: (tags) => setState(() => _moodTags = tags),
+                      rating: _rating,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Entrance(
+                    delay: const Duration(milliseconds: 260),
+                    child: Text('a note to your future self',
+                        style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                  ),
+                  const SizedBox(height: 10),
+                  Entrance(
+                    delay: const Duration(milliseconds: 290),
+                    riseBy: 14,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: SeenlyPalette.paper,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.all(4),
+                      child: TextField(
+                        controller: _noteController,
+                        minLines: 3,
+                        maxLines: 6,
+                        style: SeenlyText.bodyText,
+                        decoration: InputDecoration(
+                          filled: false,
+                          border: InputBorder.none,
+                          hintText: 'watched it with... felt like...',
+                          hintStyle:
+                              SeenlyText.serif(color: SeenlyPalette.placeholder),
+                        ),
                       ),
                     ),
                   ),

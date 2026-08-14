@@ -15,11 +15,13 @@ import '../../widgets/coview_bunnies_corner.dart';
 import '../../widgets/co_view_decide_card.dart';
 import '../../widgets/evening_plan_card.dart';
 import '../../widgets/planned_preview_sheet.dart';
+import '../../widgets/scroll_reveal.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/watched_preview_sheet.dart';
+import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../title/title_detail_screen.dart';
 
 /// The linked pair's own screen: everything hearted for tonight or matched
@@ -246,18 +248,27 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
               padding: const EdgeInsets.fromLTRB(8, 8, 12, 0),
               child: Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                    onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.help_outline, size: 18, color: SeenlyPalette.inkMuted),
-                    onPressed: _openHowItWorks,
+                  PressScale(
+                    onTap: _openHowItWorks,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.help_outline, size: 18, color: SeenlyPalette.inkMuted),
+                    ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.tune, size: 18, color: SeenlyPalette.inkMuted),
-                    onPressed: _openSettings,
+                  PressScale(
+                    onTap: _openSettings,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.tune, size: 18, color: SeenlyPalette.inkMuted),
+                    ),
                   ),
                 ],
               ),
@@ -273,14 +284,16 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(28),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text("couldn't load co-viewing",
-                            style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
-                        const SizedBox(height: 14),
-                        PrimaryButton(label: 'try again', onTap: _load, expand: false),
-                      ],
+                    child: Entrance(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text("couldn't load co-viewing",
+                              style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
+                          const SizedBox(height: 14),
+                          PrimaryButton(label: 'try again', onTap: _load, expand: false),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -295,10 +308,12 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 22),
-                        child: _CozyHeader(
-                          myUsername: _data!.myUsername,
-                          otherUsernames: _otherUsernames(),
-                          onAdd: _openAddToCircle,
+                        child: Entrance(
+                          child: _CozyHeader(
+                            myUsername: _data!.myUsername,
+                            otherUsernames: _otherUsernames(),
+                            onAdd: _openAddToCircle,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -329,22 +344,42 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(22, 16, 22, 6),
-                        child: Text(
-                          _tab == 'planned'
-                              ? '${_data!.planned.length} titles'
-                              : _tab == 'watched'
-                                  ? '${_data!.watched.length} titles'
-                                  : '${_suggestions.length} waiting on you',
-                          style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Text(
+                            _tab == 'planned'
+                                ? '${_data!.planned.length} titles'
+                                : _tab == 'watched'
+                                    ? '${_data!.watched.length} titles'
+                                    : '${_suggestions.length} waiting on you',
+                            key: ValueKey(_tab),
+                            style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted),
+                          ),
                         ),
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
-                        child: _tab == 'planned'
-                            ? _plannedGrid()
-                            : _tab == 'watched'
-                                ? _watchedGrid()
-                                : _suggestedList(),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 280),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) => FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+                                  .animate(animation),
+                              child: child,
+                            ),
+                          ),
+                          child: KeyedSubtree(
+                            key: ValueKey(_tab),
+                            child: _tab == 'planned'
+                                ? _plannedGrid()
+                                : _tab == 'watched'
+                                    ? _watchedGrid()
+                                    : _suggestedList(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -379,52 +414,55 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
       itemCount: items.length,
       itemBuilder: (context, i) {
         final e = items[i];
-        return Stack(
-          children: [
-            ThemedPosterTile(
-              title: e.displayTitle,
-              posterUrl: e.posterUrl,
-              mediaType: e.mediaType,
-              fallbackColor: SeenlyPalette.gridColorFor(i),
-              onTap: () => showPlannedPreview(
-                context,
-                PlannedPreviewData.fromCoViewEntry(e),
-                onMarkedWatched: () => _load(silent: true),
-                onMarkWatched: () => context.read<AppState>().partner.markCoViewWatched(e.id),
-                actionLabel: 'mark as watched together',
-                placeholderText: _isCompany
-                    ? "planned together — mark it once everyone's watched it."
-                    : 'planned together — mark it once you both watch it.',
+        return ScrollRevealEntrance(
+          index: i,
+          child: Stack(
+            children: [
+              ThemedPosterTile(
+                title: e.displayTitle,
+                posterUrl: e.posterUrl,
+                mediaType: e.mediaType,
+                fallbackColor: SeenlyPalette.gridColorFor(i),
+                onTap: () => showPlannedPreview(
+                  context,
+                  PlannedPreviewData.fromCoViewEntry(e),
+                  onMarkedWatched: () => _load(silent: true),
+                  onMarkWatched: () => context.read<AppState>().partner.markCoViewWatched(e.id),
+                  actionLabel: 'mark as watched together',
+                  placeholderText: _isCompany
+                      ? "planned together — mark it once everyone's watched it."
+                      : 'planned together — mark it once you both watch it.',
+                ),
+                badge: _MarkWatchedBadge(
+                  busy: _markingWatched.contains(e.id),
+                  onTap: () => _markWatched(e),
+                ),
               ),
-              badge: _MarkWatchedBadge(
-                busy: _markingWatched.contains(e.id),
-                onTap: () => _markWatched(e),
-              ),
-            ),
-            // A scheduled evening (from the co-viewing toggle in "plan
-            // an evening") gets its date shown right on the tile — the
-            // whole point of syncing the schedule over is so the
-            // partner sees *when*, not just *that*, without opening
-            // each poster to check.
-            if (e.scheduledDate != null)
-              Positioned(
-                left: 6,
-                bottom: 6,
-                child: IgnorePointer(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.ink.withOpacity(0.72),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _scheduledChipLabel(e),
-                      style: SeenlyText.mono(size: 9.5, weight: FontWeight.w600, color: SeenlyPalette.paper),
+              // A scheduled evening (from the co-viewing toggle in "plan
+              // an evening") gets its date shown right on the tile — the
+              // whole point of syncing the schedule over is so the
+              // partner sees *when*, not just *that*, without opening
+              // each poster to check.
+              if (e.scheduledDate != null)
+                Positioned(
+                  left: 6,
+                  bottom: 6,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: SeenlyPalette.ink.withOpacity(0.72),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        _scheduledChipLabel(e),
+                        style: SeenlyText.mono(size: 9.5, weight: FontWeight.w600, color: SeenlyPalette.paper),
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -462,21 +500,24 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
         childAspectRatio: 2 / 3,
       ),
       itemCount: items.length,
-      itemBuilder: (context, i) => ThemedPosterTile(
-        title: items[i].displayTitle,
-        posterUrl: items[i].posterUrl,
-        mediaType: items[i].mediaType,
-        fallbackColor: SeenlyPalette.gridColorFor(i),
-        onTap: () {
-          final watchedWith = _CozyHeader._joinNames(_otherUsernames());
-          showWatchedPreview(
-            context,
-            WatchedPreviewData.fromCoViewEntry(
-              items[i],
-              watchedWith: watchedWith.isEmpty ? null : watchedWith,
-            ),
-          );
-        },
+      itemBuilder: (context, i) => ScrollRevealEntrance(
+        index: i,
+        child: ThemedPosterTile(
+          title: items[i].displayTitle,
+          posterUrl: items[i].posterUrl,
+          mediaType: items[i].mediaType,
+          fallbackColor: SeenlyPalette.gridColorFor(i),
+          onTap: () {
+            final watchedWith = _CozyHeader._joinNames(_otherUsernames());
+            showWatchedPreview(
+              context,
+              WatchedPreviewData.fromCoViewEntry(
+                items[i],
+                watchedWith: watchedWith.isEmpty ? null : watchedWith,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -520,13 +561,16 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
           itemCount: _suggestions.length,
           itemBuilder: (context, i) {
             final s = _suggestions[i];
-            return _SuggestedGridTile(
-              suggestion: s,
+            return ScrollRevealEntrance(
               index: i,
-              busy: _accepting,
-              onOpen: () => _openSuggestionTitle(s),
-              onAccept: () => _acceptSuggestion(s),
-              onDecline: () => _declineSuggestion(s),
+              child: _SuggestedGridTile(
+                suggestion: s,
+                index: i,
+                busy: _accepting,
+                onOpen: () => _openSuggestionTitle(s),
+                onAccept: () => _acceptSuggestion(s),
+                onDecline: () => _declineSuggestion(s),
+              ),
             );
           },
         );
@@ -578,28 +622,33 @@ class _SuggestedGridTile extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: GestureDetector(
+                child: PressScale(
                   onTap: busy ? null : onAccept,
+                  haptics: true,
                   child: Container(
                     decoration: BoxDecoration(
                       color: SeenlyPalette.accent,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     alignment: Alignment.center,
-                    child: busy
-                        ? const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: ThemedLoadingIndicator(
-                                strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
-                          )
-                        : const Icon(Icons.check, size: 16, color: SeenlyPalette.accentOnAccent),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: busy
+                          ? const SizedBox(
+                              key: ValueKey('busy'),
+                              width: 12,
+                              height: 12,
+                              child: ThemedLoadingIndicator(
+                                  strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
+                            )
+                          : const Icon(Icons.check, key: ValueKey('check'), size: 16, color: SeenlyPalette.accentOnAccent),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: GestureDetector(
+                child: PressScale(
                   onTap: busy ? null : onDecline,
                   child: Container(
                     decoration: BoxDecoration(
@@ -713,8 +762,9 @@ class _AddSeatButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
+      haptics: true,
       child: DashedBox(
         radius: 20,
         color: SeenlyPalette.inkFaint,
@@ -763,8 +813,9 @@ class _MarkWatchedBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: busy ? null : onTap,
+      haptics: true,
       child: Container(
         width: 26,
         height: 26,
@@ -774,13 +825,17 @@ class _MarkWatchedBadge extends StatelessWidget {
           border: Border.all(color: SeenlyPalette.paper, width: 1.5),
         ),
         alignment: Alignment.center,
-        child: busy
-            ? const SizedBox(
-                width: 11,
-                height: 11,
-                child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
-              )
-            : const Icon(Icons.check, size: 13, color: SeenlyPalette.accentOnAccent),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: busy
+              ? const SizedBox(
+                  key: ValueKey('busy'),
+                  width: 11,
+                  height: 11,
+                  child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
+                )
+              : const Icon(Icons.check, key: ValueKey('check'), size: 13, color: SeenlyPalette.accentOnAccent),
+        ),
       ),
     );
   }
@@ -794,7 +849,9 @@ class _EmptyNote extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Text(text, style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkFaint)),
+      child: Entrance(
+        child: Text(text, style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkFaint)),
+      ),
     );
   }
 }
@@ -895,11 +952,16 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text('add to your circle', style: SeenlyText.sectionTitle),
+            Entrance(
+              child: Text('add to your circle', style: SeenlyText.sectionTitle),
+            ),
             const SizedBox(height: 4),
-            Text(
-              "they'll join once they accept — same as any co-viewing invite.",
-              style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
+            Entrance(
+              delay: const Duration(milliseconds: 50),
+              child: Text(
+                "they'll join once they accept — same as any co-viewing invite.",
+                style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
+              ),
             ),
             const SizedBox(height: 16),
             if (_loading)
@@ -940,44 +1002,56 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                     final f = _friends[i];
                     final sent = _justSentUserIds.contains(f.userId) || _pendingUserIds.contains(f.userId);
                     final busy = _busyUserIds.contains(f.userId);
-                    return Row(
-                      children: [
-                        UserAvatar(
-                          avatarUrl: f.avatarUrl,
-                          avatarPreset: f.avatarPreset,
-                          fallbackLetter: f.username.isNotEmpty ? f.username[0].toUpperCase() : '?',
-                          size: 40,
-                          borderColor: Colors.transparent,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(f.nameForDisplay, style: SeenlyText.serif(size: 14)),
-                        ),
-                        GestureDetector(
-                          onTap: (sent || busy) ? null : () => _invite(f),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: sent ? SeenlyPalette.background : SeenlyPalette.accent,
-                              borderRadius: BorderRadius.circular(10),
-                              border: sent ? Border.all(color: SeenlyPalette.border) : null,
-                            ),
-                            child: busy
-                                ? const SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
-                                  )
-                                : Text(
-                                    sent ? 'invite sent' : 'invite',
-                                    style: SeenlyText.mono(
-                                      size: 11,
-                                      color: sent ? SeenlyPalette.inkFaint : SeenlyPalette.accentOnAccent,
-                                    ),
-                                  ),
+                    return Entrance(
+                      delay: Duration(milliseconds: 40 * i),
+                      riseBy: 14,
+                      child: Row(
+                        children: [
+                          UserAvatar(
+                            avatarUrl: f.avatarUrl,
+                            avatarPreset: f.avatarPreset,
+                            fallbackLetter: f.username.isNotEmpty ? f.username[0].toUpperCase() : '?',
+                            size: 40,
+                            borderColor: Colors.transparent,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(f.nameForDisplay, style: SeenlyText.serif(size: 14)),
+                          ),
+                          PressScale(
+                            onTap: (sent || busy) ? null : () => _invite(f),
+                            haptics: true,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: sent ? SeenlyPalette.background : SeenlyPalette.accent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: sent ? Border.all(color: SeenlyPalette.border) : null,
+                              ),
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 180),
+                                child: busy
+                                    ? const SizedBox(
+                                        key: ValueKey('busy'),
+                                        width: 12,
+                                        height: 12,
+                                        child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
+                                      )
+                                    : Text(
+                                        sent ? 'invite sent' : 'invite',
+                                        key: ValueKey(sent),
+                                        style: SeenlyText.mono(
+                                          size: 11,
+                                          color: sent ? SeenlyPalette.inkFaint : SeenlyPalette.accentOnAccent,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     );
                   },
                 ),
@@ -1012,19 +1086,25 @@ class _SettingsSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text('co-viewing settings', style: SeenlyText.sectionTitle),
+            Entrance(
+              child: Text('co-viewing settings', style: SeenlyText.sectionTitle),
+            ),
             const SizedBox(height: 16),
-            GestureDetector(
-              onTap: onUnlink,
-              child: Row(
-                children: [
-                  Icon(isCompany ? Icons.logout : Icons.link_off, size: 16, color: SeenlyPalette.coral),
-                  const SizedBox(width: 10),
-                  Text(
-                    isCompany ? 'leave this circle' : 'unlink from ${partnerUsername ?? 'partner'}',
-                    style: SeenlyText.serif(size: 14, color: SeenlyPalette.coral),
-                  ),
-                ],
+            Entrance(
+              delay: const Duration(milliseconds: 60),
+              riseBy: 12,
+              child: PressScale(
+                onTap: onUnlink,
+                child: Row(
+                  children: [
+                    Icon(isCompany ? Icons.logout : Icons.link_off, size: 16, color: SeenlyPalette.coral),
+                    const SizedBox(width: 10),
+                    Text(
+                      isCompany ? 'leave this circle' : 'unlink from ${partnerUsername ?? 'partner'}',
+                      style: SeenlyText.serif(size: 14, color: SeenlyPalette.coral),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

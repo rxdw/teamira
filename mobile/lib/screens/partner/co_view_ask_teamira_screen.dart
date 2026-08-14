@@ -7,8 +7,10 @@ import '../../services/api_client.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
+import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../decide/decide_ask_teamira_screen.dart';
 import '../decide/decide_filters_screen.dart';
 import '../title/title_detail_screen.dart';
@@ -101,30 +103,31 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
-                      onPressed: () => Navigator.of(context).pop(),
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('teamira picked these', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
-                        const SizedBox(height: 2),
-                        Text(
-                          '"${widget.query}"',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
-                        ),
-                      ],
+                    child: Entrance(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('teamira picked these', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '"${widget.query}"',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -133,9 +136,13 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
             const SizedBox(height: 6),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 8),
-              child: Text(
-                'tap propose on any of these to put it up for a vote',
-                style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
+              child: Entrance(
+                delay: const Duration(milliseconds: 70),
+                riseBy: 10,
+                child: Text(
+                  'tap propose on any of these to put it up for a vote',
+                  style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
+                ),
               ),
             ),
             Expanded(
@@ -152,22 +159,24 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.auto_awesome_outlined, size: 26, color: SeenlyPalette.placeholder),
-                            const SizedBox(height: 10),
-                            Text(
-                              message,
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
-                            ),
-                            const SizedBox(height: 14),
-                            GestureDetector(
-                              onTap: _retry,
-                              child: Text('tap to try again', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
-                            ),
-                          ],
+                        child: Entrance(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.auto_awesome_outlined, size: 26, color: SeenlyPalette.placeholder),
+                              const SizedBox(height: 10),
+                              Text(
+                                message,
+                                textAlign: TextAlign.center,
+                                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
+                              ),
+                              const SizedBox(height: 14),
+                              PressScale(
+                                onTap: _retry,
+                                child: Text('tap to try again', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -177,10 +186,12 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          "nothing matched that — try describing it differently",
-                          textAlign: TextAlign.center,
-                          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
+                        child: Entrance(
+                          child: Text(
+                            "nothing matched that — try describing it differently",
+                            textAlign: TextAlign.center,
+                            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
+                          ),
                         ),
                       ),
                     );
@@ -192,10 +203,13 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                     itemBuilder: (context, i) {
                       final match = matches[i];
                       final key = '${match.item.source}:${match.item.id}';
-                      return _MatchRow(
-                        match: match,
-                        busy: _proposing.contains(key),
-                        onPropose: () => _propose(match.item),
+                      return ScrollRevealEntrance(
+                        index: i,
+                        child: _MatchRow(
+                          match: match,
+                          busy: _proposing.contains(key),
+                          onPropose: () => _propose(match.item),
+                        ),
                       );
                     },
                   );
@@ -269,21 +283,32 @@ class _MatchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
+          PressScale(
             onTap: busy ? null : onPropose,
-            child: Container(
+            haptics: true,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: SeenlyPalette.accent,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: busy
-                  ? const SizedBox(
-                      width: 12,
-                      height: 12,
-                      child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
-                    )
-                  : Text('propose', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accentOnAccent)),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: busy
+                    ? const SizedBox(
+                        key: ValueKey('busy'),
+                        width: 12,
+                        height: 12,
+                        child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
+                      )
+                    : Text(
+                        'propose',
+                        key: const ValueKey('label'),
+                        style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accentOnAccent),
+                      ),
+              ),
             ),
           ),
         ],
