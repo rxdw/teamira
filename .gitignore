@@ -93,6 +93,11 @@ mobile/macos/Flutter/ephemeral/
 !env.example
 !backend/.env.example
 
+# =========================
+# Local notes / development files
+# =========================
+important.txt
+
 
 
 
