@@ -5,6 +5,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/wow_motion.dart';
 import '../person/person_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The full cast list for a title, reached by tapping "see all" on the
 /// horizontal cast shelf in title_detail_screen.dart — same underlying
@@ -37,7 +38,7 @@ class FullCastScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 2),
                   Expanded(
-                    child: Text('cast',
+                    child: Text('cast'.tr,
                         style: SeenlyText.serif(size: 19, italic: true), maxLines: 1),
                   ),
                 ],

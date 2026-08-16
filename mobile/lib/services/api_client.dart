@@ -31,8 +31,10 @@ class ApiClient {
   ApiClient._();
   static final ApiClient instance = ApiClient._();
 
-  static const String _explicitBaseUrl =
-      String.fromEnvironment('SEENLY_API_BASE_URL');
+  static const String _explicitBaseUrl = String.fromEnvironment(
+    'SEENLY_API_BASE_URL',
+    defaultValue: 'http://192.168.1.33:8000',
+  );
   static const _tokenKey = 'seenly_access_token';
   static const _lastGoodBaseUrlKey = 'seenly_last_good_base_url';
 
@@ -156,13 +158,14 @@ class ApiClient {
     }
   }
 
-  Future<dynamic> get(String path, {Map<String, String>? query}) {
+  Future<dynamic> get(String path,
+      {Map<String, String>? query, Duration timeout = const Duration(seconds: 12)}) {
     return _withRetry((baseUrl) async {
       final uri =
           Uri.parse('$baseUrl$path').replace(queryParameters: query);
       final res = await http
           .get(uri, headers: _headers())
-          .timeout(const Duration(seconds: 12));
+          .timeout(timeout);
       return _decode(res);
     });
   }

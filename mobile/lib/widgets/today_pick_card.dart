@@ -7,6 +7,7 @@ import '../services/today_pick_prefs_service.dart';
 import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// Home's "today's pick" card — a nudge toward one franchise shelf (see
 /// backend/app/curated_franchises.py) picked fresh for today, with a thin
@@ -89,7 +90,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
     final prefs = context.read<TodayPickPrefsService>();
     if (!prefs.hasRerollsLeft(pick.pickDate)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("that's 3 for today — more tomorrow")),
+        SnackBar(content: Text("that's 3 for today — more tomorrow".tr)),
       );
       return;
     }
@@ -106,7 +107,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
       if (!mounted) return;
       setState(() => _shuffling = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't find another pick — try again")));
+          .showSnackBar(SnackBar(content: Text("couldn't find another pick — try again".tr)));
     }
   }
 
@@ -131,7 +132,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
     setState(() => _exiting = true);
     if (announce && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("okay — there'll be a new pick tomorrow")),
+        SnackBar(content: Text("okay — there'll be a new pick tomorrow".tr)),
       );
     }
     // Let the fade actually play before the card also collapses out of
@@ -332,7 +333,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
                         child: Container(
                           alignment: Alignment.center,
                           padding: const EdgeInsets.symmetric(vertical: 11),
-                          child: Text('not now',
+                          child: Text('not now'.tr,
                               style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint, weight: FontWeight.w600)),
                         ),
                       ),

@@ -5,6 +5,7 @@ import '../screens/partner/co_view_decide_method_screen.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'co_view_pick_sheets.dart';
+import '../services/app_translations.dart';
 
 /// A quiet way in to "decide together" — ask teamira, let a dice or the
 /// reel pick, or vote through what you've each got queued, and have the
@@ -61,10 +62,10 @@ class CoViewDecideCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("can't decide?", style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600)),
+                  Text("can't decide?".tr, style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600)),
                   const SizedBox(height: 3),
                   Text(
-                    "ask teamira, vote, or let a dice pick",
+                    "ask teamira, vote, or let a dice pick".tr,
                     style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                   ),
                 ],
@@ -73,7 +74,7 @@ class CoViewDecideCard extends StatelessWidget {
           ),
           Container(width: 1, height: 30, color: SeenlyPalette.border, margin: const EdgeInsets.symmetric(horizontal: 4)),
           IconButton(
-            tooltip: 'pick for us',
+            tooltip: 'pick for us'.tr,
             onPressed: () => _openRandom(context),
             icon: const Icon(Icons.casino_outlined, size: 19, color: SeenlyPalette.accent),
           ),

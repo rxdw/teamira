@@ -9,6 +9,7 @@ import '../theme/text_styles.dart';
 import 'plan_evening_sheet.dart';
 import 'themed_loading_indicator.dart';
 import '../screens/title/title_detail_screen.dart';
+import '../services/app_translations.dart';
 
 /// The "plan an evening" feature's one piece of UI, dropped onto three
 /// screens (Home, Profile, CoViewingScreen) — reads the single shared
@@ -101,10 +102,10 @@ class _EmptyEveningCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('plan an evening', style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600)),
+                  Text('plan an evening'.tr, style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600)),
                   const SizedBox(height: 3),
                   Text(
-                    'pick a title, pick a date, get a ticket',
+                    'pick a title, pick a date, get a ticket'.tr,
                     style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                   ),
                 ],
@@ -166,7 +167,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't mark that watched — try again")),
+        SnackBar(content: Text("couldn't mark that watched — try again".tr)),
       );
     }
   }
@@ -176,7 +177,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: SeenlyPalette.paper,
-        title: Text('let this plan go?', style: SeenlyText.serif(size: 15)),
+        title: Text('let this plan go?'.tr, style: SeenlyText.serif(size: 15)),
         content: Text(
           '"${widget.plan.title}" comes off your ticket — you can always plan another evening.',
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
@@ -184,11 +185,11 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text('keep it', style: SeenlyText.mono(size: 11)),
+            child: Text('keep it'.tr, style: SeenlyText.mono(size: 11)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('let it go', style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
+            child: Text('let it go'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
           ),
         ],
       ),
@@ -366,10 +367,10 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                       Text(
                         [
                           plan.isPast
-                              ? 'mark it watched, or let this plan go'
+                              ? 'mark it watched, or let this plan go'.tr
                               : plan.coViewing
-                                  ? 'a co-viewing evening'
-                                  : 'your evening, on the calendar',
+                                  ? 'a co-viewing evening'.tr
+                                  : 'your evening, on the calendar'.tr,
                           if (plan.hasTime) plan.timeLabel!,
                         ].join(' · '),
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted),
@@ -424,7 +425,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                               color: SeenlyPalette.accent,
                               borderRadius: BorderRadius.circular(16),
                             ),
-                            child: Text('watched',
+                            child: Text('watched'.tr,
                                 style: SeenlyText.mono(
                                     size: 10, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
                           ),
@@ -486,7 +487,7 @@ class _AllPlansSheet extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text('your planned evenings', style: SeenlyText.serif(italic: true, size: 16)),
+                    child: Text('your planned evenings'.tr, style: SeenlyText.serif(italic: true, size: 16)),
                   ),
                   GestureDetector(
                     onTap: () {
@@ -508,7 +509,7 @@ class _AllPlansSheet extends StatelessWidget {
               child: plans.isEmpty
                   ? Center(
                       child: Text(
-                        'nothing planned right now',
+                        'nothing planned right now'.tr,
                         style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
                       ),
                     )
@@ -545,11 +546,11 @@ class _AllPlansRowState extends State<_AllPlansRow> {
   String get _label {
     final plan = widget.plan;
     final day = plan.isPast
-        ? 'was this evening'
+        ? 'was this evening'.tr
         : plan.isToday
-            ? 'tonight'
+            ? 'tonight'.tr
             : plan.isTomorrow
-                ? 'tomorrow'
+                ? 'tomorrow'.tr
                 : '${_months[plan.date.month - 1]} ${plan.date.day}';
     return plan.hasTime ? '$day · ${plan.timeLabel}' : day;
   }
@@ -564,7 +565,7 @@ class _AllPlansRowState extends State<_AllPlansRow> {
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't mark that watched — try again")),
+        SnackBar(content: Text("couldn't mark that watched — try again".tr)),
       );
     }
   }
@@ -646,7 +647,7 @@ class _AllPlansRowState extends State<_AllPlansRow> {
                           color: SeenlyPalette.accent,
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Text('watched',
+                        child: Text('watched'.tr,
                             style: SeenlyText.mono(
                                 size: 9.5, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
                       ),

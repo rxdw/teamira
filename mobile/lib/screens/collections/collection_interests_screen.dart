@@ -4,6 +4,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/interest_picker.dart';
 import '../../widgets/small_pieces.dart';
+import '../../services/app_translations.dart';
 
 /// Lets a person pick what Collections should gather for them.
 ///
@@ -61,7 +62,7 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
                   children: [
                     const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 6),
-                    Text('back to collections',
+                    Text('back to collections'.tr,
                         style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                   ],
                 ),
@@ -105,7 +106,7 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
           if (widget.isFirstRun) ...[
             const SizedBox(height: 12),
             Center(
-              child: Text('nothing picked yet is fine too — you can decide later',
+              child: Text('nothing picked yet is fine too — you can decide later'.tr,
                   style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
             ),
           ],

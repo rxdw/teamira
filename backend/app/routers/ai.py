@@ -42,21 +42,16 @@ from app.config import settings
 from app.database import get_db
 from app.schemas import AiAskRequest, AiAskResponse, AiMatchOut, MediaItem
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.google_books import GoogleBooksAdapter
+from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.adapters.tmdb import TmdbAdapter
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
 _games = IgdbAdapter()
 _tmdb = TmdbAdapter()
-_books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_books = GoogleBooksAdapter()
+_manga = ShikimoriMangaAdapter()
 
 
 async def _broad_pool(db: Session) -> List[MediaItem]:

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart' show DustPainter, LightMote, flashOpacity, seededMotes;
+import '../services/app_translations.dart';
 
 /// The shared "moment locked in" beat: every scene holds its breath for
 /// an instant right before the save lands — the camera creeps very
@@ -973,7 +974,7 @@ class _ScreenIgniteSceneState extends State<ScreenIgniteScene>
               const SizedBox(height: 18),
               Opacity(
                 opacity: captionOpacity,
-                child: Text('the screen comes alive',
+                child: Text('the screen comes alive'.tr,
                     style: SeenlyText.serif(italic: true, size: 21, color: SeenlyPalette.paper)),
               ),
               const SizedBox(height: 22),
@@ -1111,7 +1112,7 @@ class _GardenDuskSceneState extends State<GardenDuskScene>
               const SizedBox(height: 22),
               Opacity(
                 opacity: captionOpacity,
-                child: Text('the bed settles for the night',
+                child: Text('the bed settles for the night'.tr,
                     style: SeenlyText.serif(italic: true, size: 21, color: SeenlyPalette.paper)),
               ),
               const SizedBox(height: 12),

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart' show flashOpacity;
+import '../services/app_translations.dart';
 
 /// Plays right after an evening is saved in the garden theme — the
 /// seed from [showGardenPlant] has taken root as a closed bud, and
@@ -229,7 +230,7 @@ class _BloomDropOverlayState extends State<_BloomDropOverlay> with TickerProvide
                     onTap: _skip,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text('skip', style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
+                      child: Text('skip'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
                     ),
                   ),
                 ),
@@ -289,7 +290,7 @@ class _BloomDropOverlayState extends State<_BloomDropOverlay> with TickerProvide
                           children: [
                             Icon(Icons.swipe, size: 13, color: SeenlyPalette.paper.withOpacity(0.75)),
                             const SizedBox(width: 6),
-                            Text('coax the petals apart — or just tap',
+                            Text('coax the petals apart — or just tap'.tr,
                                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.paper.withOpacity(0.75))),
                           ],
                         ),

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// A soft cover over text that might spoil something — blurred rather
 /// than hidden outright, with a small paper chip floating on top
@@ -77,7 +78,7 @@ class _SpoilerVeilState extends State<SpoilerVeil> {
                       Text(widget.label,
                           style: SeenlyText.serif(size: 11.5, italic: true, color: SeenlyPalette.inkMuted)),
                       const SizedBox(height: 3),
-                      Text('tap to reveal',
+                      Text('tap to reveal'.tr,
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.accent, weight: FontWeight.w600)),
                     ],
                   ),

@@ -10,6 +10,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import 'add_source_screen.dart';
+import '../../services/app_translations.dart';
 
 /// "Your sources" — Settings > your sources. The same watched / watching
 /// / plan-to-watch shelves Profile shows for movies/series, but scoped to
@@ -80,7 +81,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
-                  Text('your sources', style: SeenlyText.screenTitle),
+                  Text('your sources'.tr, style: SeenlyText.screenTitle),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline, size: 20, color: SeenlyPalette.accent),
@@ -92,8 +93,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
               child: Text(
-                'YouTube and Twitch, brought in by link — kept separate from your '
-                'movies and shows so it never skews those stats.',
+                'YouTube and Twitch, brought in by link — kept separate from your movies and shows so it never skews those stats.'.tr,
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
               ),
             ),
@@ -115,7 +115,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                           const Icon(Icons.dashboard_customize_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('mix these into your main list?',
+                            child: Text('mix these into your main list?'.tr,
                                 style: SeenlyText.serif(size: 13)),
                           ),
                           Switch(
@@ -130,9 +130,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'shows these alongside movies and shows in watched, watching, '
-                          'and plan to watch — heads up, they can look a little off there, '
-                          'since a source opens the video itself instead of a title page',
+                          'shows these alongside movies and shows in watched, watching, and plan to watch — heads up, they can look a little off there, since a source opens the video itself instead of a title page'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -158,13 +156,13 @@ class _SourcesScreenState extends State<SourcesScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 60),
                         children: [
-                          Text("couldn't load your sources",
+                          Text("couldn't load your sources".tr,
                               textAlign: TextAlign.center,
                               style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                           const SizedBox(height: 10),
                           GestureDetector(
                             onTap: _refresh,
-                            child: Text('pull down, or tap here, to try again',
+                            child: Text('pull down, or tap here, to try again'.tr,
                                 textAlign: TextAlign.center,
                                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                           ),
@@ -192,8 +190,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                           const Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.placeholder),
                           const SizedBox(height: 14),
                           Text(
-                            "nothing here yet — paste a YouTube or Twitch link to bring "
-                            "something over",
+                            'nothing here yet — paste a YouTube or Twitch link to bring something over'.tr,
                             textAlign: TextAlign.center,
                             style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
                           ),

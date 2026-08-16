@@ -8,6 +8,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart' show Entrance;
 import 'register_screen.dart';
+import '../../services/app_translations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -56,14 +57,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 10),
                 Entrance(
                   delay: const Duration(milliseconds: 60),
-                  child: Text('teamira',
+                  child: Text('teamira'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.serif(size: 30, weight: FontWeight.w600)),
                 ),
                 const SizedBox(height: 6),
                 Entrance(
                   delay: const Duration(milliseconds: 110),
-                  child: Text('welcome back to your evening diary',
+                  child: Text('welcome back to your evening diary'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.serif(
                           italic: true,
@@ -76,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   riseBy: 16,
                   child: TextField(
                     controller: _username,
-                    decoration: const InputDecoration(hintText: 'username'),
+                    decoration: InputDecoration(hintText: 'username'.tr),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -86,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: TextField(
                     controller: _password,
                     obscureText: true,
-                    decoration: const InputDecoration(hintText: 'password'),
+                    decoration: InputDecoration(hintText: 'password'.tr),
                   ),
                 ),
                 AnimatedSize(
@@ -118,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const RegisterScreen()),
                     ),
-                    child: Text('new here? start a diary',
+                    child: Text('new here? start a diary'.tr,
                         style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent)),
                   ),
                 ),

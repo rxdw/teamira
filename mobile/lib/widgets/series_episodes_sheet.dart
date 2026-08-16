@@ -20,6 +20,7 @@ import 'edit_review_sheet.dart';
 import 'heart_rating.dart';
 import 'review_composer.dart';
 import 'themed_loading_indicator.dart';
+import '../services/app_translations.dart';
 
 /// Opened from a series' single roll-up card on the Diary tab or the
 /// "watched" shelf — one card per series rather than one row per logged
@@ -475,7 +476,7 @@ class _SeriesReviewCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('your review', style: SeenlyText.metaLabel),
+              Text('your review'.tr, style: SeenlyText.metaLabel),
               GestureDetector(
                 onTap: onEdit,
                 behavior: HitTestBehavior.opaque,
@@ -512,7 +513,7 @@ class _SeriesReviewCard extends StatelessWidget {
                 ),
                 if (isLongNote) ...[
                   const SizedBox(height: 6),
-                  Text('read the full review →',
+                  Text('read the full review →'.tr,
                       style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.accent)),
                 ],
               ],
@@ -1000,7 +1001,7 @@ class _EpisodeRatingDialogState extends State<_EpisodeRatingDialog> {
               minLines: 1,
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
               decoration: InputDecoration(
-                hintText: 'a quick note about this one (optional)',
+                hintText: 'a quick note about this one (optional)'.tr,
                 hintStyle: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
                 border: InputBorder.none,
                 isDense: true,
@@ -1012,7 +1013,7 @@ class _EpisodeRatingDialogState extends State<_EpisodeRatingDialog> {
               children: [
                 TextButton(
                   onPressed: _saving ? null : () => Navigator.of(context).pop(false),
-                  child: Text('cancel', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+                  child: Text('cancel'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
                 ),
                 const SizedBox(width: 8),
                 TextButton(

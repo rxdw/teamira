@@ -7,6 +7,7 @@ import '../screens/title/title_detail_screen.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'stamp.dart';
+import '../services/app_translations.dart';
 
 /// The Diary tab's centerpiece in the passport theme — the counterpart
 /// to `TicketJar`: a small closed passport sitting on the shelf instead
@@ -209,7 +210,7 @@ class _PassportCover extends StatelessWidget {
                           children: [
                             _Crest(),
                             const SizedBox(height: 10),
-                            Text('SEENLY',
+                            Text('SEENLY'.tr,
                                 style: SeenlyText.mono(
                                     size: 9, color: SeenlyPalette.mustard, weight: FontWeight.w700)),
                           ],
@@ -310,7 +311,7 @@ class PassportSpreadView extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('riffled open',
+                  Text('riffled open'.tr,
                       style: SeenlyText.serif(italic: true, size: 18, color: SeenlyPalette.paper)),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),

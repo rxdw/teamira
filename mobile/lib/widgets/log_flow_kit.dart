@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart';
+import '../services/app_translations.dart';
 
 /// Shared pieces for the "pick a seat → settle the details → confirm →
 /// watch the pass appear" ritual that every log theme now runs. Kept
@@ -508,10 +509,10 @@ Future<void> showLeaveRouteDialog(
     builder: (dialogContext) => AlertDialog(
       backgroundColor: SeenlyPalette.ink,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      title: Text('leave without finishing?',
+      title: Text('leave without finishing?'.tr,
           style: SeenlyText.serif(italic: true, size: 17, color: SeenlyPalette.paper)),
       content: Text(
-        "nothing's logged yet.",
+        "nothing's logged yet.".tr,
         style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.65)),
       ),
       actionsAlignment: MainAxisAlignment.center,
@@ -519,7 +520,7 @@ Future<void> showLeaveRouteDialog(
       actions: [
         TextButton(
           onPressed: () => Navigator.of(dialogContext).pop(),
-          child: Text('stay', style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.paper.withOpacity(0.65))),
+          child: Text('stay'.tr, style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.paper.withOpacity(0.65))),
         ),
         TextButton(
           onPressed: () {

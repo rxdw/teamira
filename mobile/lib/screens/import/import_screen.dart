@@ -9,6 +9,7 @@ import '../../widgets/interest_picker.dart' show kInterests;
 import '../../widgets/poster_tile.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../services/app_translations.dart';
 
 enum _Phase { input, loading, review, importing, done }
 
@@ -121,7 +122,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 // always fit on one line.
                 Expanded(
                   child: Text(
-                    'import your history',
+                    'import your history'.tr,
                     style: SeenlyText.screenTitle.copyWith(
                       color: _dark ? SeenlyPalette.paper : null,
                     ),
@@ -376,10 +377,7 @@ class _InputStepState extends State<_InputStep> {
       padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
       children: [
         Text(
-          "already keeping track somewhere else? bring it over — paste a "
-          "plain list of titles, or an export from any of the services "
-          "below, and teamira will match each one against the right shelf "
-          "on its own.",
+          'already keeping track somewhere else? bring it over — paste a plain list of titles, or an export from any of the services below, and teamira will match each one against the right shelf on its own.'.tr,
           style: SeenlyText.serif(italic: true, size: 12, color: mutedColor),
         ),
         const SizedBox(height: 14),
@@ -396,7 +394,7 @@ class _InputStepState extends State<_InputStep> {
             const Icon(Icons.edit_note, size: 20, color: SeenlyPalette.accent),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('or just type it in',
+              child: Text('or just type it in'.tr,
                   style: SeenlyText.sectionTitle.copyWith(color: SeenlyPalette.accent)),
             ),
           ],
@@ -424,12 +422,11 @@ class _InputStepState extends State<_InputStep> {
         ),
         const SizedBox(height: 8),
         Text(
-          'type or paste any mix of them below, one per line — teamira '
-          'sorts out what\'s what and matches each to the right shelf.',
+          "type or paste any mix of them below, one per line — teamira sorts out what's what and matches each to the right shelf.".tr,
           style: SeenlyText.mono(size: 10, color: mutedColor),
         ),
         const SizedBox(height: 18),
-        Text('these titles are', style: SeenlyText.metaLabel.copyWith(color: dark ? Colors.white.withOpacity(0.7) : null)),
+        Text('these titles are'.tr, style: SeenlyText.metaLabel.copyWith(color: dark ? Colors.white.withOpacity(0.7) : null)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -453,7 +450,7 @@ class _InputStepState extends State<_InputStep> {
           ],
         ),
         const SizedBox(height: 22),
-        Text('import from', style: SeenlyText.metaLabel.copyWith(color: dark ? Colors.white.withOpacity(0.7) : null)),
+        Text('import from'.tr, style: SeenlyText.metaLabel.copyWith(color: dark ? Colors.white.withOpacity(0.7) : null)),
         const SizedBox(height: 10),
         _SourcePicker(
           selectedId: _sourceId,
@@ -465,8 +462,7 @@ class _InputStepState extends State<_InputStep> {
           duration: const Duration(milliseconds: 150),
           child: source == null
               ? Text(
-                  'no account to match? no problem — the box below is exactly '
-                  'what "or just type it in" above is talking about.',
+                  'no account to match? no problem — the box below is exactly what "or just type it in" above is talking about.'.tr,
                   key: const ValueKey('plain'),
                   style: SeenlyText.mono(size: 10, color: faintColor),
                 )
@@ -722,7 +718,7 @@ class _ReviewStep extends StatelessWidget {
               TextButton(
                 onPressed: onBack,
                 child: Text(
-                  'back',
+                  'back'.tr,
                   style: SeenlyText.mono(size: 11, color: dark ? Colors.white.withOpacity(0.42) : SeenlyPalette.placeholder),
                 ),
               ),
@@ -770,7 +766,7 @@ class _ImportRowCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: SeenlyText.serif(size: 12, color: dark ? SeenlyPalette.paper : SeenlyPalette.ink)),
-                  Text('no match — will be skipped', style: SeenlyText.mono(size: 9, color: faintColor)),
+                  Text('no match — will be skipped'.tr, style: SeenlyText.mono(size: 9, color: faintColor)),
                 ],
               ),
             ),

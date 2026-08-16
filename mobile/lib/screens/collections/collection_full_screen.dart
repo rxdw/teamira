@@ -2,14 +2,19 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../models/collection.dart';
+import '../../models/media_item.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/add_to_list_sheet.dart';
+import '../../widgets/mosaic_poster_grid.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/franchise_info_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Everything in one editorial shelf, as a grid — reached by tapping
 /// "all →" on a Collections row.
@@ -184,55 +189,79 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
           ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 28),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 14,
-                childAspectRatio: 2 / 3,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, gridIndex) {
-                  final i = _order[gridIndex];
-                  final item = collection.items[i];
-                  return ScrollReveal(
-                    key: ValueKey('${item.id}-$_revealGen'),
-                    // Capped rather than growing with gridIndex — see
-                    // the same reasoning on Profile's own shelf grid:
-                    // only the handful of tiles entering the viewport
-                    // together in one scroll pass should stagger
-                    // against each other.
-                    delay: Duration(milliseconds: 35 * (gridIndex % 6)),
-                    child: ThemedPosterTile(
-                      title: item.title.display,
-                      posterUrl: item.posterUrl,
-                      mediaType: item.mediaType,
-                      fallbackColor: SeenlyPalette.gridColorFor(i),
-                      badge: gridIndex < 3 && collection.isFranchise
-                          ? _RankBadge(rank: gridIndex + 1)
-                          : null,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => TitleDetailScreen(
-                            mediaId: item.id,
-                            source: item.source,
-                            mediaType: item.mediaType,
-                            seedTitle: item.title.display,
-                            seedPosterUrl: item.posterUrl,
-                            seedItem: item,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-                childCount: collection.items.length,
+            sliver: SliverToBoxAdapter(
+              child: _MosaicGrid(
+                collection: collection,
+                order: _order,
+                revealGen: _revealGen,
               ),
             ),
           ),
         ],
       ),
       ),
+    );
+  }
+}
+
+/// A two-column Pinterest-style mosaic, standing in for the old rigid
+/// 2×2 grid. Every third tile (in shuffled order) is stretched taller,
+/// so the two columns settle at different heights instead of lining up
+/// row by row — and since the "tall" slots are keyed off [order], each
+/// shuffle reshuffles *which* posters go big, not just their positions.
+///
+/// Built as one plain widget (not a Sliver) because collections are
+/// small, fully-loaded lists (not an infinite/paginated feed), so
+/// there's no lazy-building benefit to lose by laying it all out at
+/// once inside the enclosing SliverToBoxAdapter.
+class _MosaicGrid extends StatelessWidget {
+  final SeenlyCollection collection;
+  final List<int> order;
+  final int revealGen;
+  const _MosaicGrid({required this.collection, required this.order, required this.revealGen});
+
+  @override
+  Widget build(BuildContext context) {
+    return MosaicPosterGrid(
+      itemCount: collection.items.length,
+      order: order,
+      revealGen: revealGen,
+      keyOf: (i) => collection.items[i].id,
+      tileBuilder: (context, i, gridIndex, aspect) {
+        final item = collection.items[i];
+        return TiltPosterTile(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => TitleDetailScreen(
+                mediaId: item.id,
+                source: item.source,
+                mediaType: item.mediaType,
+                seedTitle: item.title.display,
+                seedPosterUrl: item.posterUrl,
+                seedItem: item,
+              ),
+            ),
+          ),
+          onLongPress: () => _showQuickActions(context, item),
+          child: MosaicParallaxPoster(
+            builder: (parallax) => ThemedPosterTile(
+              title: item.title.display,
+              posterUrl: item.posterUrl,
+              mediaType: item.mediaType,
+              fallbackColor: SeenlyPalette.gridColorFor(i),
+              aspectRatio: aspect,
+              parallax: parallax,
+              badge: gridIndex < 3 && collection.isFranchise
+                  ? _RankBadge(rank: gridIndex + 1)
+                  : null,
+              // Tap/navigation is handled by the TiltPosterTile wrapper
+              // above (which also owns the long-press quick actions), so
+              // this stays null — otherwise two separate GestureDetectors
+              // would both be fielding the same tap.
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -444,11 +473,111 @@ class _AboutFranchisePill extends StatelessWidget {
           children: [
             const Icon(Icons.auto_stories, size: 12, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
-            Text('о франшизе',
+            Text('о франшизе'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
           ],
         ),
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------
+// Quick actions sheet (long-press)
+// ---------------------------------------------------------------------
+
+/// Opened on long-press instead of only ever being reachable from deep
+/// inside the title detail screen — the two things someone's actually
+/// likely to want to do with a poster without leaving the grid.
+void _showQuickActions(BuildContext context, MediaItem item) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => Padding(
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: SeenlyPalette.paper,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: SeenlyPalette.softShadow,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 6),
+              child: Text(
+                item.title.display,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: SeenlyText.serif(size: 14, weight: FontWeight.w700),
+              ),
+            ),
+            _QuickActionTile(
+              icon: Icons.playlist_add_rounded,
+              label: 'добавить в список'.tr,
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                showAddToListSheet(context, item);
+              },
+            ),
+            _QuickActionTile(
+              icon: Icons.ios_share_rounded,
+              label: 'поделиться'.tr,
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _shareMediaItem(item);
+              },
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _QuickActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickActionTile({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 19, color: SeenlyPalette.accent),
+            const SizedBox(width: 14),
+            Text(label, style: SeenlyText.serif(size: 14)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Same shape as the plain-text share used on the trailer reels screen
+/// (screens/trailers/trailer_reels_screen.dart) — title + year, plus a
+/// TMDB/IMDb link when the title has one to link to.
+void _shareMediaItem(MediaItem item) {
+  final bits = [
+    item.title.display,
+    if (item.year != null) '(${item.year})',
+  ].join(' ');
+  final imdb = item.externalIds.imdb;
+  final tmdb = item.externalIds.tmdb;
+  String? link;
+  if (imdb != null && imdb.isNotEmpty) {
+    link = 'https://www.imdb.com/title/$imdb/';
+  } else if (tmdb != null && tmdb.isNotEmpty) {
+    final section = item.mediaType == 'movie' ? 'movie' : 'tv';
+    link = 'https://www.themoviedb.org/$section/$tmdb';
+  }
+  Share.share(link != null ? '$bits\n$link' : bits);
 }

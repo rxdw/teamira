@@ -1,5 +1,5 @@
 """Подборки Teamira — hand-curated shelves for the Collections tab,
-separate from both the TMDB/IGDB/Open Library editorial shelves in
+separate from both the TMDB/IGDB/Google Books editorial shelves in
 app/routers/feed.py (algorithmic, no DB row) and a user's own UserList
 (personal, per-user). See app/models.py::TeamiraCollection for the full
 "why a third concept" reasoning.
@@ -42,7 +42,8 @@ from app.schemas import (
     TodayPickOut,
 )
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.google_books import GoogleBooksAdapter
+from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.adapters.tmdb import TmdbAdapter
 
 router = APIRouter(tags=["teamira"])
@@ -53,14 +54,8 @@ _tmdb = TmdbAdapter()
 # (see routers/media.py) — a Teamira shelf can now pull from any of them,
 # not just TMDB movies/series.
 _games = IgdbAdapter()
-_books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_books = GoogleBooksAdapter()
+_manga = ShikimoriMangaAdapter()
 
 
 # ---------------------------------------------------------------------------
@@ -74,10 +69,10 @@ _manga = OpenLibraryAdapter(
 _LITE_CACHE_SOURCE = {
     "tmdb": "tmdb-v2",
     "igdb": "igdb-lite-v1",
-    "open_library": "ol-lite-v1",
-    "open_library_manga": "olm-lite-v1",
+    "google_books": "gb-lite-v1",
+    "shikimori_manga": "shikimanga-lite-v1",
 }
-_CATALOG_ADAPTERS = {"igdb": _games, "open_library": _books, "open_library_manga": _manga}
+_CATALOG_ADAPTERS = {"igdb": _games, "google_books": _books, "shikimori_manga": _manga}
 
 
 async def _resolve_manual_item(db: Session, media_id: str, media_type: str, source: str | None) -> MediaItem | None:
@@ -113,7 +108,30 @@ async def _resolve_manual_item(db: Session, media_id: str, media_type: str, sour
 
     adapter = _CATALOG_ADAPTERS[source]
     prefix = "igdb-" if source == "igdb" else adapter.id_prefix
-    raw_id = media_id[len(prefix):] if media_id.startswith(prefix) else media_id
+    if not media_id.startswith(prefix):
+        # A stored media_id from a source whose id scheme has since
+        # changed (e.g. a Teamira book pick added back when books ran on
+        # Open Library, so it's still "ol-OLxxxxW" — Google Books has no
+        # such id at all, they're different catalogs with unrelated id
+        # spaces). Passing media_id through unstripped in this case used
+        # to send that raw legacy id straight to the *current* adapter's
+        # detail endpoint as if it were one of its own ids — a guaranteed
+        # 404/503 that also never got cached (only a success is cached
+        # below), so every single load of that shelf re-hit the live API
+        # with an id it could never resolve. Treat this as "unresolvable
+        # under the current source" instead: same as IGDB-not-configured
+        # above, this shelf item just doesn't show up, and it's flagged
+        # loudly so it gets manually re-added (there's no automatic way
+        # to map an old catalog's id to a new catalog's matching title).
+        logger.warning(
+            "Teamira item %r has a %s id that doesn't match the current "
+            "%s prefix (%r) — likely added under a since-replaced "
+            "catalog; skipping instead of querying the live API with a "
+            "malformed id. Re-add this item through admin search.",
+            media_id, source, source, prefix,
+        )
+        return None
+    raw_id = media_id[len(prefix):]
     cached = cache.get_static_title(db, raw_id, cache_tag)
     if cached is not None:
         return MediaItem.model_validate_json(cached)
@@ -413,9 +431,9 @@ async def admin_add_item(collection_id: str, payload: TeamiraCollectionItemIn, d
         raise HTTPException(
             status_code=400, detail="media_type must be movie | series | anime | game | book | manga"
         )
-    if payload.source not in ("tmdb", "igdb", "open_library", "open_library_manga"):
+    if payload.source not in ("tmdb", "igdb", "google_books", "shikimori_manga"):
         raise HTTPException(
-            status_code=400, detail="source must be tmdb | igdb | open_library | open_library_manga"
+            status_code=400, detail="source must be tmdb | igdb | google_books | shikimori_manga"
         )
 
     # Fail fast on a bad id rather than silently storing a reference that

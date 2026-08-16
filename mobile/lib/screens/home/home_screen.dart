@@ -57,6 +57,7 @@ import '../trailers/trailer_reels_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_pull_to_refresh.dart';
 import 'ask_teamira_results_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Home-specific shorthand for [scopedPosterHeroTag] — every call site in
 /// this file scopes under 'home', trailer reels under 'foryou' (see
@@ -518,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Text('what shall we watch?',
+                              Text('what shall we watch?'.tr,
                                   style: SeenlyText.serif(
                                       size: 23, weight: FontWeight.w600)),
                             ],
@@ -726,7 +727,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               ],
                               Expanded(
                                 child: Text(
-                                  'nothing logged yet — find something and tuck it in',
+                                  'nothing logged yet — find something and tuck it in'.tr,
                                   style: SeenlyText.serif(
                                       italic: true, color: SeenlyPalette.placeholder),
                                 ),
@@ -815,7 +816,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         Padding(
                           padding: const EdgeInsets.only(right: 22),
                           child: Text(
-                            'picked from what you\'ve loved so far — tap one to watch its trailer',
+                            'picked from what you\'ve loved so far — tap one to watch its trailer'.tr,
                             style: SeenlyText.serif(
                                 italic: true, size: 12, color: SeenlyPalette.inkMuted),
                           ),
@@ -889,7 +890,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
                   sliver: SliverToBoxAdapter(
                     child: Text(
-                      "couldn't reach the catalog for tonight's pick — the rest of your diary loaded fine",
+                      "couldn't reach the catalog for tonight's pick — the rest of your diary loaded fine".tr,
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                   ),
@@ -1136,11 +1137,11 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
             children: [
               const Icon(Icons.auto_awesome_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 7),
-              Text('ask teamira', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+              Text('ask teamira'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ],
           ),
           const SizedBox(height: 6),
-          Text('not sure what to watch or play?',
+          Text('not sure what to watch or play?'.tr,
               style: SeenlyText.serif(size: 16, weight: FontWeight.w600)),
           const SizedBox(height: 10),
           Container(
@@ -1159,7 +1160,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
                 border: InputBorder.none,
-                hintText: 'describe a mood, a genre, "like [title]"…',
+                hintText: 'describe a mood, a genre, "like [title]"…'.tr,
                 hintStyle: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
               ),
             ),
@@ -1184,7 +1185,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('find matches',
+                    Text('find matches'.tr,
                         style: SeenlyText.mono(
                             size: 12, weight: FontWeight.w700, color: SeenlyPalette.accentOnAccent)),
                     const SizedBox(width: 6),
@@ -1470,7 +1471,7 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
           children: [
             const Icon(Icons.person_add_alt_1_rounded, size: 12, color: SeenlyPalette.inkFaint),
             const SizedBox(width: 6),
-            Text('invite friends to see their activity here',
+            Text('invite friends to see their activity here'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
           ],
         ),
@@ -1585,8 +1586,8 @@ class _ContinueWatchingCard extends StatelessWidget {
 
   String _relativeDay(DateTime d) {
     final diff = DateTime.now().difference(d).inDays;
-    if (diff <= 0) return 'today';
-    if (diff == 1) return 'yesterday';
+    if (diff <= 0) return 'today'.tr;
+    if (diff == 1) return 'yesterday'.tr;
     return '$diff days ago';
   }
 }
@@ -2181,7 +2182,7 @@ class _OnThisDaySectionState extends State<_OnThisDaySection> {
             ),
             const Icon(Icons.auto_stories_outlined, size: 15, color: SeenlyPalette.accent),
             const SizedBox(width: 7),
-            Text('on this day', style: SeenlyText.sectionTitle),
+            Text('on this day'.tr, style: SeenlyText.sectionTitle),
           ],
         ),
         const SizedBox(height: 10),
@@ -2400,7 +2401,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
       if (!mounted) return;
       _rebuild(() => _busy = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't get a code just now — try again")));
+          .showSnackBar(SnackBar(content: Text("couldn't get a code just now — try again".tr)));
     }
   }
 
@@ -2457,13 +2458,13 @@ class _CoViewingCardState extends State<_CoViewingCard> {
         _accepting = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('planned together — watch it whenever you\'re both ready')),
+        SnackBar(content: Text('planned together — watch it whenever you\'re both ready'.tr)),
       );
     } catch (_) {
       if (!mounted) return;
       _rebuild(() => _accepting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't agree to that just now — try again")),
+        SnackBar(content: Text("couldn't agree to that just now — try again".tr)),
       );
     }
   }
@@ -2593,7 +2594,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
             children: [
               const Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
               const SizedBox(width: 7),
-              Text('co-viewing', style: SeenlyText.sectionTitle),
+              Text('co-viewing'.tr, style: SeenlyText.sectionTitle),
               if (_status?.linked ?? false) ...[
                 const Spacer(),
                 const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
@@ -2655,7 +2656,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
               const SizedBox(width: 14),
               TextButton(
                 onPressed: () => _rebuild(() => _entering = true),
-                child: Text('have a code already?',
+                child: Text('have a code already?'.tr,
                     style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
               ),
             ],
@@ -2696,7 +2697,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                   children: [
                     const Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.accent),
                     const SizedBox(height: 10),
-                    Text('co-viewing', style: SeenlyText.sectionTitle),
+                    Text('co-viewing'.tr, style: SeenlyText.sectionTitle),
                     const SizedBox(height: 3),
                     Text(
                       linked ? 'linked with ${_status!.partnerUsername}' : 'link with a partner',
@@ -2718,7 +2719,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                         ),
                       )
                     else if (!linked && (_status?.pendingCode != null))
-                      Text('code waiting for them',
+                      Text('code waiting for them'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint))
                     else
                       Text(linked ? 'tap to see or suggest' : 'tap to get started',
@@ -2800,9 +2801,7 @@ class _StreakInfoSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'the flame counts consecutive evenings with at least one '
-                      'log — any diary entry keeps it going. today doesn\'t break '
-                      'it until it\'s over, so there\'s still time before it resets.',
+                      "the flame counts consecutive evenings with at least one log — any diary entry keeps it going. today doesn't break it until it's over, so there's still time before it resets.".tr,
                       style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
                     ),
                   ],
@@ -2889,19 +2888,18 @@ class _AutoTrackingBannerState extends State<_AutoTrackingBanner> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('log evenings without opening the app',
+                  Text('log evenings without opening the app'.tr,
                       style: SeenlyText.serif(size: 12.5, weight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   Text(
-                    'auto-tracking picks it up from Plex, Jellyfin, Kodi or your '
-                    'browser and logs it here on its own — set it up once',
+                    'auto-tracking picks it up from Plex, Jellyfin, Kodi or your browser and logs it here on its own — set it up once'.tr,
                     style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                   ),
                   const SizedBox(height: 8),
                   GestureDetector(
                     onTap: widget.onOpen,
                     child: Text(
-                      'set it up →',
+                      'set it up →'.tr,
                       style: SeenlyText.serif(size: 12.5, weight: FontWeight.w600, color: SeenlyPalette.accent),
                     ),
                   ),
@@ -2956,7 +2954,7 @@ class _CantDecideCard extends StatelessWidget {
               children: [
                 const Icon(Icons.help_outline_rounded, size: 16, color: SeenlyPalette.accent),
                 const SizedBox(width: 6),
-                Text('can\'t decide?', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                Text('can\'t decide?'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 const Spacer(),
                 const Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.inkFaint),
               ],
@@ -2982,7 +2980,7 @@ class _CantDecideCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'let\'s figure it out',
+                        'let\'s figure it out'.tr,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: SeenlyText.serif(size: 12.5, weight: FontWeight.w700),
@@ -3009,13 +3007,13 @@ class _PendingCodeBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('if they\'re nearby, let them scan it',
+        Text('if they\'re nearby, let them scan it'.tr,
             style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
         const SizedBox(height: 10),
         Center(child: PairingQrCode(code: code)),
         const SizedBox(height: 14),
         Center(
-          child: Text('or read them the code',
+          child: Text('or read them the code'.tr,
               style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
         ),
         const SizedBox(height: 8),
@@ -3038,7 +3036,7 @@ class _PendingCodeBody extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: onEnterInstead,
-            child: Text('got a code from them instead?',
+            child: Text('got a code from them instead?'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
           ),
         ),
@@ -3078,7 +3076,7 @@ class _JoinCodeInline extends StatelessWidget {
               }
             },
             icon: const Icon(Icons.qr_code_scanner, size: 16, color: SeenlyPalette.accent),
-            label: Text('scan their code instead',
+            label: Text('scan their code instead'.tr,
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w600)),
           ),
         ),
@@ -3117,7 +3115,7 @@ class _JoinCodeInline extends StatelessWidget {
         const SizedBox(height: 8),
         TextButton(
           onPressed: onBack,
-          child: Text('back', style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
+          child: Text('back'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
         ),
       ],
     );
@@ -3150,7 +3148,7 @@ class _LinkedBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (suggestions.isEmpty)
-          Text('nothing suggested yet — it\'ll show up here',
+          Text('nothing suggested yet — it\'ll show up here'.tr,
               style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder))
         else
           Column(
@@ -3171,7 +3169,7 @@ class _LinkedBody extends StatelessWidget {
         const SizedBox(height: 4),
         TextButton(
           onPressed: onOpenCoViewing,
-          child: Text('open co-viewing',
+          child: Text('open co-viewing'.tr,
               style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
         ),
       ],
@@ -3261,7 +3259,7 @@ class _SuggestionRow extends StatelessWidget {
                             child: ThemedLoadingIndicator(
                                 strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                           )
-                        : Text('tap to agree — watch it together',
+                        : Text('tap to agree — watch it together'.tr,
                             style: SeenlyText.mono(
                                 size: 9.5, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
                   ),
@@ -3423,7 +3421,7 @@ class _ErrorState extends StatelessWidget {
                 const RabbitMascot(mood: RabbitMood.sad, size: 92),
                 const SizedBox(height: 10),
               ],
-              Text('couldn\'t reach the diary just now',
+              Text('couldn\'t reach the diary just now'.tr,
                   style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
               const SizedBox(height: 14),
               PressScale(
@@ -3435,7 +3433,7 @@ class _ErrorState extends StatelessWidget {
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(999),
                   ),
-                  child: Text('try again',
+                  child: Text('try again'.tr,
                       style: SeenlyText.mono(color: SeenlyPalette.accent, weight: FontWeight.w600)),
                 ),
               ),

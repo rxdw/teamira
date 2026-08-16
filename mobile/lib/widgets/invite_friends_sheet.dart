@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'themed_loading_indicator.dart';
+import '../services/app_translations.dart';
 
 /// The invite flow's only surface — opened by tapping "invite friends" in
 /// the profile friends block or on the friends screen itself. Never
@@ -72,7 +73,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
     if (code == null) return;
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('code copied')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('code copied'.tr)));
   }
 
   void _share() {
@@ -119,7 +120,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                       : _invite == null
                           ? Padding(
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              child: Text("couldn't load your invite code — try again in a bit",
+                              child: Text("couldn't load your invite code — try again in a bit".tr,
                                   textAlign: TextAlign.center,
                                   style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted)),
                             )
@@ -141,7 +142,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
         Row(
           children: [
             Expanded(
-              child: Text('invite friends', style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
+              child: Text('invite friends'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
             ),
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
@@ -195,7 +196,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
               children: [
                 const Icon(Icons.ios_share_rounded, size: 15, color: SeenlyPalette.accentOnAccent),
                 const SizedBox(width: 8),
-                Text('share invite', style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
+                Text('share invite'.tr, style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
               ],
             ),
           ),

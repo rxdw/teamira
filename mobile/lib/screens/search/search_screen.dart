@@ -17,6 +17,7 @@ import '../decide/decide_ask_teamira_screen.dart';
 import '../decide/decide_filters_screen.dart' show DecideFilters, kDecidePickableTypes;
 import '../../widgets/wow_motion.dart' show ShimmerBlock, PressScale, Entrance;
 import '../../widgets/scroll_reveal.dart';
+import '../../services/app_translations.dart';
 
 class SearchScreen extends StatefulWidget {
   // Prefilled and auto-searched on open — used by the ticket-scan flow
@@ -102,12 +103,12 @@ class _SearchScreenState extends State<SearchScreen> {
       if (!mounted) return;
       setState(() => _statusByKey = {..._statusByKey, key: 'watch_later'});
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('added — find it under plan to watch')),
+        SnackBar(content: Text('added — find it under plan to watch'.tr)),
       );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('couldn\'t add that just now — try again')),
+        SnackBar(content: Text('couldn\'t add that just now — try again'.tr)),
       );
     }
   }
@@ -213,7 +214,7 @@ class _SearchScreenState extends State<SearchScreen> {
                         decoration: InputDecoration(
                           isDense: true,
                           border: InputBorder.none,
-                          hintText: 'search a film, show, or game',
+                          hintText: 'search a film, show, or game'.tr,
                           hintStyle: SeenlyText.serif(
                               italic: true, size: 14, color: SeenlyPalette.placeholder),
                           prefixIcon: const Icon(Icons.search,
@@ -571,15 +572,15 @@ class _ResultRow extends StatelessWidget {
                             style: SeenlyText.metaLabel),
                         if (status == 'watched') ...[
                           const SizedBox(height: 4),
-                          Text('already in your diary',
+                          Text('already in your diary'.tr,
                               style: SeenlyText.mono(size: 9, color: SeenlyPalette.accent)),
                         ] else if (status == 'watching') ...[
                           const SizedBox(height: 4),
-                          Text('already watching',
+                          Text('already watching'.tr,
                               style: SeenlyText.mono(size: 9, color: SeenlyPalette.accent)),
                         ] else if (status == 'watch_later') ...[
                           const SizedBox(height: 4),
-                          Text('already queued to watch',
+                          Text('already queued to watch'.tr,
                               style: SeenlyText.mono(size: 9, color: SeenlyPalette.accent)),
                         ],
                       ],

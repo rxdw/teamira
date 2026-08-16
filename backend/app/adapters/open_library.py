@@ -1,21 +1,22 @@
-"""Books and manga — search, browse, and detail, both backed by the Open
-Library API (openlibrary.org/developers/api). Free forever, no key/OAuth
-of any kind, and — unlike Google Books — nothing in its terms restricts
+"""Books — search, browse, and detail, backed by the Open Library API
+(openlibrary.org/developers/api). Free forever, no key/OAuth of any
+kind, and — unlike Google Books — nothing in its terms restricts
 charging users for the app that calls it. Run by the Internet Archive as
 a public-good service.
 
-Manga rides the same catalog rather than a manga-specific API on purpose:
-AniList's terms explicitly forbid "Anime/Manga list/tracker services"
-(exactly what Seenly's manga tab is) without a full AniList-account sync,
-and MangaDex's Acceptable Usage Policy explicitly prohibits ads or paid
-services on apps that use it — both conflict with a monetized personal
-tracker. Open Library catalogs manga volumes as ordinary books (most have
-ISBNs and get indexed like any other title), so `OpenLibraryAdapter`
-below is instantiated twice — once for books, once for manga — each
-scoped to different subjects and returning a different `media_type`, but
-sharing every request/parsing helper. Coverage/grouping is a real
-tradeoff (manga tends to be indexed per-volume rather than per-series, and
-niche/newer series may be thin), but it comes with zero new ToS risk.
+Manga used to ride this same catalog (as ordinary books tagged with the
+"manga" subject — most have ISBNs and get indexed like any other title),
+back when AniList's terms-of-service ban on "Anime/Manga list/tracker
+services" and MangaDex's ban on ads/paid apps ruled both of those out.
+It's since moved to Shikimori's own manga-specific catalog instead (see
+app/adapters/shikimori.py::ShikimoriMangaAdapter) — a real per-series
+catalog with native Russian text and status/volume/chapter data Open
+Library's book records never carried for manga. `OpenLibraryAdapter`
+below is book-only now; the `media_type`/`id_prefix`/`source`/`shelves`
+constructor params are still generic (nothing here hard-codes "book")
+in case a second books-shaped catalog is ever worth scoping this way
+again, but only one instance — books — is created anywhere in this app
+today.
 
 The tradeoff for "free forever, no key": Open Library explicitly asks
 callers to self-identify. Unidentified requests are capped at ~1/sec;
@@ -92,7 +93,8 @@ _rate_limiter = _RateLimiter(_RATE_LIMIT_PER_SEC)
 
 _SEARCH_FIELDS = (
     "key,title,author_name,first_publish_year,cover_i,"
-    "ratings_average,ratings_count,subject,number_of_pages_median,first_sentence"
+    "ratings_average,ratings_count,subject,number_of_pages_median,first_sentence,"
+    "publisher,isbn"
 )
 
 # Subject-scoped shelves for the Collections tab. Open Library's subject
@@ -119,20 +121,6 @@ _BOOK_SHELVES: List[Tuple[str, str]] = [
     ("Graphic Novels & Comics", "subject:comics"),
 ]
 
-# Manga is catalogued in Open Library as ordinary books tagged with the
-# "manga" subject (and often also a genre subject alongside it) — so
-# these shelves AND a second subject onto the base "manga" filter rather
-# than using a dedicated manga taxonomy, which Open Library doesn't have.
-_MANGA_SHELVES: List[Tuple[str, str]] = [
-    ("Popular Manga", "subject:manga"),
-    ("Shonen & Action", 'subject:manga subject:action'),
-    ("Fantasy & Adventure Manga", "subject:manga subject:fantasy"),
-    ("Romance Manga", "subject:manga subject:romance"),
-    ("Horror & Thriller Manga", "subject:manga subject:horror"),
-    ("Slice of Life Manga", 'subject:manga subject:"slice of life"'),
-    ("Sci-Fi & Isekai Manga", "subject:manga subject:science_fiction"),
-    ("Comedy Manga", "subject:manga subject:comedy"),
-]
 
 _MIN_RATINGS_COUNT = 3  # Open Library's rating counts run much lower than Google's
 
@@ -149,7 +137,7 @@ _MIN_RATINGS_COUNT = 3  # Open Library's rating counts run much lower than Googl
 # curated, human-sized genre list movies/series get from TMDB.
 #
 # _curated_genres() below maps that noisy free text onto the SAME small,
-# human-facing genre set _BOOK_SHELVES/_MANGA_SHELVES already use for
+# human-facing genre set _BOOK_SHELVES already use for
 # named shelves, via keyword matching. Anything that matches nothing
 # here is dropped rather than shown verbatim — it's cataloging metadata,
 # not a genre a person picks a book by. Order matters: it's the display/
@@ -177,8 +165,9 @@ _GENRE_KEYWORDS: List[Tuple[str, List[str]]] = [
     ("Self-Help", ["self-help", "self help", "personal growth"]),
     ("History", ["world history", "history"]),
     ("Non-Fiction", ["nonfiction", "non-fiction"]),
-    # Manga-flavored subjects Open Library carries alongside "manga" on
-    # the same record — same shape as _MANGA_SHELVES' second subject.
+    # Manga-flavored keywords kept around from when manga rode this same
+    # catalog — harmless leftovers now, but a stray book tagged "isekai"
+    # still benefits from the match.
     ("Slice of Life", ["slice of life"]),
     ("Isekai", ["isekai"]),
     ("Action", ["action"]),
@@ -281,6 +270,33 @@ def _page_badge(page_count: Optional[int]) -> Optional[str]:
     return f"{page_count} pages" if page_count else None
 
 
+def _first_publisher(raw_publishers) -> Optional[str]:
+    """Open Library's `publisher` search field is a list — one entry per
+    edition indexed under this work, often with near-duplicates
+    ("Penguin", "Penguin Books", "Penguin UK") rather than one canonical
+    name. Just the first is shown, same "good enough for a card, not
+    exhaustive" tradeoff as `tagline` only taking the first 3 authors."""
+    if not raw_publishers:
+        return None
+    first = raw_publishers[0] if isinstance(raw_publishers, list) else raw_publishers
+    return str(first).strip() or None
+
+
+def _first_isbn(raw_isbns) -> Optional[str]:
+    """Open Library's `isbn` search field is an unordered list mixing
+    ISBN-10 and ISBN-13 across every edition indexed under this work.
+    Prefers a 13-digit one (the modern standard) when there is one,
+    otherwise falls back to whatever's first."""
+    if not raw_isbns:
+        return None
+    isbns = raw_isbns if isinstance(raw_isbns, list) else [raw_isbns]
+    for isbn in isbns:
+        digits = str(isbn).replace("-", "")
+        if len(digits) == 13:
+            return digits
+    return str(isbns[0]).replace("-", "") if isbns else None
+
+
 def _normalize(doc: dict, media_type: str, id_prefix: str, source: str) -> Optional[MediaItem]:
     key = doc.get("key")  # "/works/OL27448W"
     title = doc.get("title")
@@ -311,13 +327,14 @@ def _normalize(doc: dict, media_type: str, id_prefix: str, source: str) -> Optio
         certification=_page_badge(page_count),
         runtime_minutes=_reading_minutes(page_count),
         tagline=("By " + ", ".join(authors[:3])) if authors else None,
+        publisher=_first_publisher(doc.get("publisher")),
+        isbn=_first_isbn(doc.get("isbn")),
     )
 
 
 class OpenLibraryAdapter(MediaAdapter):
-    """Two instances of this live in the app: one for books, one for
-    manga (see the module docstring for why manga rides the same catalog
-    instead of a manga-specific API). `media_type`/`id_prefix`/`source`
+    """Books' live catalog adapter (see the module docstring for why
+    manga no longer shares this class). `media_type`/`id_prefix`/`source`
     tag every MediaItem this instance returns; `shelves` and
     `search_filter` scope which subset of Open Library's catalog it
     draws from."""
@@ -408,6 +425,50 @@ class OpenLibraryAdapter(MediaAdapter):
                 return None
         return None
 
+    async def en_supplement(self, title: str) -> Optional[str]:
+        """Best-effort English description for a manga detail card —
+        mirrors ru_supplement above but in the opposite direction. Manga's
+        primary catalog is now Shikimori (see app/adapters/shikimori.py),
+        whose own description text is Russian-only — Shikimori has no
+        English translation of it at all, unlike TMDB's per-language
+        detail endpoint — so this looks for a genuinely separate English-
+        language edition of the same work indexed here in Open Library
+        instead. Same reliability caveats as ru_supplement: a real but
+        separate record has to actually exist, there's no translation
+        call to fall back on, and Open Library's manga coverage skews
+        thin to begin with (see this module's own docstring for why
+        manga moved off this catalog in the first place).
+
+        Only the description comes back — title/poster/rating already
+        have a good source in Shikimori itself (native title, Shikimori's
+        own cover art), so this doesn't bother re-fetching lookalikes for
+        those, same "just the one thing this source is actually better
+        for" scope ru_supplement already keeps. Returns None on no match
+        or a request failure.
+        """
+        if not title.strip():
+            return None
+        async with httpx.AsyncClient(timeout=8.0, headers=_HEADERS) as client:
+            data = await self._get(client, SEARCH_URL, {
+                "q": f'title:"{title}"',
+                "language": "eng",
+                "limit": 3,
+                "fields": _SEARCH_FIELDS,
+            })
+        docs = (data or {}).get("docs") or []
+        # Same same-work sanity check as ru_supplement above.
+        needle = title.strip().casefold()
+        for doc in docs:
+            candidate = (doc.get("title") or "").strip()
+            if not candidate:
+                continue
+            hay = candidate.casefold()
+            if needle in hay or hay in needle:
+                description = _first_sentence(doc.get("first_sentence"))
+                if description:
+                    return description
+        return None
+
     async def search(self, query: str) -> List[MediaItem]:
         if not query:
             return []
@@ -494,7 +555,7 @@ class OpenLibraryAdapter(MediaAdapter):
                     "q": f'title:"{title}"',
                     "limit": 5,
                     "fields": "key,first_publish_year,ratings_average,ratings_count,"
-                              "number_of_pages_median,first_sentence",
+                              "number_of_pages_median,first_sentence,publisher,isbn",
                 })
                 for d in (enrich or {}).get("docs") or []:
                     if (d.get("key") or "").endswith(raw_id):
@@ -544,4 +605,6 @@ class OpenLibraryAdapter(MediaAdapter):
             certification=_page_badge(page_count),
             runtime_minutes=_reading_minutes(page_count),
             tagline=("By " + ", ".join(author_names)) if author_names else None,
+            publisher=_first_publisher(enrich_doc.get("publisher")),
+            isbn=_first_isbn(enrich_doc.get("isbn")),
         )

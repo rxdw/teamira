@@ -10,6 +10,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'boarding_pass.dart';
 import 'light_bloom.dart' show flashOpacity;
+import '../services/app_translations.dart';
 
 /// The "Evening Route" theme's counterpart to `ticket_drop_overlay.dart`:
 /// the pass waits for you to tear it at the gate — drag it apart (or
@@ -301,7 +302,7 @@ class _BoardingDropOverlayState extends State<_BoardingDropOverlay> with TickerP
                     onTap: _skip,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text('skip', style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
+                      child: Text('skip'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
                     ),
                   ),
                 ),
@@ -313,7 +314,7 @@ class _BoardingDropOverlayState extends State<_BoardingDropOverlay> with TickerP
                         opacity: captionT * captionFade,
                         child: Transform.translate(
                           offset: Offset(0, (1 - captionT) * 8),
-                          child: Text('добрались',
+                          child: Text('добрались'.tr,
                               style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.paper)),
                         ),
                       ),

@@ -11,6 +11,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart';
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 enum _Phase { idle, spinning, landed }
 
@@ -96,6 +97,39 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
   // once per landing, dismissed the moment they act on it (or after a bit,
   // so it never overstays).
   bool _showBrowseHint = false;
+
+  // Warms Flutter's own image cache with every poster in the pool the
+  // moment this screen opens — before the person has even tapped "Spin".
+  // Without this, a fast-spinning reel built straight from network images
+  // shows a lot of blank placeholder icons crossfading in mid-motion,
+  // because ListView only starts each tile's Image.network download once
+  // that tile is actually built/scrolled into view — too late to look
+  // good at spin speed. precacheImage puts the same ImageProvider
+  // Image.network would use into the cache ahead of time, so by the time
+  // a tile is built during the spin it's usually a cache hit (synchronous,
+  // no crossfade) rather than a cold network fetch. Guarded so it only
+  // runs once per screen instance, not on every rebuild.
+  bool _posterPrecacheStarted = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_posterPrecacheStarted) {
+      _posterPrecacheStarted = true;
+      _precachePosters();
+    }
+  }
+
+  void _precachePosters() {
+    for (final item in widget.pool) {
+      final url = item.posterUrl;
+      if (url == null || url.isEmpty) continue;
+      // Best-effort: a slow/failed fetch here just means that one tile
+      // falls back to the normal fade-in-on-build behavior later, same
+      // as before this existed — never worth surfacing as an error.
+      precacheImage(NetworkImage(url), context).catchError((_) {});
+    }
+  }
 
   @override
   void dispose() {
@@ -225,7 +259,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
       if (!mounted) return;
       setState(() => _addingToPlan = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('couldn\'t add that just now — try again')),
+        SnackBar(content: Text('couldn\'t add that just now — try again'.tr)),
       );
     }
   }
@@ -407,7 +441,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text('spin the reel', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                  Text('spin the reel'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -449,7 +483,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                       _reel.isEmpty
                           ? Center(
                               child: Text(
-                                'tap spin to start',
+                                'tap spin to start'.tr,
                                 style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.placeholder),
                               ),
                             )
@@ -517,7 +551,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                                     Icon(Icons.swap_vert_rounded, size: 16, color: SeenlyPalette.paper.withOpacity(0.9)),
                                     const SizedBox(width: 7),
                                     Text(
-                                      'листай и выбери любой постер',
+                                      'листай и выбери любой постер'.tr,
                                       style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.paper.withOpacity(0.92), weight: FontWeight.w600),
                                     ),
                                   ],

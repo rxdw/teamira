@@ -9,6 +9,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/poster_lightbox.dart' show scopedPosterHeroTag;
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The "for you" trailer feed — reached by tapping a [TrailerPreviewCard] or
 /// Home's "watch all" link, never shown by default.
@@ -87,7 +88,7 @@ class _TrailerReelsScreenState extends State<TrailerReelsScreen> {
       _reactedKeys.remove(key);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't save that just now — try again")),
+        SnackBar(content: Text("couldn't save that just now — try again".tr)),
       );
     }
   }
@@ -217,13 +218,13 @@ Future<void> _openExternally(BuildContext context, Uri uri) async {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't open that — no app to handle it")),
+        SnackBar(content: Text("couldn't open that — no app to handle it".tr)),
       );
     }
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't open that — no app to handle it")),
+        SnackBar(content: Text("couldn't open that — no app to handle it".tr)),
       );
     }
   }
@@ -487,7 +488,7 @@ class _WatchTrailerButton extends StatelessWidget {
           children: [
             const Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.paper),
             const SizedBox(width: 9),
-            Text('watch trailer',
+            Text('watch trailer'.tr,
                 style: SeenlyText.serif(
                     italic: true,
                     size: 14.5,

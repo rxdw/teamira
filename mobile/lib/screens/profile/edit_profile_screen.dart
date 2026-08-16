@@ -8,6 +8,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
+import '../../services/app_translations.dart';
 
 /// Edits the one part of the profile that isn't derived from watch
 /// history — name, avatar, status line. Reads its starting values from
@@ -81,7 +82,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _uploadingPhoto = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не получилось загрузить фото: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не получилось загрузить фото: $e'.tr)));
     }
   }
 
@@ -108,7 +109,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = 'Не получилось сохранить: $e';
+        _error = 'Не получилось сохранить: $e'.tr;
       });
     }
   }
@@ -123,13 +124,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       appBar: AppBar(
         backgroundColor: SeenlyPalette.background,
         elevation: 0,
-        title: Text('редактировать профиль', style: SeenlyText.serif(size: 17, italic: true)),
+        title: Text('редактировать профиль'.tr, style: SeenlyText.serif(size: 17, italic: true)),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
             child: _saving
                 ? const SizedBox(width: 16, height: 16, child: ThemedLoadingIndicator(size: 16))
-                : Text('сохранить', style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent)),
+                : Text('сохранить'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent)),
           ),
         ],
       ),
@@ -156,11 +157,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             child: TextButton.icon(
               onPressed: _uploadingPhoto ? null : _pickPhoto,
               icon: const Icon(Icons.photo_camera_outlined, size: 16),
-              label: Text('загрузить своё фото', style: SeenlyText.mono(size: 12)),
+              label: Text('загрузить своё фото'.tr, style: SeenlyText.mono(size: 12)),
             ),
           ),
           const SizedBox(height: 8),
-          Text('или выбери готовый аватар', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+          Text('или выбери готовый аватар'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 12,
@@ -186,7 +187,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             }).toList(),
           ),
           const SizedBox(height: 28),
-          Text('имя', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+          Text('имя'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
           const SizedBox(height: 6),
           TextField(
             controller: _nameController,
@@ -199,7 +200,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text('статус', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+          Text('статус'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
           const SizedBox(height: 6),
           Wrap(
             spacing: 8,
@@ -217,8 +218,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             maxLength: 120,
             maxLines: 2,
             style: SeenlyText.serif(size: 14),
-            decoration: const InputDecoration(
-              hintText: 'своё, или очисти поле — статус пропадёт',
+            decoration: InputDecoration(
+              hintText: 'своё, или очисти поле — статус пропадёт'.tr,
               border: OutlineInputBorder(),
             ),
           ),

@@ -12,6 +12,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'source_video_link.dart';
 import 'themed_loading_indicator.dart';
+import '../services/app_translations.dart';
 
 /// Everything [PlannedPreviewCard] needs — the "plan to watch" grid's
 /// counterpart to [WatchedPreviewData] (see watched_preview_sheet.dart).
@@ -206,7 +207,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
       if (!mounted) return;
       setState(() => _marking = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't mark that watched — try again")),
+        SnackBar(content: Text("couldn't mark that watched — try again".tr)),
       );
     }
   }

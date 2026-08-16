@@ -125,6 +125,18 @@ class MediaItem {
   // director TMDB has no person id for.
   final String? directorId;
 
+  // Populated only by MediaService.detail() (GET /media/detail), same as
+  // everything above — mirrors the game/book/manga-only block on
+  // backend app/schemas.py::MediaItem. Each is meaningful for exactly
+  // one or two media types and stays null/empty for the rest.
+  final String? developer; // games
+  final String? publisher; // games, books, manga
+  final List<String> platforms; // games
+  final List<String> gameModes; // games
+  final String? isbn; // books
+  final int? volumes; // manga
+  final int? chapters; // manga
+
   /// The poster every screen actually renders. Prefers [posterUrlRu] when
   /// the device is set to Russian (services/locale_service.dart) and TMDB
   /// actually had a Russian poster for this title; falls back to the base
@@ -168,6 +180,13 @@ class MediaItem {
     this.cast = const [],
     this.director,
     this.directorId,
+    this.developer,
+    this.publisher,
+    this.platforms = const [],
+    this.gameModes = const [],
+    this.isbn,
+    this.volumes,
+    this.chapters,
   }) : _posterUrlBase = posterUrl;
 
   /// Builds just enough of a MediaItem to round-trip through
@@ -221,6 +240,15 @@ class MediaItem {
             .toList(),
         director: json['director'] as String?,
         directorId: json['director_id'] as String?,
+        developer: json['developer'] as String?,
+        publisher: json['publisher'] as String?,
+        platforms: (json['platforms'] as List?)?.map((e) => e.toString()).toList() ??
+            const [],
+        gameModes: (json['game_modes'] as List?)?.map((e) => e.toString()).toList() ??
+            const [],
+        isbn: json['isbn'] as String?,
+        volumes: json['volumes'] as int?,
+        chapters: json['chapters'] as int?,
       );
 
   Map<String, dynamic> toJson() => {

@@ -8,6 +8,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/poster_tile.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../services/app_translations.dart';
 
 enum _Phase { input, loading, review, importing, done }
 
@@ -115,7 +116,7 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
                     onPressed: () => Navigator.of(context).pop(_committed != null),
                   ),
                   const SizedBox(width: 4),
-                  Text('add a source', style: SeenlyText.screenTitle),
+                  Text('add a source'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -179,19 +180,16 @@ class _InputStep extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
       children: [
         Text(
-          "paste a public YouTube or Twitch link — a single video, a whole "
-          "playlist, a channel's uploads, or a Twitch channel's past "
-          "broadcasts — and teamira will pull in what's there.",
+          "paste a public YouTube or Twitch link — a single video, a whole playlist, a channel's uploads, or a Twitch channel's past broadcasts — and teamira will pull in what's there.".tr,
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
         ),
         const SizedBox(height: 6),
         Text(
-          "private lists like YouTube's Watch Later or Liked videos can't be "
-          "reached this way — only things the link itself can actually see.",
+          "private lists like YouTube's Watch Later or Liked videos can't be reached this way — only things the link itself can actually see.".tr,
           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
         ),
         const SizedBox(height: 18),
-        Text('these are', style: SeenlyText.metaLabel),
+        Text('these are'.tr, style: SeenlyText.metaLabel),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -228,7 +226,7 @@ class _InputStep extends StatelessWidget {
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.all(14),
               border: InputBorder.none,
-              hintText: 'https://youtube.com/playlist?list=…\nor https://twitch.tv/…',
+              hintText: 'https://youtube.com/playlist?list=…\nor https://twitch.tv/…'.tr,
               hintStyle: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder),
             ),
           ),
@@ -316,7 +314,7 @@ class _ReviewStep extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: onBack,
-                child: Text('back', style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
+                child: Text('back'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
               ),
               const SizedBox(width: 8),
               Expanded(

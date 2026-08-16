@@ -32,7 +32,8 @@ from sqlalchemy import text
 
 from app import models
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.open_library import OpenLibraryAdapter
+from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.adapters.tmdb import TmdbAdapter
 from app.database import Base, SessionLocal, engine
 
@@ -42,13 +43,7 @@ logger = logging.getLogger("seed_teamira_picks")
 _tmdb = TmdbAdapter()
 _games = IgdbAdapter()
 _books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_manga = ShikimoriMangaAdapter()
 
 # (shelf title, media_type, search queries — one item added per query,
 # in this order, so the shelf reads top-to-bottom as a real list).

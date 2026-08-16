@@ -38,6 +38,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart';
 import '../person/person_detail_screen.dart';
 import 'full_cast_screen.dart';
+import '../../services/app_translations.dart';
 
 class TitleDetailScreen extends StatefulWidget {
   final String mediaId;
@@ -189,7 +190,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
         _favoriteBusy = false;
       });
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't save that just now — try again")));
+          .showSnackBar(SnackBar(content: Text("couldn't save that just now — try again".tr)));
     }
   }
 
@@ -329,7 +330,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't open that link just now")));
+          .showSnackBar(SnackBar(content: Text("couldn't open that link just now".tr)));
     }
   }
 
@@ -395,13 +396,13 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
         _addedToPlan = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('added — find it under plan to watch')),
+        SnackBar(content: Text('added — find it under plan to watch'.tr)),
       );
     } catch (_) {
       if (!mounted) return;
       setState(() => _addingToPlan = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('couldn\'t add that just now — try again')),
+        SnackBar(content: Text('couldn\'t add that just now — try again'.tr)),
       );
     }
   }
@@ -433,7 +434,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
       if (!mounted) return;
       setState(() => _suggesting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't send that just now — try again")),
+        SnackBar(content: Text("couldn't send that just now — try again".tr)),
       );
     }
   }
@@ -567,6 +568,10 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           GenreTagsFlow(genres: _item.genres),
                           const SizedBox(height: 18),
                         ],
+                        if (_ExtraFactsSection.hasContent(_item)) ...[
+                          _ExtraFactsSection(item: _item),
+                          const SizedBox(height: 18),
+                        ],
                         if (_item.description.display != '—') ...[
                           SpoilerVeil(
                             active: context.watch<SpoilerPrefsService>().blurDescriptions,
@@ -629,7 +634,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('if you liked this',
+                                Text('if you liked this'.tr,
                                     style: SeenlyText.serif(
                                         italic: true, size: 14, color: SeenlyPalette.accent)),
                                 const SizedBox(height: 12),
@@ -691,7 +696,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('your evenings with this title',
+                              Text('your evenings with this title'.tr,
                                   style: SeenlyText.serif(
                                       italic: true, size: 14, color: SeenlyPalette.accent)),
                               const SizedBox(height: 14),
@@ -719,7 +724,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                               );
                             } else if (snapshot.hasError) {
                               child = Text(
-                                'couldn\'t load your history for this title',
+                                'couldn\'t load your history for this title'.tr,
                                 key: const ValueKey('history-error'),
                                 style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted),
                               );
@@ -727,7 +732,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                               final history = snapshot.data!;
                               if (history.isEmpty) {
                                 child = Text(
-                                  'not logged yet — save an evening below',
+                                  'not logged yet — save an evening below'.tr,
                                   key: const ValueKey('history-empty'),
                                   style: SeenlyText.serif(
                                       italic: true, color: SeenlyPalette.placeholder),
@@ -941,12 +946,12 @@ Future<void> _openTrailer(BuildContext context, String videoId) async {
     );
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't open that link just now")));
+          .showSnackBar(SnackBar(content: Text("couldn't open that link just now".tr)));
     }
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't open that link just now")));
+          .showSnackBar(SnackBar(content: Text("couldn't open that link just now".tr)));
     }
   }
 }
@@ -1183,6 +1188,22 @@ class _HeaderTitleBlock extends StatelessWidget {
                         style: SeenlyText.serif(
                             size: 22, weight: FontWeight.w700, color: SeenlyPalette.ink),
                       ),
+                      // "By <author>" for books, "Published by <publisher>"
+                      // for manga — see backend app/adapters/google_books.py
+                      // / app/adapters/shikimori.py. Left out for
+                      // movies/series/anime/games, which either don't set
+                      // this field or (games) have no natural one-line
+                      // attribution to show here.
+                      if (item.tagline != null && item.tagline!.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          item.tagline!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: SeenlyText.serif(
+                              size: 13, italic: true, color: SeenlyPalette.inkFaint),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       if (item.year != null)
                         MetaLine(icon: Icons.calendar_today_outlined, label: '${item.year}'),
@@ -1192,6 +1213,16 @@ class _HeaderTitleBlock extends StatelessWidget {
                       // out here.
                       if (item.runtimeMinutes != null && item.mediaType != 'book')
                         MetaLine(icon: Icons.schedule_outlined, label: '${item.runtimeMinutes} min'),
+                      // certification doubles as an age rating (ESRB/PEGI,
+                      // games) or a page-count badge (books/manga) — see
+                      // backend app/schemas.py::MediaItem.certification.
+                      if (item.certification != null && item.certification!.trim().isNotEmpty)
+                        MetaLine(
+                          icon: item.mediaType == 'game'
+                              ? Icons.shield_outlined
+                              : Icons.menu_book_outlined,
+                          label: item.certification!,
+                        ),
                       if (item.rating != null)
                         MetaLine(
                           icon: Icons.star_rounded,
@@ -1206,6 +1237,99 @@ class _HeaderTitleBlock extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Everything on MediaItem that's specific to games/books/manga and
+/// doesn't fit the header's compact meta line (year/runtime/rating) —
+/// developer/publisher/platforms/game modes for games, publisher/isbn
+/// for books, status/volumes/chapters for manga. Each row only shows up
+/// when its source actually set the field (see backend
+/// app/schemas.py::MediaItem's own "empty rather than fabricated"
+/// convention), so a game with no age-rated platforms data, say, just
+/// shows fewer rows instead of a placeholder.
+class _ExtraFactsSection extends StatelessWidget {
+  final MediaItem item;
+  const _ExtraFactsSection({required this.item});
+
+  static bool hasContent(MediaItem item) {
+    return item.developer != null ||
+        item.publisher != null ||
+        item.platforms.isNotEmpty ||
+        item.gameModes.isNotEmpty ||
+        item.status != null ||
+        item.volumes != null ||
+        item.chapters != null ||
+        item.isbn != null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <Widget>[];
+
+    if (item.developer != null) {
+      rows.add(_FactRow(label: 'Developer', value: item.developer!));
+    }
+    // Books already show the publisher via the tagline ("Published by
+    // ..." isn't set there — see _normalize in google_books.py, which
+    // uses tagline for authors instead) so a game/manga publisher still
+    // gets its own row here; a book's publisher shows here too since its
+    // tagline is authors, not publisher.
+    if (item.publisher != null) {
+      rows.add(_FactRow(label: 'Publisher', value: item.publisher!));
+    }
+    if (item.mediaType == 'manga' && item.status != null) {
+      rows.add(_FactRow(label: 'Status', value: item.status!));
+    }
+    if (item.mediaType == 'manga' && (item.volumes != null || item.chapters != null)) {
+      final parts = <String>[
+        if (item.volumes != null) '${item.volumes} vol.',
+        if (item.chapters != null) '${item.chapters} ch.',
+      ];
+      rows.add(_FactRow(label: 'Length', value: parts.join(' · ')));
+    }
+    if (item.mediaType == 'book' && item.isbn != null) {
+      rows.add(_FactRow(label: 'ISBN', value: item.isbn!));
+    }
+    if (item.platforms.isNotEmpty) {
+      rows.add(_FactRow(label: 'Platforms', value: item.platforms.join(', ')));
+    }
+    if (item.gameModes.isNotEmpty) {
+      rows.add(_FactRow(label: 'Modes', value: item.gameModes.join(', ')));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: rows,
+    );
+  }
+}
+
+class _FactRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _FactRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '$label  ',
+              style: SeenlyText.serif(
+                  size: 13, weight: FontWeight.w600, color: SeenlyPalette.inkFaint),
+            ),
+            TextSpan(
+              text: value,
+              style: SeenlyText.serif(size: 13, color: SeenlyPalette.ink),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1458,13 +1582,13 @@ class _CastSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text('cast',
+            Text('cast'.tr,
                 style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
             const Spacer(),
             if (cast.length > 5)
               GestureDetector(
                 onTap: () => _openFullCast(context),
-                child: Text('see all',
+                child: Text('see all'.tr,
                     style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
               ),
           ],
@@ -1580,7 +1704,7 @@ class _TrailersSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('trailers',
+        Text('trailers'.tr,
             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
         const SizedBox(height: 12),
         SizedBox(
@@ -1770,7 +1894,7 @@ class _WhereToWatchSection extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('where to watch',
+              Text('where to watch'.tr,
                   style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
               const Spacer(),
               GestureDetector(
@@ -1837,7 +1961,7 @@ class _WhereToWatchSection extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text('streaming data provided by JustWatch',
+                      Text('streaming data provided by JustWatch'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                     ],
                   ),

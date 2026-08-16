@@ -8,6 +8,7 @@ import '../theme/text_styles.dart';
 import 'scroll_reveal.dart';
 import 'ticket.dart' show MiniTicketChip;
 import 'watched_preview_sheet.dart';
+import '../services/app_translations.dart';
 
 /// The Diary tab's centerpiece in the "Cinema" theme — a little marquee
 /// sign whose bulbs light up as evenings get logged, the same "mood, not
@@ -170,7 +171,7 @@ class _MarqueeSign extends StatelessWidget {
               top: canopyHeight * 0.32,
               child: Center(
                 child: Text(
-                  'NOW SHOWING',
+                  'NOW SHOWING'.tr,
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.mustard.withOpacity(0.85), weight: FontWeight.w700),
                 ),
               ),
@@ -353,7 +354,7 @@ class CinemaProgrammeScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('the programme', style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
+                      Text('the programme'.tr, style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
                       Text(
                         '${entries.length} ${entries.length == 1 ? 'screening' : 'screenings'}',
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
@@ -375,7 +376,7 @@ class CinemaProgrammeScreen extends StatelessWidget {
             Expanded(
               child: entries.isEmpty
                   ? Center(
-                      child: Text('nothing on the programme yet',
+                      child: Text('nothing on the programme yet'.tr,
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
                     )
                   : ListView.builder(

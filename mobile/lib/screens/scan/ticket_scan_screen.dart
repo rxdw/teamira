@@ -8,6 +8,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../search/search_screen.dart';
+import '../../services/app_translations.dart';
 
 /// "scan a ticket" — one photo of a physical cinema ticket stub, read
 /// entirely on-device (no upload anywhere), landing on Search with a
@@ -161,7 +162,7 @@ class _TicketScanScreenState extends State<TicketScanScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 2),
-                  Text('scan a ticket', style: SeenlyText.screenTitle),
+                  Text('scan a ticket'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -237,21 +238,19 @@ class _IntroBody extends StatelessWidget {
             child: const Icon(Icons.confirmation_number_outlined, size: 34, color: SeenlyPalette.accent),
           ),
           const SizedBox(height: 22),
-          Text('got a ticket stub from tonight?',
+          Text('got a ticket stub from tonight?'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
           const SizedBox(height: 10),
           Text(
-            'take a photo of it and we\'ll pull the title off it, straight into '
-            'search — from there it\'s one tap to plan to watch or watched, same '
-            'as any other title.',
+            "take a photo of it and we'll pull the title off it, straight into search — from there it's one tap to plan to watch or watched, same as any other title.".tr,
             textAlign: TextAlign.center,
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
           ),
           const Spacer(),
           PrimaryButton(label: 'take a photo', onTap: onTakePhoto),
           const SizedBox(height: 10),
-          Text('read entirely on your device — nothing is uploaded',
+          Text('read entirely on your device — nothing is uploaded'.tr,
               style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.placeholder)),
         ],
       ),
@@ -279,10 +278,10 @@ class _ResultsBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
       children: [
-        Text('does this look right?',
+        Text('does this look right?'.tr,
             style: SeenlyText.serif(size: 17, weight: FontWeight.w600)),
         const SizedBox(height: 4),
-        Text('edit it, or tap another line we picked up below',
+        Text('edit it, or tap another line we picked up below'.tr,
             style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
         const SizedBox(height: 16),
         Container(
@@ -303,11 +302,11 @@ class _ResultsBody extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: onRetake,
-            child: Text('retake photo', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+            child: Text('retake photo'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
           ),
         ),
         const SizedBox(height: 20),
-        Text('everything we read off the ticket', style: SeenlyText.sectionTitle),
+        Text('everything we read off the ticket'.tr, style: SeenlyText.sectionTitle),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,

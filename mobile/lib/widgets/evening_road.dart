@@ -8,6 +8,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'scroll_reveal.dart';
 import 'watched_preview_sheet.dart';
+import '../services/app_translations.dart';
 
 /// The Diary tab's centerpiece in the "Evening Route" theme — a soft
 /// little road curling from one evening to the next, replacing both
@@ -210,7 +211,7 @@ class EveningRoadScreen extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('the route', style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
+                      Text('the route'.tr, style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
                       Text(
                         '${entries.length} ${entries.length == 1 ? 'stop' : 'stops'}',
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
@@ -232,7 +233,7 @@ class EveningRoadScreen extends StatelessWidget {
             Expanded(
               child: entries.isEmpty
                   ? Center(
-                      child: Text('no evenings on the road yet',
+                      child: Text('no evenings on the road yet'.tr,
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
                     )
                   : ListView.builder(

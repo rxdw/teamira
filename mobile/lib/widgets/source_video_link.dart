@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// Where a "your sources" entry's original video/VOD actually lives —
 /// same construction as SourcesScreen._openExternally, pulled out here so
@@ -30,12 +31,12 @@ Future<void> openSourceVideo(
     );
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't open that link just now")));
+          .showSnackBar(SnackBar(content: Text("couldn't open that link just now".tr)));
     }
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't open that link just now")));
+          .showSnackBar(SnackBar(content: Text("couldn't open that link just now".tr)));
     }
   }
 }

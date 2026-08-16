@@ -11,6 +11,7 @@ import '../../widgets/poster_tile.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_pull_to_refresh.dart';
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The screen Ask Teamira opens into. Reads a query typed on Home (see
 /// _AskTeamiraCard in home_screen.dart) and fetches the ranked shortlist
@@ -88,7 +89,7 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('teamira picked these', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                        Text('teamira picked these'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                         const SizedBox(height: 2),
                         Text(
                           '"${widget.query}"',
@@ -130,7 +131,7 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                             const SizedBox(height: 14),
                             GestureDetector(
                               onTap: _retry,
-                              child: Text('tap to try again',
+                              child: Text('tap to try again'.tr,
                                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
                             ),
                           ],
@@ -141,7 +142,7 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                   final results = snapshot.data!;
                   if (results.isEmpty) {
                     return Center(
-                      child: Text("nothing matched that — try different words",
+                      child: Text("nothing matched that — try different words".tr,
                           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),
                     );
                   }
@@ -267,9 +268,9 @@ class _StaggerInState extends State<_StaggerIn> with SingleTickerProviderStateMi
 /// entirely rather than showing an empty bar.
 String? _friendlyReasoning(String raw) {
   final kept = raw.split(';').map((p) => p.trim()).where((p) => !p.startsWith('genres: ')).map((p) {
-    if (p.startsWith('similar to ')) return 'похоже на «${p.substring(11)}»';
-    if (p == 'era matches') return 'подходящая эпоха';
-    if (p == 'matches what you described') return 'совпадает с описанием';
+    if (p.startsWith('similar to ')) return 'похоже на «${p.substring(11)}»'.tr;
+    if (p == 'era matches') return 'подходящая эпоха'.tr;
+    if (p == 'matches what you described') return 'совпадает с описанием'.tr;
     return p;
   }).toList();
   if (kept.isEmpty) return null;
@@ -377,7 +378,7 @@ class _HeroMatchCardState extends State<_HeroMatchCard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '✦ лучшее совпадение',
+                  '✦ лучшее совпадение'.tr,
                   style: SeenlyText.mono(size: 10, weight: FontWeight.w700, color: SeenlyPalette.accentOnAccent),
                 ),
               ),

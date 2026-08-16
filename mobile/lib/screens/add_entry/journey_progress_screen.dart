@@ -20,6 +20,7 @@ import 'cinema_log_screen.dart';
 import 'coach_log_screen.dart';
 import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
+import '../../services/app_translations.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -304,7 +305,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.of(sheetContext).pop(),
-                  child: Text('keep going', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
+                  child: Text('keep going'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
                 ),
               ),
             ],
@@ -597,7 +598,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                         ],
                       ),
                       alignment: Alignment.center,
-                      child: Text("i'm back — rate it",
+                      child: Text("i'm back — rate it".tr,
                           style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.paper)),
                     ),
                   ),
@@ -726,7 +727,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       decoration: BoxDecoration(color: _accent, borderRadius: BorderRadius.circular(14)),
                       alignment: Alignment.center,
-                      child: Text("i'm back — rate it",
+                      child: Text("i'm back — rate it".tr,
                           style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.paper)),
                     ),
                   ),
@@ -775,7 +776,7 @@ class _MapStyleSheet extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('map style', style: SeenlyText.metaLabel),
+            Text('map style'.tr, style: SeenlyText.metaLabel),
             const SizedBox(height: 14),
             for (final info in MapStyleCatalog.all)
               Padding(

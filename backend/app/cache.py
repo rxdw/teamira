@@ -93,8 +93,15 @@ def _lock_for(cache_key: str) -> asyncio.Lock:
 
 
 def _dump_json(value) -> str:
+    # context={"raw": True} tells ImageFieldsModel's field_serializers
+    # (schemas.py) to store poster_url/backdrop_url/etc. untouched rather
+    # than resolving them against whatever PUBLIC_API_BASE_URL is
+    # configured right now — see that mixin's docstring for why baking a
+    # resolved (possibly proxied) URL into a cache row that can outlive
+    # the current setting is exactly the bug this avoids.
+    _RAW = {"raw": True}
     if isinstance(value, BaseModel):
-        return value.model_dump_json()
+        return value.model_dump_json(context=_RAW)
     if isinstance(value, list):
         if not value:
             return "[]"
@@ -102,7 +109,7 @@ def _dump_json(value) -> str:
         # (List[MediaItem], List[Collection], ...) — use the first item's
         # type to build the right TypeAdapter rather than assuming.
         item_type = type(value[0])
-        return TypeAdapter(list[item_type]).dump_json(value).decode("utf-8")
+        return TypeAdapter(list[item_type]).dump_json(value, context=_RAW).decode("utf-8")
     return json.dumps(value)
 
 

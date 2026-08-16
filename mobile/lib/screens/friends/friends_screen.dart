@@ -14,6 +14,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/wow_motion.dart';
 import 'friend_profile_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The friends system's home screen — reached from the profile's own
 /// friends block ("see all"). Everything here reads from `/friends` (see
@@ -116,7 +117,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text("that didn't go through — try again")));
+            .showSnackBar(SnackBar(content: Text("that didn't go through — try again".tr)));
       }
     } finally {
       if (mounted) setState(() => _busy.remove(id));
@@ -150,17 +151,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
         backgroundColor: SeenlyPalette.paper,
         title: Text('remove $username?', style: SeenlyText.serif(size: 16)),
         content: Text(
-          "you'll stop seeing each other's activity — either of you can send a new request later.",
+          "you'll stop seeing each other's activity — either of you can send a new request later.".tr,
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text('cancel', style: SeenlyText.mono(size: 11)),
+            child: Text('cancel'.tr, style: SeenlyText.mono(size: 11)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('remove', style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
+            child: Text('remove'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
           ),
         ],
       ),
@@ -207,7 +208,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Text('friends', style: SeenlyText.screenTitle),
+                  Text('friends'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -215,7 +216,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
               child: TextField(
                 controller: _searchController,
-                decoration: const InputDecoration(hintText: 'find someone by username'),
+                decoration: InputDecoration(hintText: 'find someone by username'.tr),
               ),
             ),
             Expanded(
@@ -259,7 +260,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         Entrance(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Text('no one on teamira has that username',
+            child: Text('no one on teamira has that username'.tr,
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted)),
           ),
         ),
@@ -311,7 +312,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       _InviteRow(onTap: () => showInviteFriendsSheet(context)),
       const SizedBox(height: 18),
       if (incoming.isNotEmpty) ...[
-        Text('requests', style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
+        Text('requests'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
         const SizedBox(height: 12),
         grid(incoming.asMap().entries.map((entry) {
           final i = entry.key;
@@ -340,7 +341,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         const SizedBox(height: 8),
       ],
       if (outgoing.isNotEmpty) ...[
-        Text('sent', style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
+        Text('sent'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
         const SizedBox(height: 12),
         grid(outgoing.asMap().entries.map((entry) {
           final i = entry.key;
@@ -371,7 +372,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Text(
-            'search a username above, or invite someone who isn\'t on teamira yet',
+            'search a username above, or invite someone who isn\'t on teamira yet'.tr,
             style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
           ),
         )
@@ -421,7 +422,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         }).toList()),
       if (_suggested.isNotEmpty) ...[
         const SizedBox(height: 24),
-        Text('people you may know', style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
+        Text('people you may know'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
         const SizedBox(height: 12),
         grid(_suggested.asMap().entries.map((entry) {
           final i = entry.key;
@@ -683,9 +684,9 @@ class _InviteRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('invite friends', style: SeenlyText.serif(size: 13, weight: FontWeight.w600)),
+                  Text('invite friends'.tr, style: SeenlyText.serif(size: 13, weight: FontWeight.w600)),
                   const SizedBox(height: 1),
-                  Text('not on teamira yet? send them your code',
+                  Text('not on teamira yet? send them your code'.tr,
                       style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                 ],
               ),
@@ -734,11 +735,11 @@ class _SearchResultRow extends StatelessWidget {
   Widget _statusPill() {
     switch (result.status) {
       case 'friends':
-        return Text('friends', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
+        return Text('friends'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
       case 'pending_outgoing':
-        return Text('requested', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
+        return Text('requested'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
       case 'pending_incoming':
-        return Text('respond above', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
+        return Text('respond above'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint));
       default:
         return PressScale(
           onTap: onAdd,
@@ -746,7 +747,7 @@ class _SearchResultRow extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 14),
             decoration: BoxDecoration(color: SeenlyPalette.accent, borderRadius: BorderRadius.circular(16)),
-            child: Text('add', style: SeenlyText.mono(size: 10, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w700)),
+            child: Text('add'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w700)),
           ),
         );
     }

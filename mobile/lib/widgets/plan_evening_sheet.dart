@@ -15,6 +15,7 @@ import '../theme/text_styles.dart';
 import 'tear_ticket_confirm.dart';
 import 'themed_loading_indicator.dart';
 import 'themed_poster_tile.dart';
+import '../services/app_translations.dart';
 
 /// The whole "plan an evening" ritual, full screen: pick something off
 /// the plan-to-watch shelf, say when, say whether it's a co-viewing
@@ -302,7 +303,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
             decoration: InputDecoration(
               isDense: true,
               border: InputBorder.none,
-              hintText: 'search for a title…',
+              hintText: 'search for a title…'.tr,
               hintStyle: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder),
               prefixIcon: const Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
               prefixIconConstraints: const BoxConstraints(minWidth: 30),
@@ -342,7 +343,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'no partner linked yet — invite one to plan evenings together',
+                  'no partner linked yet — invite one to plan evenings together'.tr,
                   style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
                 ),
               ),
@@ -412,8 +413,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Text(
-            'nothing on your plan-to-watch shelf yet — search for a title '
-            'above, or add a few to that shelf first.',
+            'nothing on your plan-to-watch shelf yet — search for a title above, or add a few to that shelf first.'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
           ),
@@ -456,7 +456,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
     if (_searchResults.isEmpty) {
       return Center(
         child: Text(
-          'nothing found',
+          'nothing found'.tr,
           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
         ),
       );
@@ -551,7 +551,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
           Row(
             children: [
               Expanded(
-                child: _DateChip(label: 'today', selected: _sameDay(_date, today), onTap: () => setState(() => _date = today)),
+                child: _DateChip(label: 'today'.tr, selected: _sameDay(_date, today), onTap: () => setState(() => _date = today)),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -570,7 +570,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
           ),
           const SizedBox(height: 22),
           Text(
-            'what time?',
+            'what time?'.tr,
             style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
@@ -660,7 +660,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 alignment: Alignment.center,
-                child: Text('continue',
+                child: Text('continue'.tr,
                     style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
               ),
             ),
@@ -804,11 +804,10 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('link a partner', style: SeenlyText.serif(italic: true, size: 16)),
+            Text('link a partner'.tr, style: SeenlyText.serif(italic: true, size: 16)),
             const SizedBox(height: 6),
             Text(
-              'once linked, evenings you plan together show up on both '
-              'of your co-viewing screens.',
+              'once linked, evenings you plan together show up on both of your co-viewing screens.'.tr,
               style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
             ),
             const SizedBox(height: 18),
@@ -829,7 +828,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'send this to your partner — it\'s waiting for them to enter it.',
+                  'send this to your partner — it\'s waiting for them to enter it.'.tr,
                   style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
                 ),
               ] else
@@ -846,7 +845,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                       alignment: Alignment.center,
                       child: _busy
                           ? const ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
-                          : Text('get a code',
+                          : Text('get a code'.tr,
                               style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
                     ),
                   ),
@@ -856,7 +855,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                 child: GestureDetector(
                   onTap: () => setState(() => _entering = true),
                   child: Text(
-                    'have a code instead?',
+                    'have a code instead?'.tr,
                     style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
                   ),
                 ),
@@ -869,7 +868,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                 style: SeenlyText.mono(size: 16, weight: FontWeight.w600),
                 decoration: InputDecoration(
                   counterText: '',
-                  hintText: 'CODE12',
+                  hintText: 'CODE12'.tr,
                   filled: true,
                   fillColor: SeenlyPalette.background,
                   border: OutlineInputBorder(
@@ -892,7 +891,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                     alignment: Alignment.center,
                     child: _busy
                         ? const ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
-                        : Text('link up',
+                        : Text('link up'.tr,
                             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
                   ),
                 ),

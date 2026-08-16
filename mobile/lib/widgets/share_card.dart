@@ -6,6 +6,7 @@ import '../models/media_item.dart';
 import '../models/profile_stats.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// The bit every share card ends on — small, quiet, and the same
 /// everywhere, so a screenshot of one is instantly recognizable as "from
@@ -22,9 +23,9 @@ class _ShareFooter extends StatelessWidget {
           child: Divider(color: SeenlyPalette.dashedBorder, thickness: 1),
         ),
         const SizedBox(height: 10),
-        Text('teamira', style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
+        Text('teamira'.tr, style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
         const SizedBox(height: 2),
-        Text('a cozy watch diary', style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
+        Text('a cozy watch diary'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
       ],
     );
   }
@@ -244,7 +245,7 @@ class YearShareCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text('${stat.totalLogged}',
               style: SeenlyText.serif(size: 52, weight: FontWeight.w700)),
-          Text('evenings logged', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
+          Text('evenings logged'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
           const SizedBox(height: 6),
           Text('${stat.hours.toStringAsFixed(0)} hours in',
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),

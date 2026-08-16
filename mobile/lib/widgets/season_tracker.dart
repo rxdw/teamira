@@ -10,6 +10,7 @@ import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../widgets/themed_loading_indicator.dart';
+import '../services/app_translations.dart';
 
 /// The series title screen's season/episode checklist. Loads the show's
 /// season structure (public, cached forever server-side) and the current
@@ -118,7 +119,7 @@ class _SeasonTrackerState extends State<SeasonTracker> {
         _pending.removeAll(episodes.map((e) => e.key));
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't save that just now — try again")),
+        SnackBar(content: Text("couldn't save that just now — try again".tr)),
       );
     }
   }
@@ -150,7 +151,7 @@ class _SeasonTrackerState extends State<SeasonTracker> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('seasons',
+            Text('seasons'.tr,
                 style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
             Text('$watched/$total episodes', style: SeenlyText.metaLabel),
           ],

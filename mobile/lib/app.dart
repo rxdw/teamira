@@ -23,6 +23,7 @@ import 'theme/app_scroll_behavior.dart';
 import 'theme/app_theme.dart';
 import 'theme/palette.dart';
 import 'theme/text_styles.dart';
+import 'services/app_translations.dart';
 
 /// Shared across the app so any screen can subscribe as a [RouteAware]
 /// and find out when a route pushed on top of it gets popped back —
@@ -54,7 +55,13 @@ import 'theme/text_styles.dart';
 final routeObserver = RouteObserver<ModalRoute<void>>();
 
 class SeenlyApp extends StatelessWidget {
-  const SeenlyApp({super.key});
+  const SeenlyApp({super.key, required this.localeService});
+
+  // Already loaded (SharedPreferences read finished) before runApp — see
+  // main.dart's own comment on why this one specifically can't use the
+  // same `create: (_) => Service()..load()` fire-and-forget pattern
+  // every other device-only prefs provider below uses.
+  final LocaleService localeService;
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +73,12 @@ class SeenlyApp extends StatelessWidget {
         // of auth/bootstrap above.
         ChangeNotifierProvider(create: (_) => LogThemeService()..load()),
         // Whether titles/descriptions prefer Russian (when TMDB has a
-        // translation) — same device-only loading, independent of auth.
-        ChangeNotifierProvider(create: (_) => LocaleService()..load()),
+        // translation) — loaded in main() before runApp, not here (see
+        // that comment for why this one alone can't use the
+        // create+fire-and-forget-load pattern every other provider below
+        // does), so `.value` just hands the already-ready instance to
+        // the tree instead of constructing+loading a new one.
+        ChangeNotifierProvider.value(value: localeService),
         // Whether the seat/venue/ticket-tear ritual is skipped in favor
         // of an instant log — same device-only loading, independent of
         // auth. See WatchingChoiceScreen's quick-log banner and the
@@ -286,7 +297,7 @@ class _SplashScreen extends StatelessWidget {
             const Icon(Icons.nights_stay_outlined,
                 size: 30, color: SeenlyPalette.accent),
             const SizedBox(height: 10),
-            Text('teamira', style: SeenlyText.serif(size: 22, weight: FontWeight.w600)),
+            Text('teamira'.tr, style: SeenlyText.serif(size: 22, weight: FontWeight.w600)),
           ],
         ),
       ),

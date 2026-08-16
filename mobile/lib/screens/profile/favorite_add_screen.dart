@@ -10,6 +10,7 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../services/app_translations.dart';
 
 enum _AddTab { search, watched, planned, watching }
 
@@ -125,7 +126,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
       if (!mounted) return;
       setState(() => _overrides[_key(item.source, item.id)] = !nextValue);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("that didn't save — try again")));
+          .showSnackBar(SnackBar(content: Text("that didn't save — try again".tr)));
     }
   }
 
@@ -162,7 +163,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
                       onPressed: () => Navigator.of(context).pop(_changed),
                     ),
                     Expanded(
-                      child: Text('add a favorite',
+                      child: Text('add a favorite'.tr,
                           style: SeenlyText.screenTitle, overflow: TextOverflow.ellipsis),
                     ),
                   ],
@@ -196,7 +197,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
                     onChanged: _onSearchChanged,
                     style: SeenlyText.serif(size: 14, color: SeenlyPalette.ink),
                     decoration: InputDecoration(
-                      hintText: 'search movies…',
+                      hintText: 'search movies…'.tr,
                       hintStyle: SeenlyText.serif(size: 14, color: SeenlyPalette.placeholder),
                       prefixIcon: const Icon(Icons.search, size: 18, color: SeenlyPalette.inkMuted),
                       filled: true,

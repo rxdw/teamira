@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app import cache
 from app.database import get_db
-from app.adapters.tmdb import TmdbAdapter, TMDB_PROFILE_BASE
+from app.adapters.tmdb import TmdbAdapter
 from app.adapters.trakt import TraktAdapter
 from app.schemas import TmdbReviewOut, TmdbReviewsOut
 
@@ -45,13 +45,16 @@ _TRAKT_MIN_CHARS = 40
 def _avatar_url(path: Optional[str]) -> Optional[str]:
     """TMDB's `author_details.avatar_path` is occasionally a full
     external (Gravatar) URL prefixed with "/https://..." rather than a
-    normal TMDB image path — this unwraps that case; a real TMDB-hosted
-    path just gets the usual base prepended."""
+    normal TMDB image path — this unwraps that case. A real TMDB-hosted
+    path is returned bare (no base, no proxying) — see
+    TmdbReviewOut.avatar_url's own field_serializer in app/schemas.py,
+    which resolves it at response time, same as every other TMDB image
+    field (app/image_urls.py has the full reasoning)."""
     if not path:
         return None
     if path.startswith("/http"):
         return path[1:]
-    return f"{TMDB_PROFILE_BASE}{path}"
+    return path
 
 
 def _tmdb_reviews(raw: list) -> List[TmdbReviewOut]:

@@ -9,6 +9,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'building.dart';
 import 'light_bloom.dart' show flashOpacity;
+import '../services/app_translations.dart';
 
 /// The city theme's counterpart to the ticket tear, the stamp press,
 /// and the boarding-pass tear: the plot waits empty for you to raise
@@ -252,7 +253,7 @@ class _CityRiseOverlayState extends State<_CityRiseOverlay> with TickerProviderS
                     opacity: captionT,
                     child: Transform.translate(
                       offset: Offset(0, (1 - captionT) * 8),
-                      child: Text('raised for tonight',
+                      child: Text('raised for tonight'.tr,
                           style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.paper)),
                     ),
                   ),
@@ -341,7 +342,7 @@ class _CityRiseOverlayState extends State<_CityRiseOverlay> with TickerProviderS
                       children: [
                         Icon(Icons.arrow_upward, size: 13, color: SeenlyPalette.paper.withOpacity(0.75)),
                         const SizedBox(width: 6),
-                        Text('raise it — or just tap',
+                        Text('raise it — or just tap'.tr,
                             style: SeenlyText.mono(size: 10, color: SeenlyPalette.paper.withOpacity(0.75))),
                       ],
                     ),

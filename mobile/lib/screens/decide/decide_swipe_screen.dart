@@ -11,6 +11,7 @@ import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart';
 import '../shell/root_shell.dart';
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Solo version of the Watch Together vote deck — same swipe language
 /// (left to pass, right to keep) but with nobody else's decisions to
@@ -46,7 +47,7 @@ class _DecideSwipeScreenState extends State<DecideSwipeScreen> {
     });
     if (keep) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('added to plan to watch'), duration: Duration(milliseconds: 900)),
+        SnackBar(content: Text('added to plan to watch'.tr), duration: Duration(milliseconds: 900)),
       );
     }
   }
@@ -88,7 +89,7 @@ class _DecideSwipeScreenState extends State<DecideSwipeScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text('swipe through', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                  Text('swipe through'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -471,7 +472,7 @@ class _RecapView extends StatelessWidget {
           children: [
             const Icon(Icons.local_florist_outlined, size: 34, color: SeenlyPalette.accent),
             const SizedBox(height: 14),
-            Text('that\'s the whole pile', style: SeenlyText.serif(size: 18, weight: FontWeight.w600)),
+            Text('that\'s the whole pile'.tr, style: SeenlyText.serif(size: 18, weight: FontWeight.w600)),
             const SizedBox(height: 6),
             Text(
               added == 0

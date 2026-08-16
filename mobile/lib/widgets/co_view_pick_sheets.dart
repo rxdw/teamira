@@ -14,6 +14,7 @@ import '../theme/text_styles.dart';
 import 'small_pieces.dart';
 import 'themed_loading_indicator.dart';
 import 'themed_poster_tile.dart';
+import '../services/app_translations.dart';
 
 // Random draw and reel-spin "pick for us" flows for co-viewing — split
 // out of co_view_decide_card.dart so co_view_decide_method_screen.dart
@@ -117,7 +118,7 @@ class _RandomPickSheetState extends State<_RandomPickSheet> {
             children: [
               const Icon(Icons.casino_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 6),
-              Text('pick for us', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+              Text('pick for us'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const Spacer(),
               if (_pool.length > 1)
                 GestureDetector(
@@ -305,7 +306,7 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
             children: [
               const Icon(Icons.rotate_right_rounded, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 6),
-              Text('spin the reel', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+              Text('spin the reel'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const Spacer(),
               if (_pool.length > 1 && !_spinning)
                 GestureDetector(

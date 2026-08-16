@@ -1,6 +1,71 @@
 from datetime import datetime
 from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, field_serializer, SerializationInfo
+
+from app.image_urls import (
+    resolve_image_url,
+    TMDB_LOGO_BASE,
+    TMDB_PROFILE_BASE,
+    TMDB_POSTER_BASE,
+    TMDB_BACKDROP_BASE,
+)
+
+
+class ImageFieldsModel(BaseModel):
+    """Mixin for any response schema carrying a TMDB image reference —
+    see app/image_urls.py for why this has to happen at serialization
+    time rather than whenever the field was first set. Every serializer
+    below is guarded with check_fields=False so a subclass only needs to
+    actually declare the fields it has; the rest are silent no-ops.
+    Covers every field name any schema in this file uses for an image.
+
+    Every serializer below checks `info.context.get("raw")` and, when
+    set, returns the value untouched instead of resolving it. This is
+    what app/cache.py's `_dump_json` passes when writing a model into one
+    of the forever/dynamic caches (CachedTitleDetail, CachedFeedSnapshot,
+    ...) — without it, `model_dump_json()` (called from *both* a real API
+    response *and* cache.py's own cache-write path) would bake whatever
+    PUBLIC_API_BASE_URL happens to be configured *right now* into the
+    stored JSON forever, defeating the entire point of resolving lazily
+    at response time (see image_urls.py's module docstring). A row
+    cached under an old/blank PUBLIC_API_BASE_URL would then keep serving
+    an unproxied, direct image.tmdb.org link indefinitely — even after
+    the setting is fixed — since resolve_image_url() treats any string
+    already starting with http(s):// as an already-resolved foreign URL
+    and passes it through unchanged. Caching the untouched bare path
+    instead means every read resolves against the *current* setting."""
+
+    @field_serializer("poster_url", "poster_url_ru", "favorite_poster", check_fields=False)
+    def _ser_poster(self, v: Optional[str], info: SerializationInfo) -> Optional[str]:
+        if info.context and info.context.get("raw"):
+            return v
+        return resolve_image_url(v, TMDB_POSTER_BASE)
+
+    @field_serializer("backdrop_url", check_fields=False)
+    def _ser_backdrop(self, v: Optional[str], info: SerializationInfo) -> Optional[str]:
+        if info.context and info.context.get("raw"):
+            return v
+        return resolve_image_url(v, TMDB_BACKDROP_BASE)
+
+    @field_serializer("photo_url", check_fields=False)
+    def _ser_photo(self, v: Optional[str], info: SerializationInfo) -> Optional[str]:
+        if info.context and info.context.get("raw"):
+            return v
+        return resolve_image_url(v, TMDB_PROFILE_BASE)
+
+    @field_serializer("logo_url", check_fields=False)
+    def _ser_logo(self, v: Optional[str], info: SerializationInfo) -> Optional[str]:
+        if info.context and info.context.get("raw"):
+            return v
+        return resolve_image_url(v, TMDB_LOGO_BASE)
+
+    @field_serializer("poster_urls", check_fields=False)
+    def _ser_poster_list(self, v: Optional[List[str]], info: SerializationInfo) -> Optional[List[str]]:
+        if not v:
+            return v
+        if info.context and info.context.get("raw"):
+            return v
+        return [resolve_image_url(u, TMDB_POSTER_BASE) for u in v]
 
 
 # ---------------------------------------------------------------------------
@@ -25,7 +90,7 @@ class LocalizedText(BaseModel):
     en: Optional[str] = None
 
 
-class CastMember(BaseModel):
+class CastMember(ImageFieldsModel):
     # TMDB's own person id — None only for a cast/crew row built before
     # this field existed and never re-resolved (a forever-cached row from
     # before this change); every fresh fetch always has it. Powers a
@@ -44,7 +109,7 @@ class CastMember(BaseModel):
     photo_url: Optional[str] = None
 
 
-class MediaItem(BaseModel):
+class MediaItem(ImageFieldsModel):
     id: str
     media_type: str  # "movie" | "series" | "anime" | "game" | "book" | "manga"
     external_ids: ExternalIds
@@ -61,7 +126,7 @@ class MediaItem(BaseModel):
     year: Optional[int] = None
     genres: List[str] = Field(default_factory=list)
     rating: Optional[float] = None
-    source: str  # "tmdb" | "igdb" | "open_library" | "open_library_manga"
+    source: str  # "tmdb" | "igdb" | "google_books" | "shikimori_manga"
 
     # Populated only by GET /media/detail (the TMDB full-detail call, or
     # the IGDB game-detail call) — every search/feed/collections
@@ -97,6 +162,35 @@ class MediaItem(BaseModel):
     # good enough for the common single-director case, and a co-directed
     # title still shows the names, just isn't tappable to the second name.
     director_id: Optional[str] = None
+
+    # ------------------------------------------------------------------
+    # Game/book/manga-specific enrichment. All populated only by
+    # GET /media/detail (same convention as tagline/runtime/certification
+    # above) — search/feed/collections leave these null/empty too. Each
+    # field is meaningful for exactly one or two media types and simply
+    # stays empty for the rest, same as cast/director already do for
+    # games/books/manga.
+    # ------------------------------------------------------------------
+
+    # Games (IGDB involved_companies) — the developer(s)/publisher(s),
+    # joined "A, B" the same way `director` joins co-directors above.
+    developer: Optional[str] = None
+    # Games (IGDB involved_companies): publisher(s). Books (Google Books
+    # volumeInfo.publisher): the single publisher, unjoined.
+    publisher: Optional[str] = None
+    # Games (IGDB platforms.name), e.g. ["PC", "PlayStation 5", "Xbox Series X|S"].
+    platforms: List[str] = Field(default_factory=list)
+    # Games (IGDB game_modes.name), e.g. ["Single player", "Co-operative"].
+    game_modes: List[str] = Field(default_factory=list)
+    # Books (Google Books industryIdentifiers) — ISBN-13, falling back to
+    # ISBN-10 when that's all the source has.
+    isbn: Optional[str] = None
+    # Manga (Shikimori) — total volume/chapter counts when the work is far
+    # enough along (or finished) for Shikimori to know them; null for an
+    # ongoing series still short on either count, same "unknown, not
+    # zero" convention as everything else optional on this model.
+    volumes: Optional[int] = None
+    chapters: Optional[int] = None
 
 
 class RatingsOut(BaseModel):
@@ -151,7 +245,7 @@ class MediaDetailOut(BaseModel):
     shikimori_attribution: Optional[str] = None
 
 
-class PersonDetailOut(BaseModel):
+class PersonDetailOut(ImageFieldsModel):
     """Response for GET /media/person — what a tapped cast tile or
     "directed by ___" name opens. TMDB-only (there's no other source for
     person data in this app); no ratings/similar-titles concept the way
@@ -248,7 +342,7 @@ class TeamiraCollectionItemIn(BaseModel):
     # movie/series/anime, since that was the only source this ever
     # supported before games/books/manga were added, and old callers
     # never had to send this. Explicit for the others: "igdb" (game),
-    # "open_library" (book), "open_library_manga" (manga).
+    # "google_books" (book), "shikimori_manga" (manga).
     source: str = "tmdb"
 
 
@@ -283,14 +377,14 @@ class TeamiraCollectionOut(BaseModel):
         from_attributes = True
 
 
-class TeamiraSearchResultOut(BaseModel):
+class TeamiraSearchResultOut(ImageFieldsModel):
     """One catalog search hit — just enough to pick the right
     (media_id, source, media_type) when adding a manual item (see GET
     /teamira/admin/search). Covers every catalog a shelf can now draw
     from, not just TMDB."""
     media_id: str
     media_type: str  # "movie" | "series" | "anime" | "game" | "book" | "manga"
-    source: str  # "tmdb" | "igdb" | "open_library" | "open_library_manga"
+    source: str  # "tmdb" | "igdb" | "google_books" | "shikimori_manga"
     title: str
     year: Optional[int] = None
     poster_url: Optional[str] = None
@@ -311,7 +405,7 @@ class EpisodeOut(BaseModel):
     title: Optional[str] = None
 
 
-class SeasonOut(BaseModel):
+class SeasonOut(ImageFieldsModel):
     season: int
     episodes: List[EpisodeOut]
     # From TMDB — best-effort, see TmdbAdapter.season_posters. None when TMDB has no
@@ -427,7 +521,7 @@ class FeedReaction(BaseModel):
     action: str  # "like" (watch_later) | "watched" | "skip"
 
 
-class WatchlistEntryOut(BaseModel):
+class WatchlistEntryOut(ImageFieldsModel):
     id: str
     media_id: str
     media_type: str
@@ -482,7 +576,7 @@ class FavoriteToggleOut(BaseModel):
 # Collection/named_collections above (those have no user_id at all).
 # ---------------------------------------------------------------------------
 
-class UserListItemOut(BaseModel):
+class UserListItemOut(ImageFieldsModel):
     id: str
     media_id: str
     media_type: str
@@ -596,7 +690,7 @@ class DiaryEntryUpdate(BaseModel):
     favorite_cast: Optional[List[CastMember]] = None
 
 
-class DiaryEntryOut(BaseModel):
+class DiaryEntryOut(ImageFieldsModel):
     id: str
     media_id: str
     media_type: str
@@ -650,7 +744,7 @@ class AiAskResponse(BaseModel):
 # Activity
 # ---------------------------------------------------------------------------
 
-class ActivityItem(BaseModel):
+class ActivityItem(ImageFieldsModel):
     who: str
     text: str
     media_type: Optional[str] = None
@@ -1166,7 +1260,7 @@ class SuggestRequest(BaseModel):
     item: MediaItem
 
 
-class SuggestionOut(BaseModel):
+class SuggestionOut(ImageFieldsModel):
     id: str
     media_id: str
     media_type: str
@@ -1188,7 +1282,7 @@ class SuggestionOut(BaseModel):
 # Watch Together matches (both local pass-the-phone and network modes).
 # ---------------------------------------------------------------------------
 
-class CoViewEntryOut(BaseModel):
+class CoViewEntryOut(ImageFieldsModel):
     id: str
     media_id: str
     media_type: str
@@ -1360,7 +1454,7 @@ class ScrobbleEventOut(BaseModel):
         from_attributes = True
 
 
-class WatchProviderOut(BaseModel):
+class WatchProviderOut(ImageFieldsModel):
     provider_key: str
     name: str
     logo_url: Optional[str] = None
@@ -1388,13 +1482,23 @@ class TmdbReviewOut(BaseModel):
     url: str  # the review's page on themoviedb.org or trakt.tv, for "read more" / full context
     source: str = "tmdb"  # "tmdb" | "trakt"
 
+    # Deliberately NOT on the shared ImageFieldsModel mixin — avatar_url
+    # is also a field name UserOut/ActivityItem use for a user's own
+    # *uploaded* avatar (served from this app's own /static/avatars/,
+    # nothing to do with TMDB), so resolving it generically there would
+    # be wrong. This is TmdbReviewOut's own field_serializer, scoped to
+    # just this class, for TMDB's reviewer avatar specifically.
+    @field_serializer("avatar_url")
+    def _ser_avatar(self, v: Optional[str]) -> Optional[str]:
+        return resolve_image_url(v, TMDB_PROFILE_BASE)
+
 
 class TmdbReviewsOut(BaseModel):
     reviews: List[TmdbReviewOut]
     attribution: str = "Отзывы предоставлены TMDB и Trakt"
 
 
-class WrappedStat(BaseModel):
+class WrappedStat(ImageFieldsModel):
     period: str            # "month" | "year"
     period_label: str      # e.g. "July 2026" or "2026"
     total_logged: int
@@ -1420,7 +1524,7 @@ class WrappedStat(BaseModel):
 # wasn't known at log time, not an error.
 # ---------------------------------------------------------------------------
 
-class WrappedTitleMoment(BaseModel):
+class WrappedTitleMoment(ImageFieldsModel):
     title: str
     date_label: str        # e.g. "1 января"
     poster_url: Optional[str] = None
@@ -1455,7 +1559,7 @@ class WrappedGenreShare(BaseModel):
     percent: float
 
 
-class WrappedReviewItem(BaseModel):
+class WrappedReviewItem(ImageFieldsModel):
     title: str
     rating: Optional[int] = None   # 1-10
     note: Optional[str] = None
@@ -1473,7 +1577,7 @@ class WrappedRatingBucket(BaseModel):
     count: int
 
 
-class WrappedSummary(BaseModel):
+class WrappedSummary(ImageFieldsModel):
     scope: str              # "month" | "year" | "all"
     year: int               # anchor year (month/year scope); current year for "all"
     month: Optional[int] = None   # 1-12, only set for scope == "month"

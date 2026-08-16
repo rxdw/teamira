@@ -15,21 +15,16 @@ from app import models
 from app.deps import get_current_user
 from app.schemas import MediaItem, FeedReaction, Collection
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.google_books import GoogleBooksAdapter
+from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.adapters.tmdb import TmdbAdapter
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 logger = logging.getLogger(__name__)
 
 _games = IgdbAdapter()
-_books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_books = GoogleBooksAdapter()
+_manga = ShikimoriMangaAdapter()
 _tmdb = TmdbAdapter()
 
 # How many liked titles we're willing to fan out to TMDB's genre-scoped
@@ -52,7 +47,15 @@ _FOR_YOU_TTL = timedelta(hours=6)
 # poster-only "tmdb-poster-ru-v1" since the cached payload shape changed
 # (now also carries title_ru/overview_ru) — an old poster-only row would
 # otherwise look like a permanent "no title/overview" miss forever.
-_RU_SUPPLEMENT_CACHE_SOURCE = "tmdb-ru-supplement-v2"
+#
+# Bumped v2 -> v3 for the same title_ru/overview_ru fallback-to-English
+# fix as media.py's _DETAIL_CACHE_SOURCE bump — TmdbAdapter.
+# shelf_ru_supplement used to guard title_ru against original_title,
+# which silently let an English fallback string through as "Russian"
+# for any title whose original_language isn't itself English. Without
+# this bump, shelves would keep serving already-cached wrong rows
+# forever even after the adapter fix.
+_RU_SUPPLEMENT_CACHE_SOURCE = "tmdb-ru-supplement-v3"
 # How many shelf_ru_supplement lookups run at once while enriching a cold
 # Collections fetch — a real cap, not just politeness: a full shelf pass
 # is a few hundred titles, and firing them all at TMDB simultaneously is
@@ -386,14 +389,28 @@ async def get_collections(
         for name, call in (
             ("tmdb", lambda: _tmdb.named_collections(language=tmdb_language)),
             ("igdb", _games.named_collections),
-            ("open_library_books", _books.named_collections),
-            ("open_library_manga", _manga.named_collections),
+            ("google_books", _books.named_collections),
+            ("shikimori_manga", _manga.named_collections),
         ):
             try:
                 shelves += await call()
             except Exception:
                 logger.warning("feed/collections: %s source failed, skipping its shelves", name, exc_info=True)
-        collections_out = [Collection(title=title, items=items) for title, items in shelves if items]
+        # Each source's named_collections() now returns (title_ru, title_en,
+        # items) — `title` on the Collection is always the Russian shelf
+        # name, title_en the English fallback, same "title always Russian"
+        # contract the Teamira franchise shelves already follow (see
+        # schemas.Collection.title / mobile/lib/models/collection.dart::
+        # displayTitle). Previously these adapters only ever returned an
+        # English label with no title_en set, so the client's own ru/en
+        # toggle had nothing to fall back *from* and the Collections tab's
+        # shelf names stayed in English even once the cards on it were
+        # showing Russian text/posters.
+        collections_out = [
+            Collection(title=title_ru, title_en=title_en, items=items)
+            for title_ru, title_en, items in shelves
+            if items
+        ]
         if tmdb_language:
             all_items = [item for c in collections_out for item in c.items]
             await _apply_ru_supplement(db, all_items)

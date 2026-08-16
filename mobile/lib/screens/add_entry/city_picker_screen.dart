@@ -6,6 +6,7 @@ import '../../data/world_cities.dart';
 import '../../services/geo_city_service.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../services/app_translations.dart';
 
 /// Lets the person set an arbitrary "from" city for the coach route
 /// picker — searches live against OpenStreetMap (any real place on
@@ -90,7 +91,7 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
                     icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
-                  Text('choose a city', style: SeenlyText.serif(italic: true, size: 15)),
+                  Text('choose a city'.tr, style: SeenlyText.serif(italic: true, size: 15)),
                 ],
               ),
             ),
@@ -119,7 +120,7 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
                         decoration: InputDecoration(
                           isDense: true,
                           border: InputBorder.none,
-                          hintText: 'any city in the world',
+                          hintText: 'any city in the world'.tr,
                           hintStyle: SeenlyText.bodyText.copyWith(color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -137,7 +138,7 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
             if (_offline && _results.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
-                child: Text('offline — showing a shorter local list',
+                child: Text('offline — showing a shorter local list'.tr,
                     style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
               ),
             Expanded(
@@ -145,14 +146,14 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text('start typing a city name',
+                        child: Text('start typing a city name'.tr,
                             textAlign: TextAlign.center,
                             style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
                       ),
                     )
                   : (_results.isEmpty && !_searching)
                       ? Center(
-                          child: Text('no matches', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+                          child: Text('no matches'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),

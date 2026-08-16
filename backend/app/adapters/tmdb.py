@@ -40,9 +40,16 @@ logger = logging.getLogger("seenly.adapters.tmdb")
 
 
 TMDB_BASE = "https://api.themoviedb.org/3"
-TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w92"
-TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
-TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"  # full-size poster tile, not the tiny watch-provider logo size above
+
+# NOTE: the image-size base URLs (w92/w185/w500/w780) and the
+# image.tmdb.org -> /media/image-proxy rewrite used to live here, applied
+# as soon as this adapter built a poster/backdrop/profile/logo URL. Both
+# now live in app/image_urls.py instead, applied once at response-
+# serialization time (see that module's docstring for why) — this
+# adapter just hands back TMDB's own bare path unchanged (see
+# poster_url()/profile_url()/logo_url() below, and the inline
+# backdrop_path passthroughs further down).
+
 
 # Attribution string for MediaDetailOut.tmdb_attribution — required by
 # TMDB's API Terms of Use wherever their data/images are shown, same
@@ -184,15 +191,20 @@ class TmdbAdapter:
 
     @staticmethod
     def logo_url(logo_path: Optional[str]) -> Optional[str]:
-        return f"{TMDB_IMAGE_BASE}{logo_path}" if logo_path else None
+        """Returns TMDB's bare path unchanged (e.g. "/abc.png") — no base
+        URL, no proxying. Resolving that into a full (optionally
+        proxied) URL now happens once, at response-serialization time —
+        see app/image_urls.py's module docstring for why that has to be
+        deferred that late rather than done here."""
+        return logo_path or None
 
     @staticmethod
     def profile_url(profile_path: Optional[str]) -> Optional[str]:
-        return f"{TMDB_PROFILE_BASE}{profile_path}" if profile_path else None
+        return profile_path or None
 
     @staticmethod
     def poster_url(poster_path: Optional[str]) -> Optional[str]:
-        return f"{TMDB_POSTER_BASE}{poster_path}" if poster_path else None
+        return poster_path or None
 
     async def season_posters(self, tmdb_id: str) -> dict:
         """Poster path per season number, straight off /tv/{id}'s own
@@ -233,9 +245,9 @@ class TmdbAdapter:
     async def shelf_ru_supplement(self, tmdb_id: str, segment: str) -> dict:
         """Backfills title_ru/overview_ru/poster_ru for one Collections-shelf
         item via TMDB's per-title endpoint — one `language=ru-RU` call with
-        `append_to_response=images` (no credits/videos, no second English
-        call; cast/director/trailers still come from the full per-title
-        detail call once someone actually opens the title).
+        `append_to_response=images,translations` (no credits/videos, no
+        second English call; cast/director/trailers still come from the
+        full per-title detail call once someone actually opens the title).
 
         Why this exists at all: app/adapters/tmdb.py::_fetch_list already
         passes `language=ru-RU` straight through to every discover/list
@@ -253,15 +265,29 @@ class TmdbAdapter:
         overview are already in that response; we just weren't reading
         them).
 
-        Same original-title guard as full_detail(): TMDB quietly returns
-        the *original* (usually English/romaji) title/overview when it has
-        no real Russian translation, rather than an empty value — so
-        title_ru/overview_ru here are dropped (left None) whenever they
-        exactly match original_title/original_name, same as everywhere
-        else in this app that does this comparison. Without that guard a
-        "no translation" title would get permanently cached as if it were
-        one, and could actually overwrite a *better* title.ru the list
-        call itself happened to already have.
+        title_ru/overview_ru come from the `translations` block, NOT the
+        top-level `title`/`overview` fields — TMDB's per-title endpoint
+        quietly falls back to *English* (not the title's original
+        language, and not a blank value) when it has no real Russian
+        translation, so a same-language guard against `original_title`
+        only catches the fallback for titles whose original_language
+        already happens to be English; anything else (a French, Japanese,
+        Korean, ... original) sails right through that guard with an
+        English string sitting in title.ru, displayed as if it were
+        genuinely Russian (this is the exact bug behind "poster's
+        Russian, description's Russian, but the title's still in
+        English" reports — TMDB's own community forum confirms the
+        fallback-to-English behavior: a title/overview only appears in
+        the main response body when the requested language actually has
+        a translation, otherwise it silently substitutes the fallback
+        language's text into the same field). The `translations` block
+        sidesteps all of that: it lists every language TMDB actually has
+        a submitted translation for, each with its own untouched
+        `data.title`/`data.overview` — so reading the `ru` entry out of
+        that list (or leaving both None when there isn't one) is a
+        definitive presence check instead of a guess, and covers
+        `overview_ru` too, which previously had no guard against this
+        fallback at all.
 
         Returns {"title_ru", "overview_ru", "poster_ru"} — every key
         present, None where TMDB has nothing. Raises on a transient
@@ -279,17 +305,24 @@ class TmdbAdapter:
             resp = await client.get(url, params={
                 "api_key": settings.tmdb_api_key,
                 "language": "ru-RU",
-                "append_to_response": "images",
+                "append_to_response": "images,translations",
+                "include_image_language": "ru,null",
             })
             if resp.status_code == 404:
                 return empty
             resp.raise_for_status()
         data = resp.json()
 
-        original_title = data.get("original_title") or data.get("original_name")
-        translated_title = data.get("title") or data.get("name")
-        title_ru = translated_title if translated_title and translated_title != original_title else None
-        overview_ru = data.get("overview") or None
+        ru_translation = next(
+            (
+                t for t in ((data.get("translations") or {}).get("translations") or [])
+                if t.get("iso_639_1") == "ru"
+            ),
+            None,
+        )
+        ru_data = (ru_translation or {}).get("data") or {}
+        title_ru = (ru_data.get("title") or ru_data.get("name") or "").strip() or None
+        overview_ru = (ru_data.get("overview") or "").strip() or None
 
         posters = [
             p for p in ((data.get("images") or {}).get("posters") or [])
@@ -494,10 +527,7 @@ class TmdbAdapter:
             description=LocalizedText(en=data.get("overview") or None, ru=overview_ru),
             poster_url=TmdbAdapter.poster_url(data.get("poster_path")),
             poster_url_ru=poster_url_ru,
-            backdrop_url=(
-                f"https://image.tmdb.org/t/p/w780{data['backdrop_path']}"
-                if data.get("backdrop_path") else None
-            ),
+            backdrop_url=data.get("backdrop_path"),
             year=year,
             genres=genres,
             rating=data.get("vote_average") or None,
@@ -720,10 +750,7 @@ class TmdbAdapter:
             title=title_lt,
             description=desc_lt,
             poster_url=self.poster_url(raw.get("poster_path")),
-            backdrop_url=(
-                f"https://image.tmdb.org/t/p/w780{raw['backdrop_path']}"
-                if raw.get("backdrop_path") else None
-            ),
+            backdrop_url=raw.get("backdrop_path"),
             year=year,
             genres=genres,
             rating=raw.get("vote_average") or None,
@@ -879,9 +906,30 @@ class TmdbAdapter:
         title_en = name_en or original_title
         overview_en = data_en.get("overview") or None
 
+        # Same original-vs-translated guard as _media_item_from_tmdb/
+        # collection() above — compared against title_en (the genuine
+        # English text from this same request), NOT original_title.
+        # TMDB's per-title endpoint quietly falls back to *English* (its
+        # own account default, not the title's original-language text)
+        # whenever it has no real Russian translation — a French,
+        # Japanese, Korean, ... title with no ru-RU translation still
+        # comes back with an English string in `title`, which happens to
+        # differ from `original_title` just as much as a genuine
+        # translation would. Comparing against original_title only ever
+        # catches the fallback for titles whose original_language is
+        # already English; everything else slipped straight through this
+        # guard and got cached as title.ru forever with plain English
+        # text sitting in it (displayed as if it were genuinely Russian
+        # once the ru toggle is on — the exact "poster/description are
+        # Russian, title stays English" reports). overview_ru previously
+        # had no guard against this at all, not even the broken one —
+        # same fallback-to-English risk, fixed the same way collection()
+        # already guards its own overview_ru.
         translated_title = data_ru.get("title") or data_ru.get("name")
-        title_ru = translated_title if translated_title and translated_title != original_title else None
+        title_ru = translated_title if translated_title and translated_title != title_en else None
         overview_ru = data_ru.get("overview") or None
+        if overview_ru and overview_ru == overview_en:
+            overview_ru = None  # TMDB had no real translation, just echoed English back
 
         credits_en = (data_en.get("credits") or {}).get("cast") or []
         credits_ru = (data_ru.get("credits") or {}).get("cast") or []
@@ -977,10 +1025,7 @@ class TmdbAdapter:
             title=LocalizedText(en=title_en, ru=title_ru),
             description=LocalizedText(en=overview_en, ru=overview_ru),
             poster_url=self.poster_url(data_en.get("poster_path")),
-            backdrop_url=(
-                f"https://image.tmdb.org/t/p/w780{data_en['backdrop_path']}"
-                if data_en.get("backdrop_path") else None
-            ),
+            backdrop_url=data_en.get("backdrop_path"),
             poster_url_ru=poster_ru,
             year=year,
             genres=[g["name"] for g in genre_objs if g.get("name")],
@@ -1442,95 +1487,108 @@ class TmdbAdapter:
                 items.append(built[0])
         return items
 
-    # (path, media_kind, params, display_label) for the plain top/popular/
-    # trending shelves — everything that isn't a genre-scoped shelf below.
+    # (path, media_kind, params, display_label_ru, display_label_en) for the
+    # plain top/popular/trending shelves — everything that isn't a
+    # genre-scoped shelf below. `title` on the resulting Collection is
+    # always the Russian label (see schemas.Collection.title /
+    # mobile/lib/models/collection.dart::displayTitle — same "title is
+    # always Russian, title_en is the fallback" contract curated_franchises.py
+    # already follows for the Teamira shelves); English is carried
+    # alongside as title_en rather than hardcoded as the primary string.
     def _core_shelves(self) -> list:
         year = date.today().year
         return [
-            ("movie/top_rated", "movie", {}, "Top Movies"),
+            ("movie/top_rated", "movie", {}, "Лучшие фильмы", "Top Movies"),
             ("discover/movie", "movie",
              {"primary_release_year": year, "sort_by": "vote_average.desc", "vote_count.gte": 50},
-             "Top Movies This Year"),
-            ("tv/top_rated", "tv", {}, "Top Series"),
+             "Лучшие фильмы этого года", "Top Movies This Year"),
+            ("tv/top_rated", "tv", {}, "Лучшие сериалы", "Top Series"),
             ("discover/tv", "tv",
              {"first_air_date_year": year, "sort_by": "vote_average.desc", "vote_count.gte": 30},
-             "Top Series This Year"),
+             "Лучшие сериалы этого года", "Top Series This Year"),
             ("discover/tv", "tv",
              {"with_genres": _ANIME_GENRE_ID, "with_origin_country": "JP",
               "sort_by": "vote_average.desc", "vote_count.gte": 30},
-             "Top Anime"),
+             "Лучшее аниме", "Top Anime"),
             ("discover/tv", "tv",
              {"with_genres": _ANIME_GENRE_ID, "with_origin_country": "JP",
               "first_air_date_year": year, "sort_by": "vote_average.desc", "vote_count.gte": 10},
-             "Top Anime This Year"),
-            ("tv/on_the_air", "tv", {}, "New Series Premieres"),
+             "Лучшее аниме этого года", "Top Anime This Year"),
+            ("tv/on_the_air", "tv", {}, "Премьеры сериалов", "New Series Premieres"),
             ("discover/tv", "tv",
              {"first_air_date.gte": str(year) + "-01-01", "sort_by": "first_air_date.desc"},
-             "Coming Soon: Series"),
+             "Скоро: сериалы", "Coming Soon: Series"),
             ("discover/tv", "tv",
              {"with_genres": _ANIME_GENRE_ID, "with_origin_country": "JP", "sort_by": "first_air_date.desc"},
-             "New Anime Premieres"),
+             "Премьеры аниме", "New Anime Premieres"),
             ("discover/tv", "tv",
              {"with_genres": _ANIME_GENRE_ID, "with_origin_country": "JP",
               "sort_by": "popularity.desc", "vote_count.gte": 5},
-             "Coming Soon: Anime"),
-            ("trending/movie/week", "movie", {}, "Popular Movies This Week"),
-            ("trending/tv/week", "tv", {}, "Popular Series This Week"),
+             "Скоро: аниме", "Coming Soon: Anime"),
+            ("trending/movie/week", "movie", {}, "Популярные фильмы недели", "Popular Movies This Week"),
+            ("trending/tv/week", "tv", {}, "Популярные сериалы недели", "Popular Series This Week"),
             ("discover/tv", "tv",
              {"with_genres": _ANIME_GENRE_ID, "with_origin_country": "JP", "sort_by": "popularity.desc"},
-             "Popular Anime This Week"),
-            ("movie/now_playing", "movie", {}, "DVD/Digital Releases"),
+             "Популярное аниме недели", "Popular Anime This Week"),
+            ("movie/now_playing", "movie", {}, "Новинки на DVD/цифре", "DVD/Digital Releases"),
         ]
 
     # Genre-scoped shelves:
-    # (genre_name, display_label, media_kind, anime_only)
+    # (genre_name, display_label_ru, display_label_en, media_kind, anime_only)
     _GENRE_SHELVES = (
-        ("Action", "Action", "movie", False),
-        ("Comedy", "Comedy", "movie", False),
-        ("Horror", "Horror", "movie", False),
-        ("Thriller", "Thriller", "movie", False),
-        ("Romance", "Romance", "movie", False),
-        ("Fantasy", "Fantasy", "movie", False),
-        ("Animation", "Animated Movies", "movie", False),
-        ("Documentary", "Documentaries", "movie", False),
-        ("Drama", "Drama Series", "tv", False),
-        ("Comedy", "Comedy Series", "tv", False),
-        ("Crime", "Crime Series", "tv", False),
-        ("Action & Adventure", "Action Anime", "tv", True),
-        ("Romance", "Romance Anime", "tv", True),
-        ("Sci-Fi & Fantasy", "Fantasy Anime", "tv", True),
+        ("Action", "Боевики", "Action", "movie", False),
+        ("Comedy", "Комедии", "Comedy", "movie", False),
+        ("Horror", "Ужасы", "Horror", "movie", False),
+        ("Thriller", "Триллеры", "Thriller", "movie", False),
+        ("Romance", "Мелодрамы", "Romance", "movie", False),
+        ("Fantasy", "Фэнтези", "Fantasy", "movie", False),
+        ("Animation", "Анимационные фильмы", "Animated Movies", "movie", False),
+        ("Documentary", "Документальные фильмы", "Documentaries", "movie", False),
+        ("Drama", "Драматические сериалы", "Drama Series", "tv", False),
+        ("Comedy", "Комедийные сериалы", "Comedy Series", "tv", False),
+        ("Crime", "Криминальные сериалы", "Crime Series", "tv", False),
+        ("Action & Adventure", "Аниме-боевики", "Action Anime", "tv", True),
+        ("Romance", "Романтическое аниме", "Romance Anime", "tv", True),
+        ("Sci-Fi & Fantasy", "Аниме-фэнтези", "Fantasy Anime", "tv", True),
     )
 
     async def named_collections(self, language: Optional[str] = None) -> List[tuple]:
-        """Returns [(title, items)] for the Collections tab, sourced from
-        real TMDB list/discover endpoints. Each shelf is
+        """Returns [(title_ru, title_en, items)] for the Collections tab,
+        sourced from real TMDB list/discover endpoints. Each shelf is
         franchise-diversified (_diversify above).
 
         `language` is TMDB's own code ("ru-RU") or None for English (TMDB's
         default when no language is given) — passed straight through to
-        every underlying list/discover call so shelf titles/overviews come
+        every underlying list/discover call so *card* titles/overviews come
         back already in the requested language instead of only after
         opening a title's own detail screen (see app/routers/feed.py::
-        get_collections, which picks this from the request)."""
+        get_collections, which picks this from the request). The *shelf
+        name itself* (e.g. "Top Anime") is unrelated to that and always
+        returned as a (ru, en) pair — see _core_shelves/_GENRE_SHELVES —
+        so the client's displayTitle can pick per its own locale toggle
+        the same way it already does for Teamira franchise shelves,
+        regardless of which language the cards under it came back in."""
         core = self._core_shelves()
         core_results = await asyncio.gather(
-            *[self._fetch_list(path, kind, params, language) for path, kind, params, _ in core],
+            *[self._fetch_list(path, kind, params, language) for path, kind, params, _, _ in core],
             return_exceptions=True,
         )
         genre_results = await asyncio.gather(
             *[
                 self.similar_by_genre(kind, [genre], anime_only=anime_only, language=language)
-                for genre, _, kind, anime_only in self._GENRE_SHELVES
+                for genre, _, _, kind, anime_only in self._GENRE_SHELVES
             ],
             return_exceptions=True,
         )
-        labels = [label for *_, label in core] + [label for _, label, _, _ in self._GENRE_SHELVES]
+        labels = [(label_ru, label_en) for *_, label_ru, label_en in core] + [
+            (label_ru, label_en) for _, label_ru, label_en, _, _ in self._GENRE_SHELVES
+        ]
         all_results = list(core_results) + list(genre_results)
         out = []
-        for label, result in zip(labels, all_results):
+        for (label_ru, label_en), result in zip(labels, all_results):
             if isinstance(result, Exception) or not result:
                 continue
-            out.append((label, _diversify(result)))
+            out.append((label_ru, label_en, _diversify(result)))
         return out
 
     async def person_detail(self, person_id: str) -> Optional[PersonDetailOut]:

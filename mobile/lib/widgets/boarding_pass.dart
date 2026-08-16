@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../data/coach_routes.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// A little coach-station stub for one logged evening — the "Evening
 /// Route" theme's counterpart to `TicketWidget`. The runtime becomes a
@@ -197,7 +198,7 @@ class _PassBody extends StatelessWidget {
                       ),
                       if (!compact) ...[
                         const SizedBox(height: 4),
-                        Text('NOW BOARDING',
+                        Text('NOW BOARDING'.tr,
                             style: SeenlyText.mono(size: 6.5, color: categoryColor, weight: FontWeight.w700)),
                         const SizedBox(height: 1),
                         Text(

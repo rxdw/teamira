@@ -4,6 +4,7 @@ import '../models/diary_entry.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'watched_preview_sheet.dart';
+import '../services/app_translations.dart';
 
 /// One entry on the timeline. `isRight` is a property of the data, not a
 /// computed index%2 — the side is decided per event (alternating watch vs.
@@ -52,7 +53,7 @@ class RewatchTimeline extends StatelessWidget {
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
       return Text(
-        'no evenings logged yet for this title',
+        'no evenings logged yet for this title'.tr,
         style: SeenlyText.serif(color: SeenlyPalette.placeholder, italic: true),
       );
     }

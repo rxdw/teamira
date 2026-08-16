@@ -9,6 +9,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/poster_tile.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Opened from a tapped cast tile or "directed by ___" name on the title
 /// screen (see CastMember.personId / MediaItem.directorId, and
@@ -71,7 +72,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           ? const Center(child: ThemedLoadingIndicator())
           : _notFound
               ? Center(
-                  child: Text('nothing on this person right now',
+                  child: Text('nothing on this person right now'.tr,
                       style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
                 )
               : SingleChildScrollView(
@@ -126,7 +127,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                       ],
                       if (_person != null && _person!.filmography.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        Text('filmography',
+                        Text('filmography'.tr,
                             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
                         const SizedBox(height: 12),
                         GridView.builder(

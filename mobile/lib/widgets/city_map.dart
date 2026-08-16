@@ -7,6 +7,7 @@ import '../screens/title/title_detail_screen.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'building.dart';
+import '../services/app_translations.dart';
 
 /// The Diary tab's centerpiece in the city theme — the counterpart to
 /// `TicketJar`/`PassportBook`/`RouteBoard`: a little skyline sitting on
@@ -60,7 +61,7 @@ class CityMap extends StatelessWidget {
                     height: 118,
                     child: preview.isEmpty
                         ? Center(
-                            child: Text('an empty lot, waiting',
+                            child: Text('an empty lot, waiting'.tr,
                                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.55))),
                           )
                         : Row(
@@ -146,7 +147,7 @@ class CityStreetView extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('your street',
+                      Text('your street'.tr,
                           style: SeenlyText.serif(italic: true, size: 18, color: SeenlyPalette.paper)),
                       GestureDetector(
                         onTap: () => Navigator.of(context).pop(),

@@ -4,6 +4,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// Every pairing code this app hands out is 6 characters from
 /// _CODE_ALPHABET in backend/app/routers/partner.py (and the matching
@@ -131,7 +132,7 @@ class _PairingScannerScreenState extends State<_PairingScannerScreen> {
             right: 0,
             bottom: 64,
             child: Text(
-              'point it at their code',
+              'point it at their code'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.mono(size: 12, color: Colors.white, weight: FontWeight.w600),
             ),

@@ -25,6 +25,7 @@ import '../shell/root_shell.dart';
 import '../title/title_detail_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart';
+import '../../services/app_translations.dart';
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -110,11 +111,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(d.year, d.month, d.day);
     final diff = today.difference(day).inDays;
-    if (diff == 0) return 'today';
-    if (diff == 1) return 'yesterday';
-    const months = [
-      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-      'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+    if (diff == 0) return 'today'.tr;
+    if (diff == 1) return 'yesterday'.tr;
+    final months = [
+      'jan'.tr, 'feb'.tr, 'mar'.tr, 'apr'.tr, 'may'.tr, 'jun'.tr,
+      'jul'.tr, 'aug'.tr, 'sep'.tr, 'oct'.tr, 'nov'.tr, 'dec'.tr,
     ];
     return '${months[d.month - 1]} ${d.day}';
   }
@@ -149,7 +150,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('diary', style: SeenlyText.screenTitle),
+                  Text('diary'.tr, style: SeenlyText.screenTitle),
                   Row(
                     children: [
                       PressScale(
@@ -211,7 +212,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                     children: [
                       const Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
                       const SizedBox(width: 8),
-                      Text('search a film, show, or game',
+                      Text('search a film, show, or game'.tr,
                           style: SeenlyText.serif(
                               italic: true, size: 13, color: SeenlyPalette.placeholder)),
                     ],
@@ -243,12 +244,12 @@ class _DiaryScreenState extends State<DiaryScreen> {
                             padding: const EdgeInsets.fromLTRB(22, 40, 22, 0),
                             child: Column(
                               children: [
-                                Text('couldn\'t load the diary',
+                                Text('couldn\'t load the diary'.tr,
                                     textAlign: TextAlign.center,
                                     style: SeenlyText.serif(
                                         italic: true, color: SeenlyPalette.inkMuted)),
                                 const SizedBox(height: 10),
-                                Text('pull down, or tap the refresh icon above, to try again',
+                                Text('pull down, or tap the refresh icon above, to try again'.tr,
                                     textAlign: TextAlign.center,
                                     style: SeenlyText.mono(
                                         size: 10, color: SeenlyPalette.placeholder)),
@@ -374,7 +375,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               ScrollReveal(
                                 delay: nextReveal(),
                                 riseBy: 10,
-                                child: Text('the log', style: SeenlyText.metaLabel),
+                                child: Text('the log'.tr, style: SeenlyText.metaLabel),
                               ),
                               const SizedBox(height: 14),
                               ...dayGroups,
@@ -924,7 +925,7 @@ class _ShelfPickCta extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('to plan to watch',
+                child: Text('to plan to watch'.tr,
                     style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accent)),
               ),
               Text('$count', style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
@@ -1069,7 +1070,7 @@ class _SeriesEntryRow extends StatelessWidget {
                       color: SeenlyPalette.sage.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text('watching · series',
+                    child: Text('watching · series'.tr,
                         style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.sage)),
                   ),
                   const SizedBox(height: 6),
@@ -1216,7 +1217,7 @@ class _DiaryRow extends StatelessWidget {
                           children: [
                             const Icon(Icons.replay, size: 11, color: SeenlyPalette.inkFaint),
                             const SizedBox(width: 2),
-                            Text('rewatch',
+                            Text('rewatch'.tr,
                                 style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.inkFaint)),
                           ],
                         ),

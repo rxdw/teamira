@@ -18,6 +18,7 @@ import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../lists/list_detail_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../services/app_translations.dart';
 
 /// Every match — from any session, any device this account has logged in
 /// on — lands in the one list with this name. Looked up by name each time
@@ -489,10 +490,10 @@ class _TogetherScreenState extends State<TogetherScreen> {
                     onPressed: _handleBack,
                   ),
                   const SizedBox(width: 4),
-                  Expanded(child: Text('watch together', style: SeenlyText.screenTitle)),
+                  Expanded(child: Text('watch together'.tr, style: SeenlyText.screenTitle)),
                   IconButton(
                     icon: const Icon(Icons.help_outline, size: 18, color: SeenlyPalette.inkMuted),
-                    tooltip: 'how this works',
+                    tooltip: 'how this works'.tr,
                     onPressed: () => showHowItWorksSheet(context),
                   ),
                   if (_showMatchBadge)
@@ -680,7 +681,7 @@ class _SetupView extends StatelessWidget {
           child: const Icon(Icons.favorite, size: 26, color: SeenlyPalette.accent),
         ),
         const SizedBox(height: 18),
-        Text('decide together, one card at a time', style: SeenlyText.screenTitle),
+        Text('decide together, one card at a time'.tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
         Text(
           isNetwork
@@ -691,7 +692,7 @@ class _SetupView extends StatelessWidget {
           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
         ),
         const SizedBox(height: 26),
-        Text('how are you swiping?', style: SeenlyText.metaLabel),
+        Text('how are you swiping?'.tr, style: SeenlyText.metaLabel),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -709,7 +710,7 @@ class _SetupView extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 22),
-        Text('what are we in the mood for?', style: SeenlyText.metaLabel),
+        Text('what are we in the mood for?'.tr, style: SeenlyText.metaLabel),
         const SizedBox(height: 10),
         Row(
           children: [
@@ -726,7 +727,7 @@ class _SetupView extends StatelessWidget {
         const SizedBox(height: 22),
         Row(
           children: [
-            Text('any particular genre?', style: SeenlyText.metaLabel),
+            Text('any particular genre?'.tr, style: SeenlyText.metaLabel),
             const SizedBox(width: 8),
             if (selectedGenres.isNotEmpty)
               Text('${selectedGenres.length} picked',
@@ -735,8 +736,7 @@ class _SetupView extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'leave this alone for anything — pick a few to narrow the deck '
-          'down to just those',
+          'leave this alone for anything — pick a few to narrow the deck down to just those'.tr,
           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
         ),
         const SizedBox(height: 10),
@@ -761,7 +761,7 @@ class _SetupView extends StatelessWidget {
           Center(
             child: TextButton(
               onPressed: onJoinNetworkSession,
-              child: Text('have a code already? join instead',
+              child: Text('have a code already? join instead'.tr,
                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
             ),
           ),
@@ -787,7 +787,7 @@ class _HostWaitingView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('send them this code', style: SeenlyText.serif(italic: true, size: 15)),
+            Text('send them this code'.tr, style: SeenlyText.serif(italic: true, size: 15)),
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
@@ -809,12 +809,12 @@ class _HostWaitingView extends StatelessWidget {
               child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
             ),
             const SizedBox(height: 10),
-            Text('waiting for them to join…',
+            Text('waiting for them to join…'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             const SizedBox(height: 24),
             TextButton(
               onPressed: onCancel,
-              child: Text('cancel', style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
+              child: Text('cancel'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
             ),
           ],
         ),
@@ -844,10 +844,10 @@ class _JoinCodeView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
       children: [
-        Text('got a code?', style: SeenlyText.screenTitle),
+        Text('got a code?'.tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
         Text(
-          'type in the 6-character code the other person sent you.',
+          'type in the 6-character code the other person sent you.'.tr,
           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
         ),
         const SizedBox(height: 22),
@@ -881,7 +881,7 @@ class _JoinCodeView extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: onBack,
-            child: Text('back', style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
+            child: Text('back'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
           ),
         ),
       ],
@@ -1049,7 +1049,7 @@ class _MatchPulseState extends State<_MatchPulse> with SingleTickerProviderState
           children: [
             const Icon(Icons.favorite, size: 22, color: SeenlyPalette.accent),
             const SizedBox(height: 6),
-            Text('settled, together',
+            Text('settled, together'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent, weight: FontWeight.w600)),
           ],
         ),
@@ -1547,7 +1547,7 @@ class _RecapView extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: onSwipeAgain,
-            child: Text('shuffle again',
+            child: Text('shuffle again'.tr,
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
           ),
         ),
@@ -1630,7 +1630,7 @@ class _NetRecapView extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: onEnd,
-            child: Text('end session',
+            child: Text('end session'.tr,
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
           ),
         ),

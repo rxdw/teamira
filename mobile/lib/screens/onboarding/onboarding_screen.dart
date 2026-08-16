@@ -23,6 +23,7 @@ import '../../widgets/share_sheet.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../import/import_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Shown exactly once, right after a brand-new account is created (see
 /// AppState.justRegistered). Nine steps, all living in one continuous
@@ -1494,9 +1495,7 @@ class _WelcomeStep extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
                   Text(
-                    'a cozy evening diary for what you watch — not a tracker '
-                    'dashboard, not a leaderboard. just a quiet place to remember '
-                    'the evenings.',
+                    'a cozy evening diary for what you watch — not a tracker dashboard, not a leaderboard. just a quiet place to remember the evenings.'.tr,
                     textAlign: TextAlign.center,
                     style: SeenlyText.serif(size: 14, color: Colors.white.withOpacity(0.62)),
                   ),
@@ -1991,11 +1990,11 @@ class _FeaturesTourStepState extends State<_FeaturesTourStep> {
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
       child: Column(
         children: [
-          Text('a quick look around',
+          Text('a quick look around'.tr,
               textAlign: TextAlign.center, style: SeenlyText.serif(size: 16, color: SeenlyPalette.paper)),
           const SizedBox(height: 4),
           Text(
-            'swipe through, or just continue — you\'ll find it all later anyway',
+            'swipe through, or just continue — you\'ll find it all later anyway'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.42)),
           ),
@@ -2755,7 +2754,7 @@ class _VersusArtState extends State<_VersusArt> with TickerProviderStateMixin {
                       ],
                     ),
                     alignment: Alignment.center,
-                    child: Text('VS',
+                    child: Text('VS'.tr,
                         style: SeenlyText.mono(size: 10, weight: FontWeight.w700, color: SeenlyPalette.paper)),
                   ),
                 ),
@@ -2777,7 +2776,7 @@ class _VersusArtState extends State<_VersusArt> with TickerProviderStateMixin {
                     style: SeenlyText.mono(size: 10, weight: FontWeight.w700, color: SeenlyPalette.coral)),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text('·', style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35))),
+                  child: Text('·'.tr, style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35))),
                 ),
                 Text('$bPct%',
                     style: SeenlyText.mono(size: 10, weight: FontWeight.w700, color: SeenlyPalette.periwinkle)),
@@ -3130,7 +3129,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
           _StaggerIn(
             controller: _entrance,
             index: 0,
-            child: Text('title language',
+            child: Text('title language'.tr,
                 textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: SeenlyPalette.paper)),
           ),
           const SizedBox(height: 6),
@@ -3138,9 +3137,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
             controller: _entrance,
             index: 1,
             child: Text(
-              "teamira's own words stay in English everywhere — this just "
-              "decides whether title cards prefer Russian when there's a "
-              "translation for them. change this anytime in settings.",
+              "teamira's own words stay in English everywhere — this just decides whether title cards prefer Russian when there's a translation for them. change this anytime in settings.".tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
             ),
@@ -3225,7 +3222,7 @@ class _LiveTitleCard extends StatelessWidget {
   const _LiveTitleCard({required this.preferRussian});
 
   static const _sampleEn = 'Spirited Away';
-  static const _sampleRu = 'Унесённые призраками';
+  static final _sampleRu = 'Унесённые призраками'.tr;
   static const _sampleMeta = '2001 · anime';
 
   @override
@@ -3474,12 +3471,12 @@ class _RitualStepState extends State<_RitualStep> {
                 padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
                 child: Column(
                   children: [
-                    Text('how should logging feel?',
+                    Text('how should logging feel?'.tr,
                         textAlign: TextAlign.center,
                         style: SeenlyText.serif(size: 16, color: SeenlyPalette.paper)),
                     const SizedBox(height: 4),
                     Text(
-                      'same diary either way — just a different little ritual for closing out an evening',
+                      'same diary either way — just a different little ritual for closing out an evening'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.42)),
                     ),
@@ -4014,11 +4011,11 @@ class _InterestsStepState extends State<_InterestsStep> {
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
       child: Column(
         children: [
-          Text('touch what feels like you',
+          Text('touch what feels like you'.tr,
               textAlign: TextAlign.center, style: SeenlyText.serif(size: 16, color: SeenlyPalette.paper)),
           const SizedBox(height: 4),
           Text(
-            'collections leads with these from day one — change this anytime from its header',
+            'collections leads with these from day one — change this anytime from its header'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.42)),
           ),
@@ -4060,7 +4057,7 @@ class _InterestsStepState extends State<_InterestsStep> {
           if (_selected.isEmpty) ...[
             const SizedBox(height: 10),
             Center(
-              child: Text('nothing picked yet is fine too — you can decide later',
+              child: Text('nothing picked yet is fine too — you can decide later'.tr,
                   textAlign: TextAlign.center,
                   style: SeenlyText.mono(size: 9, color: Colors.white.withOpacity(0.38))),
             ),
@@ -4339,14 +4336,11 @@ class _FavoritesStepState extends State<_FavoritesStep> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('a few films you already love',
+          Text('a few films you already love'.tr,
               textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: SeenlyPalette.paper)),
           const SizedBox(height: 6),
           Text(
-            'just a handful — not everything you\'ve ever watched, that part '
-            'comes next when you import your history. Pick a few favorites '
-            'here and "for you" on your home screen starts leaning toward '
-            'them right away.',
+            'just a handful — not everything you\'ve ever watched, that part comes next when you import your history. Pick a few favorites here and "for you" on your home screen starts leaning toward them right away.'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
           ),
@@ -4364,7 +4358,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
-                hintText: 'search for a film you\'d rewatch tonight',
+                hintText: 'search for a film you\'d rewatch tonight'.tr,
                 hintStyle: SeenlyText.serif(size: 13, color: Colors.white.withOpacity(0.35)),
                 prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.35)),
               ),
@@ -4385,7 +4379,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
             const SizedBox(height: 10),
             Center(
               child: Text(
-                'nothing picked yet is fine too — the heart on any title does the same thing later',
+                'nothing picked yet is fine too — the heart on any title does the same thing later'.tr,
                 textAlign: TextAlign.center,
                 style: SeenlyText.mono(size: 9, color: Colors.white.withOpacity(0.38)),
               ),
@@ -4410,7 +4404,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
             ? const Center(child: ThemedLoadingIndicator(size: 34))
             : Center(
                 child: Text(
-                  'the classics, the comfort rewatches, whatever comes to mind first',
+                  'the classics, the comfort rewatches, whatever comes to mind first'.tr,
                   textAlign: TextAlign.center,
                   style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35)),
                 ),
@@ -4420,7 +4414,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'a few to start with — or search for your own above',
+            'a few to start with — or search for your own above'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35)),
           ),
@@ -4431,7 +4425,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
     }
     if (_results.isEmpty) {
       return Center(
-        child: Text('nothing turned up for that — try another title',
+        child: Text('nothing turned up for that — try another title'.tr,
             style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35))),
       );
     }
@@ -4554,15 +4548,13 @@ class _MotivationStepState extends State<_MotivationStep> with SingleTickerProvi
           ),
           const SizedBox(height: 24),
           Text(
-            'one evening a week is already enough',
+            'one evening a week is already enough'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.serif(size: 20, weight: FontWeight.w600, color: SeenlyPalette.paper),
           ),
           const SizedBox(height: 12),
           Text(
-            'no streaks to keep and nothing to fall behind on — log an '
-            'evening whenever you actually have one, and teamira quietly '
-            'fills in around it.',
+            'no streaks to keep and nothing to fall behind on — log an evening whenever you actually have one, and teamira quietly fills in around it.'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.serif(size: 13, color: Colors.white.withOpacity(0.55)),
           ),
@@ -4951,7 +4943,7 @@ class _TearTicketActionState extends State<_TearTicketAction> with TickerProvide
                             const SizedBox(width: 9),
                             Flexible(
                               child: Text(
-                                'tear to continue',
+                                'tear to continue'.tr,
                                 textAlign: TextAlign.center,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -5393,7 +5385,7 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
           FadeTransition(
             opacity: _caption,
             child: Text(
-              'here\'s the shape of it',
+              'here\'s the shape of it'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.mono(size: 11, color: Colors.white.withOpacity(0.42)),
             ),
@@ -5498,7 +5490,7 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
                     _TearTicketAction(accent: _world.color, onTorn: widget.onNext),
                     const SizedBox(height: 8),
                     Text(
-                      'drag to tear it — that\'s how you begin',
+                      'drag to tear it — that\'s how you begin'.tr,
                       style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35)),
                     ),
                   ],
@@ -5536,7 +5528,7 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
                           Icon(Icons.auto_awesome, size: 13, color: Colors.white.withOpacity(0.65)),
                           const SizedBox(width: 7),
                           Text(
-                            'save this as a card',
+                            'save this as a card'.tr,
                             style: SeenlyText.mono(size: 11, color: Colors.white.withOpacity(0.65)),
                           ),
                         ],
@@ -5610,7 +5602,7 @@ class _PlanCard extends StatelessWidget {
                 children: [
                   Icon(Icons.nightlight_round, size: 13, color: world.color),
                   const SizedBox(width: 6),
-                  Text('SEENLY', style: SeenlyText.mono(size: 11, color: Colors.white.withOpacity(0.55), weight: FontWeight.w700)),
+                  Text('SEENLY'.tr, style: SeenlyText.mono(size: 11, color: Colors.white.withOpacity(0.55), weight: FontWeight.w700)),
                 ],
               ),
               const SizedBox(height: 16),

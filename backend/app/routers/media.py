@@ -15,9 +15,9 @@ from app.schemas import (
     MediaItem, MediaDetailOut, EpisodesOut, PersonDetailOut,
 )
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.google_books import GoogleBooksAdapter
 from app.adapters.tmdb import TmdbAdapter
-from app.adapters.shikimori import ShikimoriAdapter, SHIKIMORI_ATTRIBUTION
+from app.adapters.shikimori import ShikimoriAdapter, ShikimoriMangaAdapter, SHIKIMORI_ATTRIBUTION
 from app.routers.reviews import fetch_reviews as _fetch_merged_reviews, REVIEWS_TTL as _REVIEWS_TTL
 from app.schemas import TmdbReviewsOut
 
@@ -45,7 +45,17 @@ _SHIKIMORI_SUPPLEMENT_SOURCE = "shikimori-supplement-anime-v1"
 # reviews_count. A version bump means old rows are simply never looked up
 # again (TMDB is re-fetched once, same as any other cache miss) rather
 # than needing an actual migration.
-_DETAIL_CACHE_SOURCE = "tmdb-detail-v1"
+#
+# Bumped v1 -> v2 for the title_ru/overview_ru fallback-to-English fix in
+# TmdbAdapter.full_detail (the guard used to compare against
+# original_title, which only catches TMDB's silent English fallback for
+# titles whose original_language is itself English — anything else could
+# get cached with a plain English string sitting in title.ru/
+# overview.ru, displayed as if genuinely Russian). Without this bump,
+# every title already opened once before the fix would keep serving that
+# same wrong cached row forever; the version bump makes those rows a
+# plain cache miss so they get re-fetched under the corrected guard.
+_DETAIL_CACHE_SOURCE = "tmdb-detail-v2"
 
 # GET /media/episodes' own forever-cache row version — same reasoning as
 # _DETAIL_CACHE_SOURCE, kept as its own constant/version since the two
@@ -139,32 +149,24 @@ async def _apply_review_count(db: Session, result: MediaDetailOut) -> None:
 
 
 _games = IgdbAdapter()
-_books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_books = GoogleBooksAdapter()
+_manga = ShikimoriMangaAdapter()
 
 # search_media enriches at most this many anime hits with a Shikimori
 # Russian-text overlay per request — same "bound the fan-out" convention
 # as everywhere else in this app that fans out per-item lookups.
 _SEARCH_ENRICH_LIMIT = 24
 
-# Open Library's own ru_supplement fan-out (_enrich_books_with_ru below)
-# used to share _SEARCH_ENRICH_LIMIT=24 with the anime/Shikimori pass
-# above — fine when everything ran unthrottled, but now that
-# OpenLibraryAdapter rate-limits itself to ~1 req/sec process-wide (see
-# app/adapters/open_library.py's _rate_limiter — Open Library's own
-# unidentified-caller cap), 24 queued-up requests at 1/sec means a single
-# book/manga search with that many matches could take up to 24 seconds to
-# respond. Kept much smaller here so the worst case is a handful of
-# seconds instead: a search still returns every result immediately, this
-# only bounds how many of them wait around for a Russian-text overlay
-# before the response goes out.
-_OL_RU_ENRICH_LIMIT = 4
+# Google Books' ru_supplement fan-out (_enrich_books_with_ru below) used
+# to share _SEARCH_ENRICH_LIMIT=24 with the anime/Shikimori pass above —
+# kept as its own, smaller limit instead: Google's shared anonymous quota
+# is a modest 1,000 requests/day per IP (see
+# app/adapters/google_books.py's module docstring), and a single popular
+# search fanning out 24 concurrent ru_supplement() calls would burn a
+# visible chunk of that on one request. Bounding how many hits get a
+# Russian-text overlay keeps that cost predictable without holding up the
+# rest of the (already-returned) results.
+_GB_RU_ENRICH_LIMIT = 4
 
 # Cyrillic-vs-Latin sniff so a query typed in Russian is searched against
 # TMDB in ru-RU even when the person hasn't turned on "show titles in
@@ -174,42 +176,42 @@ _OL_RU_ENRICH_LIMIT = 4
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 
 
-# Own forever-cache row per Open Library adapter instance — separate from
+# Own forever-cache row per Google Books book search hit — separate from
 # anything TMDB/Shikimori-shaped above (different adapter, different
-# shape) and separate between books vs manga even though they share one
-# adapter class, so the two catalogs don't collide in one cache row.
-_OL_RU_SOURCE = {"open_library": "ol-ru-book-v1", "open_library_manga": "ol-ru-manga-v1"}
+# shape). Manga no longer needs an entry here: Shikimori's /mangas search
+# already returns a native `russian` title directly on the list hit (see
+# app/adapters/shikimori.py's module docstring), so there's no separate
+# enrichment pass left to cache for it.
+_GB_RU_SOURCE = "gb-ru-book-v1"
 
 
 async def _enrich_books_with_ru(db: Session, items: List[MediaItem]) -> None:
-    """Fills in title.ru/description.ru/poster_url_ru on Open Library
-    (books/manga) search hits — see OpenLibraryAdapter.ru_supplement's
-    docstring for why this is meaningfully lower-coverage than the anime
-    Shikimori overlay above (a real but separate Russian edition has to
-    actually exist in Open Library's catalog, there's no translation call
-    to fall back on). Cached forever per item id, so a repeat search for
-    the same book costs nothing further here either.
+    """Fills in title.ru/description.ru/poster_url_ru on Google Books
+    search hits — see GoogleBooksAdapter.ru_supplement's docstring for
+    why this is still best-effort (a genuinely separate Russian edition
+    has to be indexed for this exact title, there's no translation call
+    to fall back on) even though Google Books' langRestrict makes it more
+    reliable than Open Library's title-search-and-hope approach was.
+    Cached forever per item id, so a repeat search for the same book costs
+    nothing further here either.
     """
     eligible = [
-        item for item in items
-        if item.source in ("open_library", "open_library_manga") and item.title.en
-    ][:_OL_RU_ENRICH_LIMIT]
+        item for item in items if item.source == "google_books" and item.title.en
+    ][:_GB_RU_ENRICH_LIMIT]
     if not eligible:
         return
-    adapter_by_source = {"open_library": _books, "open_library_manga": _manga}
 
     async def _apply(item: MediaItem) -> None:
-        cache_source = _OL_RU_SOURCE[item.source]
-        cached = cache.get_static_title(db, item.id, cache_source)
+        cached = cache.get_static_title(db, item.id, _GB_RU_SOURCE)
         if cached is not None:
             supplement = json.loads(cached) if cached != "null" else None
         else:
             try:
-                supplement = await adapter_by_source[item.source].ru_supplement(item.title.en)
+                supplement = await _books.ru_supplement(item.title.en)
             except Exception as exc:  # noqa: BLE001 — a search card should never break over this
-                logger.warning("Open Library ru enrichment failed [%s] -> %s", item.id, exc)
+                logger.warning("Google Books ru enrichment failed [%s] -> %s", item.id, exc)
                 return
-            cache.set_static_title(db, item.id, cache_source, supplement)
+            cache.set_static_title(db, item.id, _GB_RU_SOURCE, supplement)
         if not supplement:
             return
         if supplement.get("title_ru"):
@@ -295,12 +297,12 @@ async def search_media(
     Games always come from the games adapter, since TMDB doesn't cover
     them — no Russian pass for these: IGDB has no translated-text field
     to draw from, and there's no other free source wired up for it, so
-    game cards stay English-only for now. Books and manga come from Open
-    Library (manga rides the same book catalog, scoped to the "manga"
-    subject — see app/adapters/open_library.py's module docstring for why
-    it isn't on a manga-specific API); each gets a best-effort Russian
-    overlay too, when Open Library happens to have a real Russian-language
-    edition of the same work indexed (see OpenLibraryAdapter.ru_supplement).
+    game cards stay English-only for now. Books come from Google Books
+    (see app/adapters/google_books.py's module docstring); manga has its
+    own dedicated Shikimori catalog instead (app/adapters/shikimori.py).
+    Books get a best-effort Russian overlay too, when Google Books
+    happens to have a real Russian-language edition of the same work
+    indexed (see GoogleBooksAdapter.ru_supplement).
 
     Cached for a short window per exact (q, lang, include_*) combination —
     see cache.SEARCH_TTL's docstring for why this exists (it's a burst-
@@ -389,7 +391,7 @@ async def media_detail(
     app/cache.py — so a cache hit here means zero outbound calls at all
     for the single most-visited screen after Home.
     """
-    if source not in ("igdb", "open_library", "open_library_manga", "tmdb"):
+    if source not in ("igdb", "google_books", "shikimori_manga", "tmdb"):
         raise HTTPException(status_code=404, detail="Extended detail is not available for this source")
 
     cache_source = _DETAIL_CACHE_SOURCE if source == "tmdb" else source
@@ -415,8 +417,8 @@ async def media_detail(
         cache.set_static_title(db, media_id, source, result)
         return result
 
-    if source in ("open_library", "open_library_manga"):
-        adapter = _books if source == "open_library" else _manga
+    if source in ("google_books", "shikimori_manga"):
+        adapter = _books if source == "google_books" else _manga
         raw_id = media_id[len(adapter.id_prefix):] if media_id.startswith(adapter.id_prefix) else None
         if not raw_id:
             raise HTTPException(status_code=400, detail="Unrecognized media_id format")

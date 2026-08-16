@@ -10,6 +10,7 @@ import '../theme/text_styles.dart';
 import 'light_bloom.dart' show flashOpacity;
 import 'stamp.dart';
 import 'wow_effects.dart';
+import '../services/app_translations.dart';
 
 /// The passport theme's counterpart to `ticket_drop_overlay.dart`: the
 /// stamp hovers just above the page, waiting for you to press it down
@@ -246,7 +247,7 @@ class _StampDropOverlayState extends State<_StampDropOverlay> with TickerProvide
                       onTap: _skip,
                       child: Padding(
                         padding: const EdgeInsets.all(12),
-                        child: Text('skip',
+                        child: Text('skip'.tr,
                             style: SeenlyText.mono(
                                 size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
                       ),
@@ -260,7 +261,7 @@ class _StampDropOverlayState extends State<_StampDropOverlay> with TickerProvide
                           opacity: captionT,
                           child: Transform.translate(
                             offset: Offset(0, (1 - captionT) * 8),
-                            child: Text('sealed for tonight',
+                            child: Text('sealed for tonight'.tr,
                                 style: SeenlyText.serif(
                                     italic: true, size: 15, color: SeenlyPalette.paper)),
                           ),
@@ -359,7 +360,7 @@ class _StampDropOverlayState extends State<_StampDropOverlay> with TickerProvide
                               Icon(Icons.arrow_downward,
                                   size: 13, color: SeenlyPalette.paper.withOpacity(0.75)),
                               const SizedBox(width: 6),
-                              Text('press it down — or just tap',
+                              Text('press it down — or just tap'.tr,
                                   style: SeenlyText.mono(
                                       size: 10, color: SeenlyPalette.paper.withOpacity(0.75))),
                             ],

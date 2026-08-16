@@ -9,6 +9,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'spoiler_veil.dart';
 import 'themed_loading_indicator.dart';
+import '../services/app_translations.dart';
 
 /// Opened by tapping the "N reviews" line under a title's ratings —
 /// written reviews come from TMDB and Trakt (see
@@ -83,7 +84,7 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('reviews', style: SeenlyText.serif(italic: true, size: 16)),
+            Text('reviews'.tr, style: SeenlyText.serif(italic: true, size: 16)),
             const SizedBox(height: 4),
             Text(widget.title,
                 maxLines: 1,
@@ -104,7 +105,7 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 child: Text(
-                  "No written reviews for this title yet",
+                  "No written reviews for this title yet".tr,
                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
                 ),
               )
@@ -118,7 +119,7 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(_result!.attribution,
+              Text(_result!.attribution.tr,
                   style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
             ],
           ],

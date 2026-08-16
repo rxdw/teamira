@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// A full-page, distraction-free spot for writing (or reading) a long
 /// review — reached from the small "a note to your future self" box in
@@ -145,7 +146,7 @@ class _ReviewComposerScreenState extends State<_ReviewComposerScreen> {
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         isCollapsed: true,
-                        hintText: 'what stayed with you?',
+                        hintText: 'what stayed with you?'.tr,
                         hintStyle: SeenlyText.serif(italic: true, size: 15.5, color: SeenlyPalette.placeholder),
                       ),
                     ),
@@ -192,7 +193,7 @@ class ExpandReviewLink extends StatelessWidget {
           children: [
             const Icon(Icons.open_in_full, size: 11, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
-            Text('write more, full page',
+            Text('write more, full page'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
           ],
         ),

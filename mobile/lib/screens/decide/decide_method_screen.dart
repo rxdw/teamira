@@ -11,6 +11,7 @@ import 'decide_filters_screen.dart';
 import 'decide_random_screen.dart';
 import 'decide_roulette_screen.dart';
 import 'decide_swipe_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Second step of the can't-decide flow — pick how you actually want the
 /// filtered pool from [DecideFiltersScreen] narrowed down to one thing.
@@ -56,7 +57,7 @@ class DecideMethodScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('how should we decide?', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                        Text('how should we decide?'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                         const SizedBox(height: 2),
                         Text(
                           '${filters.summary} · ${pool.length} to pick from',
@@ -72,7 +73,7 @@ class DecideMethodScreen extends StatelessWidget {
                     behavior: HitTestBehavior.opaque,
                     child: Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Text('edit', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent)),
+                      child: Text('edit'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent)),
                     ),
                   ),
                 ],
@@ -170,7 +171,7 @@ class DecideMethodScreen extends StatelessWidget {
                     if (pool.isEmpty) ...[
                       const SizedBox(height: 14),
                       Text(
-                        'nothing matched those filters — go back and loosen them up',
+                        'nothing matched those filters — go back and loosen them up'.tr,
                         textAlign: TextAlign.center,
                         style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.placeholder),
                       ),

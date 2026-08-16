@@ -9,6 +9,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/polaroid_card.dart';
 import '../../widgets/wow_motion.dart';
+import '../../services/app_translations.dart';
 
 /// Profile -> "статистика": the numbers-and-charts sibling of Wrapped's
 /// card-by-card narrative (same WrappedSummary, same month/year/all-time
@@ -76,7 +77,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 2),
-                  Text('статистика', style: SeenlyText.screenTitle),
+                  Text('статистика'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -98,7 +99,7 @@ class _StatsScreenState extends State<StatsScreen> {
                     return _fadeSwitch(
                       Center(
                         key: const ValueKey('stats-error'),
-                        child: Text('не получилось загрузить статистику',
+                        child: Text('не получилось загрузить статистику'.tr,
                             style: SeenlyText.serif(color: SeenlyPalette.inkMuted)),
                       ),
                     );
@@ -110,7 +111,7 @@ class _StatsScreenState extends State<StatsScreen> {
                         key: ValueKey('stats-empty-${s.scope}'),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: Text('за ${s.periodLabel} в дневнике пока пусто',
+                          child: Text('за ${s.periodLabel} в дневнике пока пусто'.tr,
                               textAlign: TextAlign.center,
                               style: SeenlyText.serif(color: SeenlyPalette.inkMuted)),
                         ),
@@ -143,18 +144,18 @@ class _StatsScreenState extends State<StatsScreen> {
                     if (s.ratingHistogram.any((b) => b.count > 0)) _RatingsCard(summary: s),
                     if (s.topDirectors.isNotEmpty)
                       _TopListCard(
-                        title: 'режиссёры',
+                        title: 'режиссёры'.tr,
                         items: [for (final d in s.topDirectors) (d.name, d.count)],
                       ),
                     if (s.favoriteReview != null) _FavoriteReviewCard(summary: s),
                     if (s.receiptItems.isNotEmpty)
                       _TopListCard(
-                        title: 'чаще всего пересматривала',
+                        title: 'чаще всего пересматривала'.tr,
                         items: [
                           for (final r in s.receiptItems.take(5))
                             if (r.count > 1) (r.title, r.count),
                         ],
-                        emptyText: 'пока без повторов',
+                        emptyText: 'пока без повторов'.tr,
                       ),
                     if (s.first != null && s.last != null) _BookendsCard(summary: s),
                   ];
@@ -220,9 +221,9 @@ class _ScopeSwitcher extends StatelessWidget {
       decoration: BoxDecoration(color: SeenlyPalette.cork, borderRadius: BorderRadius.circular(12)),
       child: Row(
         children: [
-          _segment('месяц', 'month'),
-          _segment('год', 'year'),
-          _segment('всё время', 'all'),
+          _segment('месяц'.tr, 'month'),
+          _segment('год'.tr, 'year'),
+          _segment('всё время'.tr, 'all'),
         ],
       ),
     );
@@ -417,13 +418,13 @@ class _HeroCover extends StatelessWidget {
                           size: 60, weight: FontWeight.w700, color: SeenlyPalette.accentOnAccent),
                     ),
                     const SizedBox(width: 8),
-                    Text('ч',
+                    Text('ч'.tr,
                         style: SeenlyText.serif(
                             size: 22, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent.withOpacity(0.85))),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text('в дневнике',
+                Text('в дневнике'.tr,
                     style: SeenlyText.mono(size: 13, color: SeenlyPalette.accentOnAccent.withOpacity(0.82))),
                 const SizedBox(height: 22),
                 Row(
@@ -431,7 +432,7 @@ class _HeroCover extends StatelessWidget {
                     _HeroMiniStat(
                       icon: Icons.local_movies_outlined,
                       value: summary.totalLogged.toDouble(),
-                      label: 'сеансов',
+                      label: 'сеансов'.tr,
                     ),
                     Container(
                       width: 1,
@@ -442,7 +443,7 @@ class _HeroCover extends StatelessWidget {
                     _HeroMiniStat(
                       icon: Icons.local_fire_department_outlined,
                       value: summary.longestStreakDays.toDouble(),
-                      label: 'дней подряд',
+                      label: 'дней подряд'.tr,
                     ),
                   ],
                 ),
@@ -532,9 +533,9 @@ class _ActivityCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardTitle(
-            'активность',
+            'активность'.tr,
             caption: summary.busiestTimelineLabel != null
-                ? (isMonth ? 'самый плотный день — ${summary.busiestTimelineLabel}' : 'самый активный — ${summary.busiestTimelineLabel}')
+                ? (isMonth ? 'самый плотный день — ${summary.busiestTimelineLabel}'.tr : 'самый активный — ${summary.busiestTimelineLabel}'.tr)
                 : null,
           ),
           const SizedBox(height: 22),
@@ -624,7 +625,7 @@ class _RhythmCard extends StatelessWidget {
   final WrappedSummary summary;
   const _RhythmCard({required this.summary});
 
-  static const _labels = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+  static final _labels = ['пн'.tr, 'вт'.tr, 'ср'.tr, 'чт'.tr, 'пт'.tr, 'сб'.tr, 'вс'.tr];
 
   @override
   Widget build(BuildContext context) {
@@ -635,7 +636,7 @@ class _RhythmCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CardTitle('ритм недели', caption: '${summary.weekendPercent.round()}% сеансов на выходных'),
+          _CardTitle('ритм недели'.tr, caption: '${summary.weekendPercent.round()}% сеансов на выходных'.tr),
           const SizedBox(height: 18),
           IntrinsicHeight(
             child: Row(
@@ -717,7 +718,7 @@ class _RhythmCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text('твой час',
+                      Text('твой час'.tr,
                           style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint)),
                     ],
                   ),
@@ -749,7 +750,7 @@ class _PercentileCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(child: Text('среди других зрителей', style: SeenlyText.sectionTitle)),
+              Expanded(child: Text('среди других зрителей'.tr, style: SeenlyText.sectionTitle)),
               CountUpNumber(
                 value: pct.toDouble(),
                 decimals: 0,
@@ -762,7 +763,7 @@ class _PercentileCard extends StatelessWidget {
           _RankGauge(percent: pct),
           const SizedBox(height: 10),
           Text(
-            'смотришь активнее, чем $pct% пользователей за ${summary.periodLabel}',
+            'смотришь активнее, чем $pct% пользователей за ${summary.periodLabel}'.tr,
             style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -864,7 +865,7 @@ class _GenreCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('жанры', style: SeenlyText.sectionTitle),
+                Text('жанры'.tr, style: SeenlyText.sectionTitle),
                 const SizedBox(height: 10),
                 for (int i = 0; i < mix.length; i++)
                   Padding(
@@ -904,7 +905,7 @@ class _DecadeCard extends StatelessWidget {
   final WrappedSummary summary;
   const _DecadeCard({required this.summary});
 
-  static const _labelRu = {'2020s': '2020-е', '2010s': '2010-е', 'older': 'до 2010-х'};
+  static final _labelRu = {'2020s': '2020-е'.tr, '2010s': '2010-е'.tr, 'older': 'до 2010-х'.tr};
 
   @override
   Widget build(BuildContext context) {
@@ -914,7 +915,7 @@ class _DecadeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardTitle('из какого времени фильмы'),
+          _CardTitle('из какого времени фильмы'.tr),
           const SizedBox(height: 18),
           for (int i = 0; i < decades.length; i++)
             Padding(
@@ -1064,23 +1065,23 @@ class _WatchStyleCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardTitle('как ты смотрела'),
+          _CardTitle('как ты смотрела'.tr),
           const SizedBox(height: 16),
           _SplitRibbon(
-            leftLabel: 'в одиночку',
+            leftLabel: 'в одиночку'.tr,
             leftValue: summary.soloCount,
             leftColor: SeenlyPalette.accent,
-            rightLabel: 'с кем-то',
+            rightLabel: 'с кем-то'.tr,
             rightValue: summary.companyCount,
             rightColor: SeenlyPalette.cork,
           ),
           if (showNewRewatch) ...[
             const SizedBox(height: 16),
             _SplitRibbon(
-              leftLabel: 'впервые',
+              leftLabel: 'впервые'.tr,
               leftValue: summary.newCount,
               leftColor: SeenlyPalette.periwinkle,
-              rightLabel: 'пересмотр',
+              rightLabel: 'пересмотр'.tr,
               rightValue: summary.rewatchCount,
               rightColor: SeenlyPalette.cork,
             ),
@@ -1183,7 +1184,7 @@ class _RatingsCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 5),
-                  child: Text('средняя оценка · ${summary.reviewCount} рецензий',
+                  child: Text('средняя оценка · ${summary.reviewCount} рецензий'.tr,
                       style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
@@ -1197,7 +1198,7 @@ class _RatingsCard extends StatelessWidget {
               children: [
                 const Icon(Icons.star, size: 12, color: SeenlyPalette.mustard),
                 const SizedBox(width: 6),
-                Text('${summary.fullMarksCount} на полную десятку',
+                Text('${summary.fullMarksCount} на полную десятку'.tr,
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint)),
               ],
             ),
@@ -1230,9 +1231,9 @@ class _RatingsCard extends StatelessWidget {
           const SizedBox(height: 7),
           Row(
             children: [
-              Text('1', style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
+              Text('1'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
               const Spacer(),
-              Text('10', style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
+              Text('10'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
             ],
           ),
         ],
@@ -1261,7 +1262,7 @@ class _TopListCard extends StatelessWidget {
           _CardTitle(title),
           const SizedBox(height: 14),
           if (items.isEmpty)
-            Text(emptyText ?? 'пока нет данных', style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder))
+            Text(emptyText ?? 'пока нет данных'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder))
           else
             for (int i = 0; i < items.length; i++)
               Padding(
@@ -1336,7 +1337,7 @@ class _FavoriteReviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardTitle('любимая рецензия периода'),
+          _CardTitle('любимая рецензия периода'.tr),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1393,7 +1394,7 @@ class _BookendsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _CardTitle('первое и последнее'),
+          _CardTitle('первое и последнее'.tr),
           const SizedBox(height: 18),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -1423,10 +1424,10 @@ class _BookendsCard extends StatelessWidget {
   static String _daysWord(int n) {
     final mod100 = n % 100;
     final mod10 = n % 10;
-    if (mod100 >= 11 && mod100 <= 14) return 'дней';
-    if (mod10 == 1) return 'день';
-    if (mod10 >= 2 && mod10 <= 4) return 'дня';
-    return 'дней';
+    if (mod100 >= 11 && mod100 <= 14) return 'дней'.tr;
+    if (mod10 == 1) return 'день'.tr;
+    if (mod10 >= 2 && mod10 <= 4) return 'дня'.tr;
+    return 'дней'.tr;
   }
 }
 

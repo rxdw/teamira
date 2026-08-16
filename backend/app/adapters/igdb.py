@@ -23,6 +23,7 @@ takes everywhere a key is missing.
 """
 import asyncio
 import logging
+import re
 import time
 from datetime import date, datetime, timezone
 from typing import List, Optional
@@ -32,6 +33,7 @@ import httpx
 from app.config import settings
 from app.schemas import MediaItem, ExternalIds, LocalizedText
 from app.adapters.base import MediaAdapter
+from app.adapters.steam import SteamAdapter
 
 logger = logging.getLogger("seenly.igdb")
 
@@ -78,23 +80,82 @@ _rate_limiter = _RateLimiter(_RATE_LIMIT_PER_SEC)
 # IGDB's own genre IDs — stable reference data per api-docs.igdb.com/#genre,
 # not something that needs a lookup call. Used to build the genre-scoped
 # Collections shelves in named_collections() below.
+# (display_label_ru, display_label_en, igdb genre id) — `title` on the
+# resulting Collection is always Russian, title_en the fallback, same
+# "title always Russian" contract curated_franchises.py already follows
+# (see schemas.Collection.title / mobile/lib/models/collection.dart::
+# displayTitle).
 _GENRE_SHELVES = [
-    ("Role-Playing Games", 12),
-    ("Shooters", 5),
-    ("Strategy Games", 15),
-    ("Adventure Games", 31),
-    ("Indie Games", 32),
-    ("Platformers", 8),
-    ("Racing Games", 10),
-    ("Fighting Games", 4),
+    ("Ролевые игры", "Role-Playing Games", 12),
+    ("Шутеры", "Shooters", 5),
+    ("Стратегии", "Strategy Games", 15),
+    ("Приключения", "Adventure Games", 31),
+    ("Инди-игры", "Indie Games", 32),
+    ("Платформеры", "Platformers", 8),
+    ("Гонки", "Racing Games", 10),
+    ("Файтинги", "Fighting Games", 4),
 ]
 
 # Requested every call — cover.url comes back as a low-res thumbnail path
 # by default (t_thumb); swapped for a bigger size in _cover_url below.
 _GAME_FIELDS = (
     "name,summary,genres.name,cover.url,first_release_date,"
-    "rating,aggregated_rating,total_rating,artworks.url,screenshots.url"
+    "rating,aggregated_rating,total_rating,artworks.url,screenshots.url,"
+    "platforms.name,involved_companies.company.name,involved_companies.developer,"
+    "involved_companies.publisher,age_ratings.category,age_ratings.rating,"
+    "game_modes.name,websites.url,websites.category"
 )
+
+# IGDB's age_ratings.category values (api-docs.igdb.com/#age-rating) — only
+# ESRB and PEGI are common enough in practice to bother mapping; any other
+# board (CERO, USK, ...) is simply left unlabeled rather than guessed at.
+_AGE_RATING_CATEGORY = {1: "ESRB", 2: "PEGI"}
+_ESRB_RATINGS = {6: "RP", 7: "EC", 8: "E", 9: "E10+", 10: "T", 11: "M", 12: "AO"}
+_PEGI_RATINGS = {1: "3", 2: "7", 3: "12", 4: "16", 5: "18"}
+
+# IGDB's websites.category enum (api-docs.igdb.com/#website) — 13 is Steam.
+# Used to find this game's own Steam store page (if it has one) so
+# full_detail() below can pull a real, publisher-written Russian
+# description from Steam instead of leaving Russian text blank the way
+# IGDB itself always does (see app/adapters/steam.py's module docstring).
+_STEAM_WEBSITE_CATEGORY = 13
+_STEAM_APP_URL_RE = re.compile(r"store\.steampowered\.com/app/(\d+)")
+
+
+def _steam_appid_from_websites(raw_websites: Optional[list]) -> Optional[str]:
+    for w in raw_websites or []:
+        if not isinstance(w, dict) or w.get("category") != _STEAM_WEBSITE_CATEGORY:
+            continue
+        match = _STEAM_APP_URL_RE.search(w.get("url") or "")
+        if match:
+            return match.group(1)
+    return None
+
+
+def _age_rating_label(raw_ratings: Optional[list]) -> Optional[str]:
+    """Picks one human-readable age rating off IGDB's age_ratings array —
+    ESRB preferred over PEGI when a game carries both (matches this app's
+    English-first convention elsewhere on this model). Returns e.g.
+    "ESRB M" / "PEGI 18"; None when IGDB has nothing, or only a board
+    this app doesn't map (see _AGE_RATING_CATEGORY above) — same
+    "unknown, not fabricated" convention as everywhere else on this
+    adapter. Reused as MediaItem.certification, the same field TMDB fills
+    with "PG-13"/"TV-MA" for movies/series.
+    """
+    pegi_fallback = None
+    for r in raw_ratings or []:
+        if not isinstance(r, dict):
+            continue
+        board = _AGE_RATING_CATEGORY.get(r.get("category"))
+        if board == "ESRB":
+            label = _ESRB_RATINGS.get(r.get("rating"))
+            if label:
+                return f"ESRB {label}"
+        elif board == "PEGI" and pegi_fallback is None:
+            label = _PEGI_RATINGS.get(r.get("rating"))
+            if label:
+                pegi_fallback = f"PEGI {label}"
+    return pegi_fallback
 
 
 def _cover_url(raw_url: Optional[str], size: str = "t_cover_big") -> Optional[str]:
@@ -139,6 +200,30 @@ def _normalize(raw: dict) -> Optional[MediaItem]:
         screenshots[0]["url"] if screenshots else None
     )
 
+    platforms = [
+        p["name"] for p in raw.get("platforms") or []
+        if isinstance(p, dict) and p.get("name")
+    ]
+    game_modes = [
+        m["name"] for m in raw.get("game_modes") or []
+        if isinstance(m, dict) and m.get("name")
+    ]
+    # A company can be both developer and publisher on the same
+    # involved_companies row (small/indie studios often are) — it's
+    # allowed to show up in both lists, same as a co-director would.
+    # dict.fromkeys dedupes while keeping IGDB's own ordering.
+    developers, publishers = [], []
+    for ic in raw.get("involved_companies") or []:
+        if not isinstance(ic, dict):
+            continue
+        company_name = (ic.get("company") or {}).get("name")
+        if not company_name:
+            continue
+        if ic.get("developer"):
+            developers.append(company_name)
+        if ic.get("publisher"):
+            publishers.append(company_name)
+
     return MediaItem(
         id=f"igdb-{game_id}",
         media_type="game",
@@ -151,7 +236,12 @@ def _normalize(raw: dict) -> Optional[MediaItem]:
         genres=genres,
         rating=rating10,
         runtime_minutes=None,  # IGDB has no "average time to beat" field — see module docstring
+        certification=_age_rating_label(raw.get("age_ratings")),
         source="igdb",
+        developer=", ".join(dict.fromkeys(developers)) or None,
+        publisher=", ".join(dict.fromkeys(publishers)) or None,
+        platforms=platforms,
+        game_modes=game_modes,
     )
 
 
@@ -164,6 +254,7 @@ class IgdbAdapter(MediaAdapter):
         self._token: Optional[str] = None
         self._token_expires_at: float = 0.0
         self._token_lock = asyncio.Lock()
+        self._steam = SteamAdapter()
 
     @property
     def _configured(self) -> bool:
@@ -252,10 +343,10 @@ class IgdbAdapter(MediaAdapter):
         raw = await self._query("games", apicalypse)
         return [item for r in raw if (item := _normalize(r)) is not None]
 
-    async def _shelf(self, title: str, apicalypse: str) -> tuple:
+    async def _shelf(self, title_ru: str, title_en: str, apicalypse: str) -> tuple:
         raw = await self._query("games", apicalypse)
         items = [item for r in raw if (item := _normalize(r)) is not None]
-        return (title, items)
+        return (title_ru, title_en, items)
 
     async def named_collections(self) -> List[tuple]:
         """Real IGDB-backed shelves for the Collections tab — "real
@@ -264,6 +355,11 @@ class IgdbAdapter(MediaAdapter):
         _GENRE_SHELVES. Each is its own round-trip, fanned out concurrently;
         an empty/failed one just doesn't show up (see _shelf/return_exceptions
         below), it doesn't take the others down with it.
+
+        Returns [(title_ru, title_en, items)] — `title` on the resulting
+        Collection is always the Russian label, title_en the fallback,
+        same contract as TMDB's/curated_franchises.py's shelves (see
+        schemas.Collection.title).
 
         Each shelf's `limit` was raised from 12 to 40 — IGDB happily returns
         that many in one round-trip (well under its 500-per-request cap), so
@@ -278,32 +374,32 @@ class IgdbAdapter(MediaAdapter):
 
         tasks = [
             self._shelf(
-                "Top Rated Games",
+                "Игры с высоким рейтингом", "Top Rated Games",
                 f"fields {_GAME_FIELDS}; where total_rating != null & "
                 "total_rating_count > 20; sort total_rating desc; limit 40;",
             ),
             self._shelf(
-                "New & Notable This Year",
+                "Новинки года", "New & Notable This Year",
                 f"fields {_GAME_FIELDS}; where first_release_date > {year_start_ts} "
                 f"& first_release_date < {now_ts} & total_rating != null; "
                 "sort total_rating_count desc; limit 40;",
             ),
             self._shelf(
-                "Coming Soon",
+                "Скоро выйдут", "Coming Soon",
                 f"fields {_GAME_FIELDS}; where first_release_date > {now_ts}; "
                 "sort hypes desc; limit 40;",
             ),
             self._shelf(
-                "All-Time Classics",
+                "Классика всех времён", "All-Time Classics",
                 f"fields {_GAME_FIELDS}; where first_release_date < {classics_cutoff_ts} "
                 "& total_rating != null & total_rating_count > 50; "
                 "sort total_rating desc; limit 40;",
             ),
         ]
-        for label, genre_id in _GENRE_SHELVES:
+        for label_ru, label_en, genre_id in _GENRE_SHELVES:
             tasks.append(
                 self._shelf(
-                    label,
+                    label_ru, label_en,
                     f"fields {_GAME_FIELDS}; where genres = ({genre_id}) & "
                     "total_rating != null & total_rating_count > 10; "
                     "sort total_rating desc; limit 40;",
@@ -314,7 +410,7 @@ class IgdbAdapter(MediaAdapter):
             results = await asyncio.gather(*tasks, return_exceptions=True)
         except RuntimeError:
             return []
-        return [r for r in results if isinstance(r, tuple) and r[1]]
+        return [r for r in results if isinstance(r, tuple) and r[2]]
 
     async def full_detail(self, raw_id: str) -> Optional[MediaItem]:
         if not self._configured:
@@ -323,7 +419,30 @@ class IgdbAdapter(MediaAdapter):
         raw = await self._query("games", apicalypse)
         if not raw:
             return None
-        return _normalize(raw[0])
+        item = _normalize(raw[0])
+        if item is None:
+            return None
+
+        # A best-effort Russian description, on the detail screen only
+        # (not search/shelves — same "enrichment is a detail-screen-only
+        # cost" convention as everywhere else this app fans out a second
+        # network call per title). See app/adapters/steam.py's module
+        # docstring for what makes this different from a machine
+        # translation. Silently skipped (not raised) when the game has no
+        # Steam page or Steam itself has nothing — a missing Russian
+        # description is not an error, same as it already wasn't before
+        # this existed.
+        steam_appid = _steam_appid_from_websites(raw[0].get("websites"))
+        if steam_appid:
+            try:
+                description_ru = await self._steam.description_ru(steam_appid)
+            except Exception as exc:  # noqa: BLE001 — a detail screen should never break over this
+                logger.warning("Steam ru enrichment failed [igdb-%s]: %s", raw_id, exc)
+                description_ru = None
+            if description_ru:
+                item.description.ru = description_ru
+
+        return item
 
 
 def _escape(text: str) -> str:

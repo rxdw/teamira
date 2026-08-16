@@ -14,6 +14,7 @@ import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
 import 'journey_select_screen.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
+import '../../services/app_translations.dart';
 
 /// First step of logging a title — whether tonight's evening already
 /// happened or is happening right now. Full-bleed split screen: the top
@@ -203,7 +204,7 @@ class WatchingChoiceScreen extends StatelessWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('how far in are we?', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
+                      Text('how far in are we?'.tr, style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                       const SizedBox(height: 10),
                       _PosterSeamCard(item: item),
                     ],
@@ -234,8 +235,8 @@ class WatchingChoiceScreen extends StatelessWidget {
                     await context.read<RitualPrefsService>().dismissBanner();
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("won't ask again — turn on \"skip the ritual\" in settings any time"),
+                      SnackBar(
+                        content: Text("won't ask again — turn on \"skip the ritual\" in settings any time".tr),
                         behavior: SnackBarBehavior.floating,
                       ),
                     );
@@ -371,7 +372,7 @@ class _PosterSeamCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('logging', style: SeenlyText.metaLabel),
+                Text('logging'.tr, style: SeenlyText.metaLabel),
                 const SizedBox(height: 2),
                 Text(item.title.display,
                     maxLines: 2,
@@ -437,19 +438,19 @@ class _QuickLogBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "don't want the seats, the tickets, any of it?",
+                  "don't want the seats, the tickets, any of it?".tr,
                   style: SeenlyText.serif(size: 12.5, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'skip the ritual — just log it now',
+                  'skip the ritual — just log it now'.tr,
                   style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                 ),
                 const SizedBox(height: 8),
                 PressScale(
                   onTap: onLogNow,
                   child: Text(
-                    'log it now →',
+                    'log it now →'.tr,
                     style: SeenlyText.serif(size: 12.5, weight: FontWeight.w600, color: SeenlyPalette.accent),
                   ),
                 ),

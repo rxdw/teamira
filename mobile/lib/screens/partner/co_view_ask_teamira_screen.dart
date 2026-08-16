@@ -15,6 +15,7 @@ import '../decide/decide_ask_teamira_screen.dart';
 import '../decide/decide_filters_screen.dart';
 import '../title/title_detail_screen.dart';
 import 'co_view_vote_screen.dart' show proposeToCircle;
+import '../../services/app_translations.dart';
 
 /// "Ask teamira" as a can't-decide method for the whole circle — the
 /// exact same composer as the solo version on Home
@@ -118,7 +119,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('teamira picked these', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                          Text('teamira picked these'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                           const SizedBox(height: 2),
                           Text(
                             '"${widget.query}"',
@@ -140,7 +141,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                 delay: const Duration(milliseconds: 70),
                 riseBy: 10,
                 child: Text(
-                  'tap propose on any of these to put it up for a vote',
+                  'tap propose on any of these to put it up for a vote'.tr,
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                 ),
               ),
@@ -173,7 +174,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                               const SizedBox(height: 14),
                               PressScale(
                                 onTap: _retry,
-                                child: Text('tap to try again', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+                                child: Text('tap to try again'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
                               ),
                             ],
                           ),
@@ -188,7 +189,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                         padding: const EdgeInsets.symmetric(horizontal: 32),
                         child: Entrance(
                           child: Text(
-                            "nothing matched that — try describing it differently",
+                            "nothing matched that — try describing it differently".tr,
                             textAlign: TextAlign.center,
                             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
                           ),
@@ -304,7 +305,7 @@ class _MatchRow extends StatelessWidget {
                         child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                       )
                     : Text(
-                        'propose',
+                        'propose'.tr,
                         key: const ValueKey('label'),
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accentOnAccent),
                       ),

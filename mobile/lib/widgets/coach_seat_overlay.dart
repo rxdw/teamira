@@ -9,6 +9,7 @@ import '../data/coach_routes.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart';
+import '../services/app_translations.dart';
 
 /// The "Evening Route" theme's counterpart to `seat_picker_overlay.dart`:
 /// instead of a mini cinema, a coach idling at the stop, waiting for you
@@ -199,14 +200,14 @@ class _CoachSeatOverlayState extends State<_CoachSeatOverlay> with TickerProvide
                             onTap: _skip,
                             child: Padding(
                               padding: const EdgeInsets.all(12),
-                              child: Text('skip',
+                              child: Text('skip'.tr,
                                   style: SeenlyText.mono(
                                       size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
                             ),
                           ),
                         ),
                         const Spacer(flex: 2),
-                        Text('find your seat',
+                        Text('find your seat'.tr,
                             style: SeenlyText.serif(
                                 italic: true, size: 18, color: SeenlyPalette.paper)),
                         const SizedBox(height: 5),

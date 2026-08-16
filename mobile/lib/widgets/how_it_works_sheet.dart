@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// Explains, in one place, every way a title can end up "planned
 /// together" and what it actually takes to get there — pulled out of
@@ -78,7 +79,7 @@ class HowItWorksSheet extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                            child: Text('how co-viewing works', style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
+                            child: Text('how co-viewing works'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
                           ),
                           GestureDetector(
                             onTap: () => Navigator.of(context).pop(),
@@ -93,7 +94,7 @@ class HowItWorksSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'every way a title ends up planned, and what it takes to get there',
+                        'every way a title ends up planned, and what it takes to get there'.tr,
                         style: SeenlyText.serif(italic: true, size: 11, color: SeenlyPalette.inkMuted),
                       ),
                       const SizedBox(height: 14),
@@ -144,9 +145,7 @@ class HowItWorksSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          'this shared list is separate from your own "plan to watch" '
-                          'on Profile. Whether a match also lands there is up to you — '
-                          'see "co-viewing" in Settings.',
+                          'this shared list is separate from your own "plan to watch" on Profile. Whether a match also lands there is up to you — see "co-viewing" in Settings.'.tr,
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                         ),
                       ),

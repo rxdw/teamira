@@ -15,6 +15,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 const _pollInterval = Duration(seconds: 2);
 
@@ -39,7 +40,7 @@ Future<MediaItem?> proposeToCircle(
   } catch (_) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't propose that just now — try again")),
+        SnackBar(content: Text("couldn't propose that just now — try again".tr)),
       );
     }
     return null;
@@ -241,7 +242,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
           onFinished: (ctx, pool, filters) {
             if (pool.isEmpty) {
               ScaffoldMessenger.of(ctx).showSnackBar(
-                const SnackBar(content: Text("nothing matches that in this pool — try loosening it up")),
+                SnackBar(content: Text("nothing matches that in this pool — try loosening it up".tr)),
               );
               return;
             }
@@ -373,7 +374,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
                     onPressed: () => _endAndClose(),
                   ),
                   const Spacer(),
-                  Text('vote together', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                  Text('vote together'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 ],
               ),
             ),
@@ -937,7 +938,7 @@ class _MatchedView extends StatelessWidget {
       children: [
         const Icon(Icons.favorite, size: 30, color: SeenlyPalette.accent),
         const SizedBox(height: 14),
-        Text('settled, together', style: SeenlyText.screenTitle),
+        Text('settled, together'.tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
         Text(
           isCompany
@@ -1004,7 +1005,7 @@ class _RecapView extends StatelessWidget {
       children: [
         const Icon(Icons.nights_stay_outlined, size: 30, color: SeenlyPalette.accent),
         const SizedBox(height: 14),
-        Text("you're through the deck", style: SeenlyText.screenTitle),
+        Text("you're through the deck".tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
         Text(
           partnerDone
@@ -1022,7 +1023,7 @@ class _RecapView extends StatelessWidget {
         Center(
           child: TextButton(
             onPressed: onClose,
-            child: Text('close', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+            child: Text('close'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
           ),
         ),
       ],
@@ -1050,10 +1051,10 @@ class _SetupView extends StatelessWidget {
       children: [
         const Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent),
         const SizedBox(height: 14),
-        Text('vote together', style: SeenlyText.screenTitle),
+        Text('vote together'.tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
         Text(
-          "what should the deck come from?",
+          "what should the deck come from?".tr,
           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
         ),
         const SizedBox(height: 18),

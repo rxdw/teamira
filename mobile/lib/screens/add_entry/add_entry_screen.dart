@@ -11,6 +11,7 @@ import '../../widgets/log_ritual.dart';
 import '../../widgets/mood_tag_picker.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
+import '../../services/app_translations.dart';
 
 enum _WhenChoice { today, yesterday, custom }
 
@@ -121,7 +122,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('couldn\'t save that just now — try again')),
+          SnackBar(content: Text('couldn\'t save that just now — try again'.tr)),
         );
       }
     }
@@ -148,14 +149,14 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 children: [
                   PressScale(
                     onTap: () => Navigator.of(context).pop(),
-                    child: Text('cancel',
+                    child: Text('cancel'.tr,
                         style: SeenlyText.mono(size: 13, color: SeenlyPalette.inkMuted)),
                   ),
-                  Text('new entry', style: SeenlyText.cardTitle),
+                  Text('new entry'.tr, style: SeenlyText.cardTitle),
                   PressScale(
                     onTap: _saving ? null : _save,
                     haptics: true,
-                    child: Text('save',
+                    child: Text('save'.tr,
                         style: SeenlyText.mono(size: 13, color: SeenlyPalette.accent)),
                   ),
                 ],
@@ -207,7 +208,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   const SizedBox(height: 22),
                   Entrance(
                     delay: const Duration(milliseconds: 60),
-                    child: Text('when', style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                    child: Text('when'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                   ),
                   const SizedBox(height: 10),
                   Entrance(
@@ -216,13 +217,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     child: Row(
                       children: [
                         PillChip(
-                          label: 'today',
+                          label: 'today'.tr,
                           active: _when == _WhenChoice.today,
                           onTap: () => setState(() => _when = _WhenChoice.today),
                         ),
                         const SizedBox(width: 8),
                         PillChip(
-                          label: 'yesterday',
+                          label: 'yesterday'.tr,
                           active: _when == _WhenChoice.yesterday,
                           onTap: () => setState(() => _when = _WhenChoice.yesterday),
                         ),
@@ -241,7 +242,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     const SizedBox(height: 22),
                     Entrance(
                       delay: const Duration(milliseconds: 120),
-                      child: Text('together',
+                      child: Text('together'.tr,
                           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                     ),
                     const SizedBox(height: 10),
@@ -261,7 +262,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('how it felt',
+                        Text('how it felt'.tr,
                             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 180),
@@ -303,7 +304,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   const SizedBox(height: 22),
                   Entrance(
                     delay: const Duration(milliseconds: 260),
-                    child: Text('a note to your future self',
+                    child: Text('a note to your future self'.tr,
                         style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                   ),
                   const SizedBox(height: 10),
@@ -324,7 +325,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                         decoration: InputDecoration(
                           filled: false,
                           border: InputBorder.none,
-                          hintText: 'watched it with... felt like...',
+                          hintText: 'watched it with... felt like...'.tr,
                           hintStyle:
                               SeenlyText.serif(color: SeenlyPalette.placeholder),
                         ),

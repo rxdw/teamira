@@ -6,6 +6,7 @@ import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart';
 import '../home/ask_teamira_results_screen.dart';
 import 'decide_filters_screen.dart';
+import '../../services/app_translations.dart';
 
 /// "Ask teamira" as one of the four decision methods — same free-text
 /// search as Home's own card ([AskTeamiraResultsScreen]), just opened
@@ -166,7 +167,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('ask teamira', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                    child: Text('ask teamira'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -182,7 +183,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
                       Center(child: _ShimmerHero()),
                       const SizedBox(height: 18),
                       Text(
-                        'here\'s a starting point — change it, or send it as is',
+                        'here\'s a starting point — change it, or send it as is'.tr,
                         textAlign: TextAlign.center,
                         style: SeenlyText.serif(size: 14.5, color: SeenlyPalette.inkMuted),
                       ),
@@ -218,7 +219,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
                         ),
                       ),
                       const SizedBox(height: 26),
-                      Text('or try one of these', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
+                      Text('or try one of these'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
                       const SizedBox(height: 10),
                       Container(
                         decoration: BoxDecoration(

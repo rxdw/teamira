@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/locale_service.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// One selectable entry in the region picker. `code` is the ISO-3166
 /// country code TMDB/JustWatch expects (see backend/app/routers/watch.py);
@@ -81,11 +82,10 @@ class _RegionPickerSheet extends StatelessWidget {
                 ),
               ),
             ),
-            Text('region', style: SeenlyText.serif(italic: true, size: 18, weight: FontWeight.w600)),
+            Text('region'.tr, style: SeenlyText.serif(italic: true, size: 18, weight: FontWeight.w600)),
             const SizedBox(height: 6),
             Text(
-              "which country's streaming info a title shows — change this "
-              "anytime, it never touches what's already in your diary.",
+              "which country's streaming info a title shows — change this anytime, it never touches what's already in your diary.".tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
             ),

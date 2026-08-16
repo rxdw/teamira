@@ -54,7 +54,7 @@ class MediaService {
     required String mediaType,
     required String source,
   }) async {
-    const supported = {'tmdb', 'igdb', 'open_library', 'open_library_manga'};
+    const supported = {'tmdb', 'igdb', 'open_library', 'shikimori_manga'};
     if (!supported.contains(source)) return null;
     try {
       final json = await _client.get('/media/detail', query: {

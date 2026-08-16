@@ -6,6 +6,7 @@ import '../services/bunny_collection_service.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'level_mascot.dart';
+import '../services/app_translations.dart';
 
 /// The person-facing explainer for the bunny system — what a bunny is,
 /// how new ones unlock, and how to pick a favorite. Opened from the
@@ -52,30 +53,25 @@ class _BunnyGuideSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              Text('a companion that grows with you',
+              Text('a companion that grows with you'.tr,
                   style: SeenlyText.serif(italic: true, size: 19, weight: FontWeight.w600)),
               const SizedBox(height: 10),
               Text(
-                "your level here comes from real evenings — what you log, the notes you write, "
-                "the streaks you keep. it's the same number on your profile's level ring, nothing "
-                "extra to farm.",
+                "your level here comes from real evenings — what you log, the notes you write, the streaks you keep. it's the same number on your profile's level ring, nothing extra to farm.".tr,
                 style: SeenlyText.serif(size: 13.5, color: SeenlyPalette.inkMuted).copyWith(height: 1.5),
               ),
               const SizedBox(height: 10),
               Text(
-                "every so often, reaching a new level brings a new bunny into your collection — "
-                "for good. it doesn't leave even if a streak breaks later.",
+                "every so often, reaching a new level brings a new bunny into your collection — for good. it doesn't leave even if a streak breaks later.".tr,
                 style: SeenlyText.serif(size: 13.5, color: SeenlyPalette.inkMuted).copyWith(height: 1.5),
               ),
               const SizedBox(height: 10),
               Text(
-                "tap any bunny you've unlocked to make it your favorite — that's who tags along "
-                "everywhere: right after you log something, on your welcome screen, while things "
-                "load.",
+                "tap any bunny you've unlocked to make it your favorite — that's who tags along everywhere: right after you log something, on your welcome screen, while things load.".tr,
                 style: SeenlyText.serif(size: 13.5, color: SeenlyPalette.inkMuted).copyWith(height: 1.5),
               ),
               const SizedBox(height: 22),
-              Text('your bunnies',
+              Text('your bunnies'.tr,
                   style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)
                       .copyWith(letterSpacing: 0.6)),
               const SizedBox(height: 10),
@@ -88,7 +84,7 @@ class _BunnyGuideSheet extends StatelessWidget {
               }),
               const SizedBox(height: 4),
               Text(
-                'more bunnies join the collection as new levels arrive.',
+                'more bunnies join the collection as new levels arrive.'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
               ),
             ],
@@ -158,7 +154,7 @@ class _BunnyGuideRow extends StatelessWidget {
                 color: SeenlyPalette.accent.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Text('favorite',
+              child: Text('favorite'.tr,
                   style: SeenlyText.mono(
                       size: 9, color: SeenlyPalette.accent, weight: FontWeight.w600)),
             ),

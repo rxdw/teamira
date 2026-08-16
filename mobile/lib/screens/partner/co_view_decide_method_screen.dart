@@ -8,6 +8,7 @@ import 'co_view_ask_teamira_screen.dart';
 import 'co_view_pick_screens.dart';
 import 'co_view_poll_screen.dart';
 import 'co_view_vote_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The can't-decide entry point for co-viewing — same five methods as
 /// Home's own [DecideMethodScreen] plus one co-viewing-only extra
@@ -91,10 +92,10 @@ class CoViewDecideMethodScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('how should you decide?', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                          Text('how should you decide?'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                           const SizedBox(height: 2),
                           Text(
-                            'whatever you land on, everyone votes yes first',
+                            'whatever you land on, everyone votes yes first'.tr,
                             style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
                           ),
                         ],

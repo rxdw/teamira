@@ -6,6 +6,7 @@ import '../models/media_item.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../screens/trailers/trailer_reels_screen.dart';
+import '../services/app_translations.dart';
 
 /// "about this franchise / how it was made" — opened from a small pill on
 /// [CollectionFullScreen] for franchise shelves only.
@@ -95,7 +96,7 @@ class _FranchiseInfoSheet extends StatelessWidget {
               ),
               Text(collection.displayTitle, style: SeenlyText.serif(italic: true, size: 19)),
               const SizedBox(height: 2),
-              Text('о франшизе и как она создавалась',
+              Text('о франшизе и как она создавалась'.tr,
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const SizedBox(height: 18),
 
@@ -121,8 +122,8 @@ class _FranchiseInfoSheet extends StatelessWidget {
                         Expanded(
                           child: Text(
                             trailerCount == 1
-                                ? 'смотреть трейлер'
-                                : 'смотреть трейлеры ($trailerCount)',
+                                ? 'смотреть трейлер'.tr
+                                : 'смотреть трейлеры ($trailerCount)'.tr,
                             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent),
                           ),
                         ),
@@ -135,7 +136,7 @@ class _FranchiseInfoSheet extends StatelessWidget {
               ],
 
               if (history != null && history.isNotEmpty) ...[
-                Text('как создавалась франшиза', style: SeenlyText.sectionTitle),
+                Text('как создавалась франшиза'.tr, style: SeenlyText.sectionTitle),
                 const SizedBox(height: 10),
                 Text(history, style: SeenlyText.serif(size: 13.5).copyWith(height: 1.5)),
                 const SizedBox(height: 8),
@@ -145,7 +146,7 @@ class _FranchiseInfoSheet extends StatelessWidget {
                       Uri.parse(collection.historyUrl!),
                       mode: LaunchMode.externalApplication,
                     ),
-                    child: Text('читать полностью на Wikipedia →',
+                    child: Text('читать полностью на Wikipedia →'.tr,
                         style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                   ),
                 const SizedBox(height: 4),

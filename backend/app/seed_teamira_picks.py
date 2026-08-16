@@ -32,7 +32,8 @@ from sqlalchemy import text
 
 from app import models
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.google_books import GoogleBooksAdapter
+from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.adapters.tmdb import TmdbAdapter
 from app.database import Base, SessionLocal, engine
 
@@ -41,14 +42,8 @@ logger = logging.getLogger("seed_teamira_picks")
 
 _tmdb = TmdbAdapter()
 _games = IgdbAdapter()
-_books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_books = GoogleBooksAdapter()
+_manga = ShikimoriMangaAdapter()
 
 # (shelf title RU, shelf title EN, media_type, search queries — one item
 # added per query, in this order, so the shelf reads top-to-bottom as a
@@ -466,6 +461,21 @@ async def _seed_shelf(db, title: str, title_en: str, media_type: str, queries: l
     existing = {(item.media_id, item.media_type) for item in row.items}
     next_position = len(row.items)
 
+    # A fully-seeded shelf already carries at least one item per query —
+    # skip it without a single catalog request. This is an approximation
+    # (it can't tell "every query matched" from "some matched, some
+    # legitimately don't exist on the catalog and never will"), but it's
+    # the common case by far, and the cost of being wrong is just that a
+    # shelf with a genuinely unmatched title keeps retrying that one
+    # title's search on every startup forever — not a big deal, and far
+    # cheaper than the alternative of re-resolving every title on every
+    # shelf on every restart regardless of whether anything changed. See
+    # _seed_teamira_shelves_background's docstring in app/main.py for the
+    # rate-limit cost this is specifically here to avoid.
+    if len(existing) >= len(queries):
+        logger.info("  %-45s -> shelf already full (%d/%d), skipping catalog lookups", title, len(existing), len(queries))
+        return
+
     for query in queries:
         label = f"{query[0]} ({query[1]})" if isinstance(query, tuple) else query
         hit = await _find_hit(query, media_type)
@@ -504,10 +514,33 @@ def _invalidate_teamira_cache(db) -> None:
         db.commit()
 
 
+async def seed_all_shelves(db) -> None:
+    """Runs the actual seeding of every shelf in SHELVES against an
+    already-open session. This is the reusable half of what used to be
+    only reachable via `python -m app.seed_teamira_picks` — app/main.py's
+    own startup now calls this too (see on_startup), so the shelves show
+    up automatically the first time the backend boots against a given
+    database and nobody has to remember to run this script by hand.
+
+    Assumes the `teamira_collection_items.source` and
+    `teamira_collections.title_en` columns already exist — app/main.py's
+    own _STARTUP_COLUMN_MIGRATIONS already guarantees that on every
+    startup, so this doesn't repeat that DDL itself (see main() below,
+    which still does for the standalone CLI path).
+    """
+    for title, title_en, media_type, queries in SHELVES:
+        logger.info("\n%s / %s (%s)", title, title_en, media_type)
+        await _seed_shelf(db, title, title_en, media_type, queries)
+    _invalidate_teamira_cache(db)
+
+
 async def main() -> None:
     # MVP-style: make sure the tables (and the newer `source` column —
     # see models.TeamiraCollectionItem) exist even against a completely
-    # fresh database, the same way app/main.py's own startup does.
+    # fresh database, the same way app/main.py's own startup does. Only
+    # needed here for the standalone CLI path — app/main.py's own
+    # startup already runs equivalent migrations before it calls
+    # seed_all_shelves() directly.
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE teamira_collection_items ADD COLUMN IF NOT EXISTS source VARCHAR"))
@@ -515,10 +548,7 @@ async def main() -> None:
 
     db = SessionLocal()
     try:
-        for title, title_en, media_type, queries in SHELVES:
-            logger.info("\n%s / %s (%s)", title, title_en, media_type)
-            await _seed_shelf(db, title, title_en, media_type, queries)
-        _invalidate_teamira_cache(db)
+        await seed_all_shelves(db)
     finally:
         db.close()
 

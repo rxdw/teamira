@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 
 from fastapi import FastAPI
@@ -6,8 +8,11 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, text
 
 from app.database import Base, SessionLocal, engine
-from app.routers import auth, media, feed, ai, activity, profile, diary, progress, lists, together, partner, co_view_vote, co_view_poll, watch, integrations, imports, sources, teamira, reviews, friends, linking
+from app.routers import auth, media, feed, ai, activity, profile, diary, progress, lists, together, partner, co_view_vote, co_view_poll, watch, integrations, imports, sources, teamira, reviews, friends, linking, image_proxy
 from app.seed import seed_affiliate_providers
+from app.seed_teamira_picks import seed_all_shelves as _seed_teamira_shelves
+
+logger = logging.getLogger("uvicorn.error")
 
 app = FastAPI(title="teamira API", version="0.1.0")
 
@@ -49,6 +54,7 @@ app.include_router(sources.router)
 app.include_router(teamira.router)
 app.include_router(friends.router)
 app.include_router(linking.router)
+app.include_router(image_proxy.router)
 
 
 # MVP stand-in for Alembic (see the "MVP" note on on_startup below):
@@ -277,8 +283,52 @@ def _consolidate_series_diary_entries(db):
     db.commit()
 
 
+async def _seed_teamira_shelves_background() -> None:
+    """Fills in the hand-picked Teamira shelves (see
+    app/seed_teamira_picks.py) the first time the backend boots against
+    a given database, so Collections -> Teamira picks has something on
+    it from day one without anyone having to remember to run that
+    script by hand. Kicked off from on_startup as a background task
+    (not awaited there) since this makes real network calls out to
+    TMDB/IGDB/Open Library to resolve each title — awaiting it inline
+    would hold up the app's own startup, and the /health endpoint,
+    behind however long that round-trip takes.
+
+    Safe to let run on every single startup: seed_all_shelves reuses an
+    existing shelf/item by title rather than duplicating it (see
+    _get_or_create_shelf/_seed_shelf), so a database that's already been
+    seeded just does a quick set of no-op lookups. A catalog that isn't
+    configured (missing TMDB_API_KEY/IGDB_*) only skips that shelf's
+    items (logged, not fatal) rather than blocking the others or
+    crashing the app.
+
+    A shelf that already carries at least one item per query in its
+    picks list (see _seed_shelf's own comment) skips its catalog lookups
+    entirely rather than re-resolving every title just to find out it's
+    already there — so on a normally-seeded database this really is a
+    no-op against TMDB/IGDB/Open Library/Shikimori, not just against the
+    database. The one case that still re-queries a shelf on every
+    startup is a title that's never matched anything on its catalog
+    (typo, not indexed, etc.) — cheap in practice since that's the
+    exception, not the rule. TEAMIRA_SEED_ON_STARTUP=false (e.g. in a
+    local .env) is still there as a manual override for the rare case
+    that's actually a problem — e.g. iterating on a brand new shelf
+    that's genuinely still resolving titles on every restart.
+    """
+    if os.getenv("TEAMIRA_SEED_ON_STARTUP", "true").strip().lower() in ("0", "false", "no"):
+        logger.info("teamira shelf seeding skipped (TEAMIRA_SEED_ON_STARTUP=false)")
+        return
+    db = SessionLocal()
+    try:
+        await _seed_teamira_shelves(db)
+    except Exception:
+        logger.exception("teamira shelf seeding failed")
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
-def on_startup():
+async def on_startup():
     # MVP: create tables directly. Move to Alembic migrations before real launch.
     Base.metadata.create_all(bind=engine)
     _run_startup_migrations()
@@ -291,6 +341,10 @@ def on_startup():
         seed_affiliate_providers(db)
     finally:
         db.close()
+
+    # Backgrounded, not awaited — see _seed_teamira_shelves_background's
+    # own docstring for why.
+    asyncio.create_task(_seed_teamira_shelves_background())
 
 
 @app.get("/health")

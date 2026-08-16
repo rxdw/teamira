@@ -26,6 +26,7 @@ import '../../widgets/favorite_toggle.dart';
 import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
+import '../../services/app_translations.dart';
 
 // This route's own verdict words — same shape VerdictRating expects
 // from the cinema flow (10 entries, low to high), just spoken the way
@@ -420,7 +421,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           glow: SeenlyPalette.mustard,
         ),
         const SizedBox(height: 6),
-        Text('find your seat',
+        Text('find your seat'.tr,
             style: SeenlyText.serif(italic: true, size: 20, color: SeenlyPalette.paper)),
         const SizedBox(height: 5),
         AnimatedSwitcher(
@@ -455,7 +456,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           ),
         ),
         const SizedBox(height: 10),
-        Text('amber seats are by the window', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.mustard.withOpacity(0.8))),
+        Text('amber seats are by the window'.tr, style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.mustard.withOpacity(0.8))),
         const SizedBox(height: 10),
         Expanded(
           child: ListView.builder(
@@ -535,9 +536,9 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('still rolling through the dark', style: SeenlyText.serif(italic: true, size: 17, color: SeenlyPalette.accent)),
+                  Text('still rolling through the dark'.tr, style: SeenlyText.serif(italic: true, size: 17, color: SeenlyPalette.accent)),
                   const SizedBox(height: 4),
-                  Text('before you check your stop — what did tonight leave you with?',
+                  Text('before you check your stop — what did tonight leave you with?'.tr,
                       style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
                   const SizedBox(height: 14),
                   AnimatedBuilder(
@@ -558,13 +559,13 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                     onChanged: (v) => setState(() => _isFavorite = v),
                   ),
                   const SizedBox(height: 22),
-                  Text('when', style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                  Text('when'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Expanded(child: PillChip(label: 'today', active: _when == _When.today, dashed: true, fullWidth: true, onTap: () => setState(() => _when = _When.today))),
+                      Expanded(child: PillChip(label: 'today'.tr, active: _when == _When.today, dashed: true, fullWidth: true, onTap: () => setState(() => _when = _When.today))),
                       const SizedBox(width: 8),
-                      Expanded(child: PillChip(label: 'yesterday', active: _when == _When.yesterday, dashed: true, fullWidth: true, onTap: () => setState(() => _when = _When.yesterday))),
+                      Expanded(child: PillChip(label: 'yesterday'.tr, active: _when == _When.yesterday, dashed: true, fullWidth: true, onTap: () => setState(() => _when = _When.yesterday))),
                       const SizedBox(width: 8),
                       Expanded(
                         child: PillChip(
@@ -579,7 +580,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                   ),
                   if (_partnerUsername != null) ...[
                     const SizedBox(height: 22),
-                    Text('together', style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                    Text('together'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                     const SizedBox(height: 10),
                     PillChip(
                       label: 'watched with $_partnerUsername',
@@ -588,7 +589,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                     ),
                   ],
                   const SizedBox(height: 22),
-                  Text('a note to your future self', style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
+                  Text('a note to your future self'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                   const SizedBox(height: 10),
                   Container(
                     decoration: BoxDecoration(color: SeenlyPalette.background, borderRadius: BorderRadius.circular(10)),
@@ -601,7 +602,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                       decoration: InputDecoration(
                         filled: false,
                         border: InputBorder.none,
-                        hintText: 'watched it with... felt like...',
+                        hintText: 'watched it with... felt like...'.tr,
                         hintStyle: SeenlyText.serif(color: SeenlyPalette.placeholder),
                       ),
                     ),
@@ -667,7 +668,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                   children: [
                     Text(vibePromptTitle(_rating), style: SeenlyText.serif(italic: true, size: 17, color: SeenlyPalette.accent)),
                     const SizedBox(height: 4),
-                    Text('before the next stop — what made the ride?',
+                    Text('before the next stop — what made the ride?'.tr,
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
                     const SizedBox(height: 14),
                     VibeChipGrid(
@@ -693,7 +694,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                                 isDense: true,
                                 filled: false,
                                 border: InputBorder.none,
-                                hintText: 'your own tag...',
+                                hintText: 'your own tag...'.tr,
                                 hintStyle: SeenlyText.serif(color: SeenlyPalette.placeholder),
                               ),
                             ),
@@ -753,7 +754,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('who stood out tonight?',
+                    Text('who stood out tonight?'.tr,
                         style: SeenlyText.serif(italic: true, size: 17, color: SeenlyPalette.accent)),
                     const SizedBox(height: 4),
                     Text(
@@ -801,9 +802,9 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
       children: [
         LogFlowTopBar(onBack: () => _goTo(_Step.details)),
         const SizedBox(height: 4),
-        Text('ready to board?', style: SeenlyText.serif(italic: true, size: 20, color: SeenlyPalette.paper)),
+        Text('ready to board?'.tr, style: SeenlyText.serif(italic: true, size: 20, color: SeenlyPalette.paper)),
         const SizedBox(height: 4),
-        Text("one more look before it's official", style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.65))),
+        Text("one more look before it's official".tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.65))),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
@@ -856,7 +857,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                   ],
                   if (_favoriteCast.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    Text('favorites tonight', style: SeenlyText.metaLabel),
+                    Text('favorites tonight'.tr, style: SeenlyText.metaLabel),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -944,14 +945,14 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           mediaType: widget.item.mediaType,
         ),
         const SizedBox(height: 18),
-        Text('all boarded', style: SeenlyText.serif(italic: true, size: 20, color: SeenlyPalette.paper)),
+        Text('all boarded'.tr, style: SeenlyText.serif(italic: true, size: 20, color: SeenlyPalette.paper)),
         const SizedBox(height: 6),
-        Text('tonight, safely logged', style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.68))),
+        Text('tonight, safely logged'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.68))),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Text(
-            "we'll bring it back around — a month from now, and again next year",
+            "we'll bring it back around — a month from now, and again next year".tr,
             textAlign: TextAlign.center,
             maxLines: 2,
             style: SeenlyText.serif(italic: true, size: 10.5, color: SeenlyPalette.paper.withOpacity(0.5)),
@@ -983,8 +984,8 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
     final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
     final yesterday = now.subtract(const Duration(days: 1));
     final isYesterday = d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day;
-    if (isToday) return 'today';
-    if (isYesterday) return 'yesterday';
+    if (isToday) return 'today'.tr;
+    if (isYesterday) return 'yesterday'.tr;
     return '${d.month}/${d.day}/${d.year}';
   }
 
@@ -1596,7 +1597,7 @@ class _PassStepMascotState extends State<_PassStepMascot> with SingleTickerProvi
                     const RabbitMascot(mood: RabbitMood.celebrating, size: 88),
                     const SizedBox(height: 8),
                     Text(
-                      'thank you for tonight',
+                      'thank you for tonight'.tr,
                       style: SeenlyText.serif(
                           italic: true, size: 13, color: SeenlyPalette.paper.withOpacity(0.82)),
                     ),

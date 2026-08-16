@@ -23,6 +23,7 @@ import '../../widgets/user_avatar.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The linked pair's own screen: everything hearted for tonight or matched
 /// through Watch Together (either mode) lives here as "planned together"
@@ -99,7 +100,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
       if (!mounted) return;
       setState(() => _accepting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't agree to that just now — try again")),
+        SnackBar(content: Text("couldn't agree to that just now — try again".tr)),
       );
     }
   }
@@ -133,7 +134,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't mark that watched — try again")),
+        SnackBar(content: Text("couldn't mark that watched — try again".tr)),
       );
     } finally {
       if (mounted) setState(() => _markingWatched.remove(entry.id));
@@ -211,7 +212,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: Text('cancel', style: SeenlyText.mono(size: 11)),
+                  child: Text('cancel'.tr, style: SeenlyText.mono(size: 11)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
@@ -228,7 +229,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
           } catch (_) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("couldn't unlink just now — try again")),
+              SnackBar(content: Text("couldn't unlink just now — try again".tr)),
             );
           }
         },
@@ -288,7 +289,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text("couldn't load co-viewing",
+                          Text("couldn't load co-viewing".tr,
                               style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
                           const SizedBox(height: 14),
                           PrimaryButton(label: 'try again', onTap: _load, expand: false),
@@ -930,7 +931,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
       if (!mounted) return;
       setState(() => _busyUserIds.remove(friend.userId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't send that invite — try again")),
+        SnackBar(content: Text("couldn't send that invite — try again".tr)),
       );
     }
   }
@@ -953,13 +954,13 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
               ),
             ),
             Entrance(
-              child: Text('add to your circle', style: SeenlyText.sectionTitle),
+              child: Text('add to your circle'.tr, style: SeenlyText.sectionTitle),
             ),
             const SizedBox(height: 4),
             Entrance(
               delay: const Duration(milliseconds: 50),
               child: Text(
-                "they'll join once they accept — same as any co-viewing invite.",
+                "they'll join once they accept — same as any co-viewing invite.".tr,
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
               ),
             ),
@@ -987,8 +988,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  "everyone you're friends with is already here — add more "
-                  "friends first, then invite them from here.",
+                  "everyone you're friends with is already here — add more friends first, then invite them from here.".tr,
                   style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
                 ),
               )
@@ -1087,7 +1087,7 @@ class _SettingsSheet extends StatelessWidget {
               ),
             ),
             Entrance(
-              child: Text('co-viewing settings', style: SeenlyText.sectionTitle),
+              child: Text('co-viewing settings'.tr, style: SeenlyText.sectionTitle),
             ),
             const SizedBox(height: 16),
             Entrance(

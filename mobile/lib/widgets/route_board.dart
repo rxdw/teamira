@@ -8,6 +8,7 @@ import '../screens/title/title_detail_screen.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'boarding_pass.dart';
+import '../services/app_translations.dart';
 
 /// The Diary tab's centerpiece in the "Evening Route" theme — the
 /// counterpart to `TicketJar`: a small split-flap
@@ -74,7 +75,7 @@ class _RouteBoardState extends State<RouteBoard> with SingleTickerProviderStateM
           children: [
             Row(
               children: [
-                Text('DEPARTURES',
+                Text('DEPARTURES'.tr,
                     style: SeenlyText.mono(size: 10, color: SeenlyPalette.mustard.withOpacity(0.8), weight: FontWeight.w700)),
                 const Spacer(),
                 Container(
@@ -202,7 +203,7 @@ class RouteManifestView extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('full manifest', style: SeenlyText.serif(italic: true, size: 18, color: SeenlyPalette.paper)),
+                  Text('full manifest'.tr, style: SeenlyText.serif(italic: true, size: 18, color: SeenlyPalette.paper)),
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
                     child: Container(

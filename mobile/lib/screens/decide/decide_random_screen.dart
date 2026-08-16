@@ -11,6 +11,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart';
 import '../title/title_detail_screen.dart';
+import '../../services/app_translations.dart';
 
 /// One decision method from [DecideMethodScreen] — draws a single item
 /// from the filtered [pool] and shows it big, with a reroll and a quick
@@ -142,7 +143,7 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
       if (!mounted) return;
       setState(() => _addingToPlan = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('couldn\'t add that just now — try again')),
+        SnackBar(content: Text('couldn\'t add that just now — try again'.tr)),
       );
     }
   }
@@ -226,7 +227,7 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text('random pick', style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                  Text('random pick'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                 ],
               ),
             ),

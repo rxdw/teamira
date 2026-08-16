@@ -1102,7 +1102,7 @@ class TeamiraCollectionItem(Base):
 
     media_id = Column("tmdb_id", String, nullable=False)
     media_type = Column(String, nullable=False)  # "movie" | "series" | "anime" | "game" | "book" | "manga"
-    source = Column(String, nullable=True)  # "tmdb" | "igdb" | "open_library" | "open_library_manga"; NULL == "tmdb"
+    source = Column(String, nullable=True)  # "tmdb" | "igdb" | "google_books" | "shikimori_manga"; NULL == "tmdb"
     position = Column(Integer, nullable=False, default=0)
 
     added_at = Column(DateTime, server_default=func.now())

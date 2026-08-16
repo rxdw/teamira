@@ -9,6 +9,7 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
+import '../../services/app_translations.dart';
 
 /// Call this once a single episode has actually been watched — whether
 /// that's the "already watched" instant path (see watching_choice_screen)
@@ -201,12 +202,12 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
             ),
             const SizedBox(height: 18),
             Entrance(
-              child: Text('watch the next episode?', style: SeenlyText.serif(italic: true, size: 18)),
+              child: Text('watch the next episode?'.tr, style: SeenlyText.serif(italic: true, size: 18)),
             ),
             const SizedBox(height: 6),
             Entrance(
               delay: const Duration(milliseconds: 60),
-              child: Text('keep the evening going with what comes next',
+              child: Text('keep the evening going with what comes next'.tr,
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
             ),
             const SizedBox(height: 22),
@@ -221,7 +222,7 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   decoration: BoxDecoration(color: accent, borderRadius: BorderRadius.circular(14)),
                   alignment: Alignment.center,
-                  child: Text('yes',
+                  child: Text('yes'.tr,
                       style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.paper)),
                 ),
               ),
@@ -230,7 +231,7 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
             Center(
               child: PressScale(
                 onTap: () => Navigator.of(sheetContext).pop(false),
-                child: Text('not now', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
+                child: Text('not now'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
               ),
             ),
           ],

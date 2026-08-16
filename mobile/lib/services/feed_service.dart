@@ -14,10 +14,21 @@ class FeedService {
   /// with Russian titles/overviews already, instead of only after
   /// opening a title's own detail screen (that's a separate, richer
   /// per-title fetch — see MediaService.detail()).
+  ///
+  /// Longer timeout than the client default: on a cold cache (see
+  /// COLLECTIONS_TTL in the backend) this endpoint fans out to ~19
+  /// upstream shelf calls plus a per-title Russian-text supplement pass
+  /// (app/routers/feed.py::_apply_ru_supplement) before it can answer at
+  /// all — comfortably past the default 12s. Once cached (up to
+  /// COLLECTIONS_TTL), the response is instant and this budget is unused.
   Future<List<SeenlyCollection>> collections() async {
-    final json = await _client.get('/feed/collections', query: {
-      if (LocaleService.contentPrefersRussian) 'lang': 'ru',
-    }) as List;
+    final json = await _client.get(
+      '/feed/collections',
+      query: {
+        if (LocaleService.contentPrefersRussian) 'lang': 'ru',
+      },
+      timeout: const Duration(seconds: 60),
+    ) as List;
     return json
         .map((e) => SeenlyCollection.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -26,8 +37,12 @@ class FeedService {
   /// Hand-curated shelves we build ourselves (franchises, "best of the
   /// year" picks, etc) — same shape as collections() above, different
   /// source (GET /feed/teamira). See backend/app/routers/teamira.py.
+  /// Same cold-cache reasoning as collections() above applies here too.
   Future<List<SeenlyCollection>> teamiraCollections() async {
-    final json = await _client.get('/feed/teamira') as List;
+    final json = await _client.get(
+      '/feed/teamira',
+      timeout: const Duration(seconds: 60),
+    ) as List;
     return json
         .map((e) => SeenlyCollection.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -48,8 +63,16 @@ class FeedService {
     return TodayPick.fromJson(json);
   }
 
+  /// Whole-app pool — powers Home's "can't decide?" flow (random pick,
+  /// roulette, swipe) via DecideFiltersScreen's default poolLoader. Same
+  /// cold-cache reasoning as collections() above: GET /feed's own cache
+  /// (see cache.py, "feed:discover", 24h TTL) fans out to TMDB + IGDB +
+  /// Google Books + Shikimori on a miss, comfortably past the default 12s.
   Future<List<MediaItem>> feed() async {
-    final json = await _client.get('/feed') as List;
+    final json = await _client.get(
+      '/feed',
+      timeout: const Duration(seconds: 60),
+    ) as List;
     return json
         .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -58,9 +81,14 @@ class FeedService {
   /// Personal, content-based picks with a real trailer attached where one
   /// exists (GET /feed/for-you) — empty for a brand-new account with
   /// nothing logged yet; callers should just skip the section in that case
-  /// rather than show it empty.
+  /// rather than show it empty. Same cold-cache reasoning as feed()/
+  /// collections() above: up to a dozen extra per-title trailer lookups
+  /// on a miss (see _FOR_YOU_TRAILER_LIMIT in feed.py).
   Future<List<MediaItem>> forYou() async {
-    final json = await _client.get('/feed/for-you') as List;
+    final json = await _client.get(
+      '/feed/for-you',
+      timeout: const Duration(seconds: 60),
+    ) as List;
     return json
         .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
         .toList();

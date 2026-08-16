@@ -8,6 +8,7 @@ import '../theme/text_styles.dart';
 import 'heart_rating.dart';
 import 'scroll_reveal.dart';
 import 'watched_preview_sheet.dart';
+import '../services/app_translations.dart';
 
 /// The Diary tab's centerpiece in the "Garden" theme — a window-box
 /// planter that reads as denser and more in-bloom the more evenings
@@ -327,7 +328,7 @@ class GardenBedScreen extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('the window garden', style: SeenlyText.serif(italic: true, size: 18)),
+                        Text('the window garden'.tr, style: SeenlyText.serif(italic: true, size: 18)),
                         Text(
                           entries.isEmpty
                               ? 'nothing planted yet'
@@ -353,7 +354,7 @@ class GardenBedScreen extends StatelessWidget {
                 child: entries.isEmpty
                     ? Center(
                         child: Text(
-                          'log an evening to plant the first flower',
+                          'log an evening to plant the first flower'.tr,
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted),
                         ),
                       )
@@ -492,7 +493,7 @@ class _BloomCard extends StatelessWidget {
                             if (entry.rating != null && entry.rating! > 0)
                               HeartRating(value: entry.rating!, size: 12)
                             else
-                              Text('not yet rated',
+                              Text('not yet rated'.tr,
                                   style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.placeholder)),
                             if (entry.moodTags.isNotEmpty) ...[
                               const SizedBox(height: 8),

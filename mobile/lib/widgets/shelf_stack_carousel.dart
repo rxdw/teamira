@@ -5,6 +5,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'themed_poster_tile.dart';
 import 'wow_motion.dart';
+import '../services/app_translations.dart';
 
 /// The same "peeking stack of tickets" feeling as [HeroStackCarousel], just
 /// sized to live inline inside an ordinary collection shelf rather than sit
@@ -183,7 +184,7 @@ class _ShelfStackCarouselState extends State<ShelfStackCarousel> {
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 if (active.year != null && active.rating != null) ...[
                   const SizedBox(width: 8),
-                  Text('·', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                  Text('·'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                   const SizedBox(width: 8),
                 ],
                 if (active.rating != null) ...[

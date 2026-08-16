@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
+import '../services/app_translations.dart';
 
 /// What stayed with you when the evening landed — the preset list shown
 /// whenever there's no rating yet, or the rating is a good one (see
@@ -149,7 +150,7 @@ class _MoodTagPickerState extends State<MoodTagPicker> {
                     isDense: true,
                     filled: false,
                     border: InputBorder.none,
-                    hintText: 'your own tag...',
+                    hintText: 'your own tag...'.tr,
                     hintStyle: SeenlyText.serif(color: SeenlyPalette.placeholder),
                   ),
                 ),

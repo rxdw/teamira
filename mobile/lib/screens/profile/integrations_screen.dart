@@ -8,6 +8,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../services/app_translations.dart';
 
 /// Settings > Integrations — everything needed to hook up automatic watch
 /// tracking: Plex/Jellyfin webhooks (paste one URL, done), Kodi and the
@@ -62,21 +63,19 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: SeenlyPalette.paper,
-        title: Text('rotate your token?', style: SeenlyText.serif(size: 16)),
+        title: Text('rotate your token?'.tr, style: SeenlyText.serif(size: 16)),
         content: Text(
-          "every URL you've already pasted into Plex, Jellyfin, Kodi, or the "
-          "browser extension stops working — you'll need to paste the new one "
-          "into each of them again.",
+          "every URL you've already pasted into Plex, Jellyfin, Kodi, or the browser extension stops working — you'll need to paste the new one into each of them again.".tr,
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text('cancel', style: SeenlyText.mono(size: 11)),
+            child: Text('cancel'.tr, style: SeenlyText.mono(size: 11)),
           ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text('rotate', style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
+            child: Text('rotate'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
           ),
         ],
       ),
@@ -94,7 +93,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
       if (!mounted) return;
       setState(() => _rotating = false);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't rotate the token just now")));
+          .showSnackBar(SnackBar(content: Text("couldn't rotate the token just now".tr)));
     }
   }
 
@@ -115,7 +114,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
-                  Text('auto-tracking', style: SeenlyText.screenTitle),
+                  Text('auto-tracking'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -133,7 +132,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text("couldn't load this just now",
+                        Text("couldn't load this just now".tr,
                             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
                         const SizedBox(height: 14),
                         PrimaryButton(label: 'try again', onTap: _load, expand: false),
@@ -148,10 +147,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                   padding: const EdgeInsets.fromLTRB(22, 6, 22, 28),
                   children: [
                     Text(
-                      "normally you log something by opening the app yourself. "
-                      "auto-tracking flips that around: you connect one thing below, "
-                      "one time, and after that, finishing an episode or a movie "
-                      "somewhere else logs it here on its own — no app, no remembering.",
+                      'normally you log something by opening the app yourself. auto-tracking flips that around: you connect one thing below, one time, and after that, finishing an episode or a movie somewhere else logs it here on its own — no app, no remembering.'.tr,
                       style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
                     ),
                     const SizedBox(height: 14),
@@ -166,7 +162,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('which one is mine?', style: SeenlyText.metaLabel),
+                          Text('which one is mine?'.tr, style: SeenlyText.metaLabel),
                           const SizedBox(height: 8),
                           _PickHintRow(
                             label: 'Plex or Jellyfin',
@@ -184,7 +180,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    Text('media servers', style: SeenlyText.metaLabel),
+                    Text('media servers'.tr, style: SeenlyText.metaLabel),
                     const SizedBox(height: 10),
                     _IntegrationCard(
                       title: 'Plex',
@@ -205,7 +201,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       child: _CopyRow(value: _token!.jellyfinWebhookUrl, onCopy: () => _copy(_token!.jellyfinWebhookUrl, 'Jellyfin webhook URL')),
                     ),
                     const SizedBox(height: 22),
-                    Text('kodi', style: SeenlyText.metaLabel),
+                    Text('kodi'.tr, style: SeenlyText.metaLabel),
                     const SizedBox(height: 10),
                     _IntegrationCard(
                       title: 'Kodi addon',
@@ -216,18 +212,18 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('server', style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
+                          Text('server'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
                           _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL')),
                           const SizedBox(height: 10),
-                          Text('token', style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
+                          Text('token'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
                           _CopyRow(value: _token!.token, onCopy: () => _copy(_token!.token, 'token')),
                         ],
                       ),
                     ),
                     const SizedBox(height: 22),
-                    Text('browser extension', style: SeenlyText.metaLabel),
+                    Text('browser extension'.tr, style: SeenlyText.metaLabel),
                     const SizedBox(height: 10),
                     _IntegrationCard(
                       title: 'Netflix · Hulu · Disney+ · Crunchyroll',
@@ -240,11 +236,11 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('server', style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
+                          Text('server'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
                           _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL')),
                           const SizedBox(height: 10),
-                          Text('token', style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
+                          Text('token'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
                           _CopyRow(value: _token!.token, onCopy: () => _copy(_token!.token, 'token')),
                         ],
@@ -252,7 +248,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     ),
                     const SizedBox(height: 10),
                     _IntegrationCard(
-                      title: 'Кинопоиск HD · ivi · Okko · Wink · START · KION · Rutube',
+                      title: 'Кинопоиск HD · ivi · Okko · Wink · START · KION · Rutube'.tr,
                       steps: const [
                         'same browser extension as above — one install, one server/token pair '
                             'covers every site it knows how to read',
@@ -263,11 +259,11 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('server', style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
+                          Text('server'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
                           _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL')),
                           const SizedBox(height: 10),
-                          Text('token', style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
+                          Text('token'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
                           _CopyRow(value: _token!.token, onCopy: () => _copy(_token!.token, 'token')),
                         ],
@@ -287,7 +283,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                           children: [
                             const Icon(Icons.autorenew, size: 16, color: SeenlyPalette.coral),
                             const SizedBox(width: 10),
-                            Text('rotate token', style: SeenlyText.serif(italic: true, color: SeenlyPalette.coral)),
+                            Text('rotate token'.tr, style: SeenlyText.serif(italic: true, color: SeenlyPalette.coral)),
                             const Spacer(),
                             if (_rotating)
                               const SizedBox(
@@ -300,7 +296,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     ),
                     if (_events.isNotEmpty) ...[
                       const SizedBox(height: 26),
-                      Text('recent activity', style: SeenlyText.metaLabel),
+                      Text('recent activity'.tr, style: SeenlyText.metaLabel),
                       const SizedBox(height: 10),
                       for (final e in _events)
                         Padding(

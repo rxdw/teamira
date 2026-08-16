@@ -8,6 +8,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
 import 'themed_poster_tile.dart';
+import '../services/app_translations.dart';
 
 /// A single random draw from your own "plan to watch" shelf — same
 /// reroll-in-place idea as Home's random pick card, just scoped to this
@@ -58,7 +59,7 @@ class _PlannedRandomPickSheetState extends State<_PlannedRandomPickSheet> {
             children: [
               const Icon(Icons.casino_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 6),
-              Text('random pick', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+              Text('random pick'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const Spacer(),
               if (widget.shelf.length > 1)
                 GestureDetector(

@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
+import '../services/app_translations.dart';
 
 /// Previews [card] centered over a softly blurred, dimmed backdrop — the
 /// same quiet, gallery-like treatment the poster lightbox uses
@@ -152,7 +153,7 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
                 Row(
                   children: [
                     Expanded(
-                      child: Text('share',
+                      child: Text('share'.tr,
                           style: SeenlyText.serif(
                               italic: true, size: 15, color: SeenlyPalette.accent)),
                     ),
@@ -179,7 +180,7 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
                 ),
                 if (_failed) ...[
                   const SizedBox(height: 10),
-                  Text("couldn't share that — try again",
+                  Text("couldn't share that — try again".tr,
                       style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                 ],
                 const SizedBox(height: 18),

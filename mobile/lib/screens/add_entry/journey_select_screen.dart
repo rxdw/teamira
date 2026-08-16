@@ -14,6 +14,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/journey_real_map.dart';
 import 'journey_progress_screen.dart';
+import '../../services/app_translations.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -439,7 +440,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: _accent),
                     )
-                  : Text('no route yet', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                  : Text('no route yet'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ),
     );
   }
@@ -544,7 +545,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
                     decoration: InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
-                      hintText: 'any city in the world',
+                      hintText: 'any city in the world'.tr,
                       hintStyle: SeenlyText.bodyText.copyWith(color: SeenlyPalette.placeholder, fontSize: 13),
                     ),
                   ),
@@ -582,7 +583,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
           else if (_searchController.text.trim().isNotEmpty && !_searching)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Text('no matches', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+              child: Text('no matches'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ),
         ],
       ),
@@ -597,7 +598,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
           children: [
             SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: _accent)),
             const SizedBox(width: 10),
-            Text('finding nearby routes…', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+            Text('finding nearby routes…'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
           ],
         ),
       );
@@ -609,7 +610,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text('closest matches to tonight',
+            child: Text('closest matches to tonight'.tr,
                 style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
           ),
           for (int i = 0; i < _options.length; i++) ...[
@@ -789,7 +790,7 @@ class _OptionCard extends StatelessWidget {
             ),
             if (recommended) ...[
               const SizedBox(height: 7),
-              Text('closest match · recommended', style: SeenlyText.mono(size: 8, color: accent)),
+              Text('closest match · recommended'.tr, style: SeenlyText.mono(size: 8, color: accent)),
             ],
           ],
         ),

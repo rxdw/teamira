@@ -14,6 +14,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/achievement_badge.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
+import '../../services/app_translations.dart';
 
 const _kMonthNames = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -96,7 +97,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 4),
-                      Text('your profile', style: SeenlyText.screenTitle),
+                      Text('your profile'.tr, style: SeenlyText.screenTitle),
                     ],
                   ),
                 ),
@@ -115,7 +116,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                             physics: const AlwaysScrollableScrollPhysics(),
                             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 60),
                             children: [
-                              Text("couldn't load your level",
+                              Text("couldn't load your level".tr,
                                   textAlign: TextAlign.center,
                                   style: SeenlyText.serif(size: 13, color: SeenlyPalette.inkMuted)),
                             ],
@@ -184,7 +185,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                           ),
                         ),
                         const SizedBox(height: 26),
-                        Text('where your xp comes from', style: SeenlyText.sectionTitle),
+                        Text('where your xp comes from'.tr, style: SeenlyText.sectionTitle),
                         const SizedBox(height: 10),
                         _BreakdownRow(
                           icon: Icons.local_movies_outlined,
@@ -401,7 +402,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't save name")));
+          .showSnackBar(SnackBar(content: Text("couldn't save name".tr)));
     }
   }
 
@@ -420,7 +421,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't save status")));
+          .showSnackBar(SnackBar(content: Text("couldn't save status".tr)));
     }
   }
 
@@ -433,7 +434,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("couldn't save avatar")));
+          .showSnackBar(SnackBar(content: Text("couldn't save avatar".tr)));
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
@@ -597,9 +598,9 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
                       maxLines: 2,
                       textAlign: TextAlign.center,
                       style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkMuted),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         counterText: '',
-                        hintText: 'your own status',
+                        hintText: 'your own status'.tr,
                         border: UnderlineInputBorder(),
                       ),
                       onSubmitted: (_) => _saveStatus(),
@@ -636,8 +637,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
         if (user?.createdAt != null) ...[
           const SizedBox(height: 6),
           Text(
-            'on teamira since '
-            '${_kMonthNames[user!.createdAt!.month]} ${user.createdAt!.year}',
+            'on teamira since \${_kMonthNames[user!.createdAt!.month]} \${user.createdAt!.year}'.tr,
             style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
           ),
         ],
@@ -754,7 +754,7 @@ class _AvatarSheet extends StatelessWidget {
                       Row(
                         children: [
                           Expanded(
-                            child: Text('change avatar', style: SeenlyText.serif(size: 16, weight: FontWeight.w600)),
+                            child: Text('change avatar'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w600)),
                           ),
                           GestureDetector(
                             onTap: () => Navigator.of(context).pop(),
@@ -774,10 +774,10 @@ class _AvatarSheet extends StatelessWidget {
                           onUploadPhoto();
                         },
                         icon: const Icon(Icons.photo_camera_outlined, size: 16),
-                        label: Text('upload your own photo', style: SeenlyText.mono(size: 12)),
+                        label: Text('upload your own photo'.tr, style: SeenlyText.mono(size: 12)),
                       ),
                       const SizedBox(height: 10),
-                      Text('or pick a ready-made avatar',
+                      Text('or pick a ready-made avatar'.tr,
                           style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
                       const SizedBox(height: 10),
                       Wrap(
@@ -932,10 +932,10 @@ class _LevelPathSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('level path', style: SeenlyText.sectionTitle),
+        Text('level path'.tr, style: SeenlyText.sectionTitle),
         const SizedBox(height: 3),
         Text(
-          'a peek at what\'s just ahead',
+          'a peek at what\'s just ahead'.tr,
           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
         ),
         const SizedBox(height: 12),

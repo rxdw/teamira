@@ -1,3 +1,4 @@
+import '../services/app_translations.dart';
 /// Mirrors `TmdbReviewOut` in backend/app/schemas.py — a written review
 /// from TMDB or Trakt (see backend/app/routers/reviews.py for why the two
 /// are merged: TMDB alone is often nearly empty). IMDB still isn't an
@@ -47,6 +48,6 @@ class TmdbReviewsResult {
         reviews: (json['reviews'] as List)
             .map((e) => TmdbReview.fromJson(e as Map<String, dynamic>))
             .toList(),
-        attribution: json['attribution'] as String? ?? 'Отзывы предоставлены TMDB и Trakt',
+        attribution: json['attribution'] as String? ?? 'Отзывы предоставлены TMDB и Trakt'.tr,
       );
 }

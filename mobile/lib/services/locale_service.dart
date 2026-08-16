@@ -2,13 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Which language catalog content (titles, descriptions) prefers on this
-/// device — separate from the app's own UI copy, which stays English
-/// everywhere on purpose. A `ru`
-/// value only exists on a MediaItem when TMDB actually had a translation
-/// for that specific title (see backend app/adapters/tmdb.py::full_detail).
-/// So turning this on means "prefer Russian wherever TMDB happened to
-/// have one", not "everything is now in Russian" — LocalizedText.display
-/// still falls back to whichever language actually has content.
+/// device. A `ru` value only exists on a MediaItem when TMDB actually had
+/// a translation for that specific title (see backend
+/// app/adapters/tmdb.py::full_detail) — LocalizedText.display still falls
+/// back to whichever language actually has content.
+///
+/// This same toggle now also drives the app's own UI copy (see
+/// [appIsRussian] and services/app_translations.dart's `TrString.tr`),
+/// so "prefer Russian wherever TMDB happened to have one" *and*
+/// "translate the interface itself" are one single setting from the
+/// person's point of view — "russian interface" in Settings.
 ///
 /// Same device-only-preference pattern as LogThemeService: plain
 /// SharedPreferences, no backend endpoint, since this is a display choice
@@ -29,6 +32,15 @@ class LocaleService extends ChangeNotifier {
   /// screens. Screens that watch `LocaleService` directly (this settings
   /// screen) still update instantly.
   static bool contentPrefersRussian = false;
+
+  /// Same underlying preference as [contentPrefersRussian], read by
+  /// `TrString.tr` (services/app_translations.dart) to decide whether
+  /// hardcoded UI copy renders in Russian or English. Kept as a distinct
+  /// named getter — rather than having every call site read
+  /// [contentPrefersRussian] directly — so it's clear at each use site
+  /// *why* it's being read (interface language, not just title language),
+  /// even though today they're the same single toggle.
+  static bool get appIsRussian => contentPrefersRussian;
 
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();

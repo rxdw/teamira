@@ -13,6 +13,7 @@ import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
+import '../../services/app_translations.dart';
 
 const _kMaxPinned = 3;
 
@@ -143,7 +144,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Text('badges', style: SeenlyText.screenTitle),
+                          Text('badges'.tr, style: SeenlyText.screenTitle),
                         ],
                       ),
                     ),
@@ -182,7 +183,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 60),
                         children: [
                           Entrance(
-                            child: Text('couldn\'t load your badges',
+                            child: Text('couldn\'t load your badges'.tr,
                                 textAlign: TextAlign.center,
                                 style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                           ),
@@ -191,7 +192,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                             delay: const Duration(milliseconds: 60),
                             child: PressScale(
                               onTap: _refresh,
-                              child: Text('pull down, or tap here, to try again',
+                              child: Text('pull down, or tap here, to try again'.tr,
                                   textAlign: TextAlign.center,
                                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                             ),
@@ -292,7 +293,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'tap any badge to see what it\'s for',
+                          'tap any badge to see what it\'s for'.tr,
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                         ),
                         const SizedBox(height: 18),
@@ -313,7 +314,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                   key: const ValueKey('empty'),
                                   padding: const EdgeInsets.symmetric(vertical: 30),
                                   child: Text(
-                                    'nothing here yet',
+                                    'nothing here yet'.tr,
                                     textAlign: TextAlign.center,
                                     style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
                                   ),

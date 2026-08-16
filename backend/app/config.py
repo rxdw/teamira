@@ -9,8 +9,13 @@ class Settings(BaseSettings):
 
     igdb_client_id: str = ""
     igdb_client_secret: str = ""
-    # Books run on Open Library (openlibrary.org) — no key of any kind, so
-    # there's nothing to configure here.
+    # Books run on Google Books (developers.google.com/books) — see
+    # app/adapters/google_books.py's module docstring. Optional: an empty
+    # key just means requests go out on Google's shared anonymous quota
+    # (1,000/day per IP) instead of a raised one — get a free key at
+    # console.cloud.google.com (enable "Books API") for anything beyond
+    # local dev.
+    google_books_api_key: str = ""
 
     # "Where to watch" (see app/adapters/tmdb.py) — free key from
     # themoviedb.org/settings/api. This is availability data only, not a
@@ -68,6 +73,18 @@ class Settings(BaseSettings):
     # means share_text just falls back to a bare code with no link — see
     # routers/friends.py::get_invite.
     public_web_base_url: str = ""
+
+    # This API's own public base URL, e.g. "https://api.yourdomain.com" —
+    # used ONLY to build image-proxy URLs (see routers/image_proxy.py and
+    # adapters/tmdb.py::_proxied) that point back at this same server,
+    # for image CDNs blocked in some regions (image.tmdb.org is blocked
+    # by some ISPs in Russia, for example) where a phone can reach this
+    # API directly but can't reach the CDN directly. Empty (the default)
+    # means poster/backdrop/profile URLs stay exactly what they've always
+    # been — a direct link to the CDN — so nothing changes for anyone who
+    # hasn't set this up, and no image traffic flows through this server
+    # unless it's deliberately turned on.
+    public_api_base_url: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 

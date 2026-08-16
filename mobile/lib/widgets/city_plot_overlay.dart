@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart';
+import '../services/app_translations.dart';
 
 /// The "Город из просмотренного" theme's counterpart to the seat, page,
 /// and coach-seat pickers: a quiet strip at the edge of the skyline,
@@ -192,13 +193,13 @@ class _CityPlotOverlayState extends State<_CityPlotOverlay> with TickerProviderS
                             onTap: _skip,
                             child: Padding(
                               padding: const EdgeInsets.all(12),
-                              child: Text('skip',
+                              child: Text('skip'.tr,
                                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
                             ),
                           ),
                         ),
                         const Spacer(flex: 2),
-                        Text('choose a plot',
+                        Text('choose a plot'.tr,
                             style: SeenlyText.serif(italic: true, size: 18, color: SeenlyPalette.paper)),
                         const SizedBox(height: 5),
                         AnimatedSwitcher(

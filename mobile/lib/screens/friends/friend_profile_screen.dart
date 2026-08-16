@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../models/activity_item.dart';
 import '../../models/friend.dart';
@@ -12,14 +13,15 @@ import '../../theme/text_styles.dart';
 import '../../widgets/achievement_badge.dart';
 import '../../widgets/activity_preview.dart';
 import '../../widgets/favorites_showcase_row.dart';
+import '../../widgets/mosaic_poster_grid.dart';
 import '../../widgets/small_pieces.dart';
-import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import '../profile/favorite_films_screen.dart';
+import '../../services/app_translations.dart';
 
 /// A friend's own profile — reached by tapping their row on the friends
 /// screen, a card in the friends activity feed, or a "people you may
@@ -131,13 +133,13 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text("couldn't load this profile",
+                                  Text("couldn't load this profile".tr,
                                       textAlign: TextAlign.center,
                                       style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                                   const SizedBox(height: 10),
                                   PressScale(
                                     onTap: _load,
-                                    child: Text('tap to try again',
+                                    child: Text('tap to try again'.tr,
                                         style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                                   ),
                                 ],
@@ -183,7 +185,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                               ),
                               const SizedBox(height: 18),
                               if (data.pinnedAchievements.isNotEmpty) ...[
-                                Text('badges',
+                                Text('badges'.tr,
                                     style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)
                                         .copyWith(letterSpacing: 0.6)),
                                 const SizedBox(height: 8),
@@ -396,7 +398,7 @@ class _Header extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('"', style: SeenlyText.serif(size: 14, italic: true, color: SeenlyPalette.accent.withOpacity(0.55))),
+                Text('"'.tr, style: SeenlyText.serif(size: 14, italic: true, color: SeenlyPalette.accent.withOpacity(0.55))),
                 const SizedBox(width: 3),
                 Expanded(
                   child: Text(
@@ -518,16 +520,16 @@ class _ActionRowState extends State<_ActionRow> {
       builder: (_) => AlertDialog(
         backgroundColor: SeenlyPalette.paper,
         title: Text('remove ${widget.data.nameForDisplay}?', style: SeenlyText.serif(weight: FontWeight.w700)),
-        content: Text("you'll need a new request to be friends again.",
+        content: Text("you'll need a new request to be friends again.".tr,
             style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: Text('cancel', style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+            child: Text('cancel'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('remove', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
+            child: Text('remove'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
           ),
         ],
       ),
@@ -802,34 +804,34 @@ class _Shelf extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 30),
         child: Center(
           child: Entrance(
-            child: Text('nothing here yet',
+            child: Text('nothing here yet'.tr,
                 style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
           ),
         ),
       );
     }
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 2 / 3,
-      ),
+    return MosaicPosterGrid(
       itemCount: entries.length,
-      itemBuilder: (context, i) {
+      order: List.generate(entries.length, (i) => i),
+      revealGen: 0,
+      spacing: 12,
+      keyOf: (i) => entries[i].id,
+      tileBuilder: (context, i, gridIndex, aspect) {
         final e = entries[i];
-        return ScrollRevealEntrance(
-          index: i,
-          child: ThemedPosterTile(
-            title: e.displayTitle,
-            posterUrl: e.posterUrl,
-            mediaType: e.mediaType,
-            fallbackColor: SeenlyPalette.gridColorFor(i),
-            onTap: () => showWatchedPreview(
-              context,
-              WatchedPreviewData.fromFriendEntry(e, friendLabel: "$friendName's activity"),
+        return TiltPosterTile(
+          onTap: () => showWatchedPreview(
+            context,
+            WatchedPreviewData.fromFriendEntry(e, friendLabel: "$friendName's activity"),
+          ),
+          onLongPress: () => _shareEntry(e),
+          child: MosaicParallaxPoster(
+            builder: (parallax) => ThemedPosterTile(
+              title: e.displayTitle,
+              posterUrl: e.posterUrl,
+              mediaType: e.mediaType,
+              fallbackColor: SeenlyPalette.gridColorFor(i),
+              aspectRatio: aspect,
+              parallax: parallax,
             ),
           ),
         );
@@ -875,7 +877,7 @@ class _ActivitySection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('activity',
+        Text('activity'.tr,
             style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint).copyWith(letterSpacing: 0.6)),
         const SizedBox(height: 12),
         GridView.builder(
@@ -975,4 +977,16 @@ class _ActivityCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Long-press action for a shelf tile (see [_Shelf]'s mosaic grid above)
+/// — same title + year fallback as collection_full_screen.dart's own
+/// `_shareMediaItem`, since a [WatchlistEntry] carries no external ids
+/// to link out to.
+void _shareEntry(WatchlistEntry e) {
+  final bits = [
+    e.displayTitle,
+    if (e.year != null) '(${e.year})',
+  ].join(' ');
+  Share.share(bits);
 }

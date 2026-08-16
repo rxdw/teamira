@@ -14,6 +14,7 @@ import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/interest_picker.dart' show InterestMotifPainter;
 import 'decide_method_screen.dart';
+import '../../services/app_translations.dart';
 
 /// The narrowed-down pool a decision method (Teamira / random / roulette /
 /// swipes) actually draws from, plus a short human-readable summary of
@@ -435,7 +436,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
           child: available.isEmpty
               ? Center(
                   child: Text(
-                    'no genres logged for this pool yet',
+                    'no genres logged for this pool yet'.tr,
                     style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
                   ),
                 )
@@ -466,7 +467,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
           child: decades.isEmpty
               ? Center(
                   child: Text(
-                    'no years logged for this pool yet',
+                    'no years logged for this pool yet'.tr,
                     style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
                   ),
                 )
@@ -1182,7 +1183,7 @@ class _ErrorState extends StatelessWidget {
     return Center(
       child: GestureDetector(
         onTap: onRetry,
-        child: Text('couldn\'t load — tap to try again',
+        child: Text('couldn\'t load — tap to try again'.tr,
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),
       ),
     );

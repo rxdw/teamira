@@ -10,6 +10,7 @@ import 'journey_transfer_service.dart';
 import 'log_theme_service.dart';
 import 'series_route_prefs_service.dart';
 import '../widgets/themed_loading_indicator.dart';
+import 'app_translations.dart';
 
 /// Above this gap since the last episode finished, the confirmation
 /// reads as "pick this back up?" (naming where it left off) rather than
@@ -162,7 +163,7 @@ void _showRouteLoadingOverlay(BuildContext context) {
               child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
             ),
             const SizedBox(height: 10),
-            Text('finding the way…',
+            Text('finding the way…'.tr,
                 style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
           ],
         ),

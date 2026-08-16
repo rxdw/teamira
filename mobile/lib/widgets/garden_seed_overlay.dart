@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// Plays right before tonight's evening takes root — the garden theme's
 /// answer to the cinema's seat and the coach's seat: a small window box
@@ -143,7 +144,7 @@ class _GardenPlantOverlayState extends State<_GardenPlantOverlay> with TickerPro
                     onTap: _skip,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text('skip', style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.75))),
+                      child: Text('skip'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.75))),
                     ),
                   ),
                 ),

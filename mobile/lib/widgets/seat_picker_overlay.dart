@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart';
+import '../services/app_translations.dart';
 
 /// Plays right before the ticket lands in your hands: a tiny, warm
 /// cinema of your own where you pick a seat for tonight's showing.
@@ -288,7 +289,7 @@ class _SeatPickerOverlayState extends State<_SeatPickerOverlay>
                       child: Column(
                         children: [
                           const Spacer(flex: 2),
-                          Text('find your seat',
+                          Text('find your seat'.tr,
                               style: SeenlyText.serif(
                                   italic: true, size: 18, color: SeenlyPalette.paper)),
                           const SizedBox(height: 5),
@@ -381,7 +382,7 @@ class _SeatPickerOverlayState extends State<_SeatPickerOverlay>
                               Icon(Icons.flashlight_on,
                                   size: 13, color: SeenlyPalette.paper.withOpacity(0.75)),
                               const SizedBox(width: 6),
-                              Text('drag to search the dark for your seat',
+                              Text('drag to search the dark for your seat'.tr,
                                   style: SeenlyText.mono(
                                       size: 10, color: SeenlyPalette.paper.withOpacity(0.75))),
                             ],
@@ -397,7 +398,7 @@ class _SeatPickerOverlayState extends State<_SeatPickerOverlay>
                     onTap: _skip,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Text('skip',
+                      child: Text('skip'.tr,
                           style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.7))),
                     ),
                   ),

@@ -14,7 +14,8 @@ from app.routers.feed import add_watchlist_status
 from app.routers.partner import add_coview_entries, find_link_between
 from app.adapters.tmdb import TmdbAdapter
 from app.adapters.igdb import IgdbAdapter
-from app.adapters.open_library import OpenLibraryAdapter, _MANGA_SHELVES
+from app.adapters.google_books import GoogleBooksAdapter
+from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.schemas import (
     Collection,
     MediaItem,
@@ -28,14 +29,8 @@ router = APIRouter(prefix="/together", tags=["together"])
 
 _tmdb = TmdbAdapter()
 _games = IgdbAdapter()
-_books = OpenLibraryAdapter()
-_manga = OpenLibraryAdapter(
-    media_type="manga",
-    id_prefix="olm-",
-    source="open_library_manga",
-    shelves=_MANGA_SHELVES,
-    search_filter="subject:manga",
-)
+_books = GoogleBooksAdapter()
+_manga = ShikimoriMangaAdapter()
 
 # No 0/O/1/I — codes get read aloud or typed on a cramped keyboard, so the
 # alphabet drops anything that's easy to mis-key or mis-hear.
@@ -88,7 +83,11 @@ async def _build_deck(db: Session, type_filter: str, genres_filter: List[str] | 
             pass
         shelves += await _books.named_collections()
         shelves += await _manga.named_collections()
-        return [Collection(title=t, items=i) for t, i in shelves if i]
+        # named_collections() now returns (title_ru, title_en, items) —
+        # see app/routers/feed.py::get_collections for why. This deck is
+        # only ever flattened into cards below, shelf names aren't shown,
+        # but the tuple shape has to match regardless.
+        return [Collection(title=t_ru, title_en=t_en, items=i) for t_ru, t_en, i in shelves if i]
 
     payload_json = await cache.cached_dynamic(db, "feed:collections", _fetch)
     collections = TypeAdapter(List[Collection]).validate_json(payload_json)

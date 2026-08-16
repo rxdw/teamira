@@ -7,6 +7,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart' show Entrance;
+import '../../services/app_translations.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -60,14 +61,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Entrance(
-                  child: Text('start your diary',
+                  child: Text('start your diary'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.serif(size: 24, weight: FontWeight.w600)),
                 ),
                 const SizedBox(height: 6),
                 Entrance(
                   delay: const Duration(milliseconds: 60),
-                  child: Text('a shelf just for you — takes a minute',
+                  child: Text('a shelf just for you — takes a minute'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.serif(
                           italic: true,
@@ -80,7 +81,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   riseBy: 16,
                   child: TextField(
                     controller: _username,
-                    decoration: const InputDecoration(hintText: 'pick a username'),
+                    decoration: InputDecoration(hintText: 'pick a username'.tr),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -90,7 +91,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: TextField(
                     controller: _password,
                     obscureText: true,
-                    decoration: const InputDecoration(hintText: 'pick a password'),
+                    decoration: InputDecoration(hintText: 'pick a password'.tr),
                   ),
                 ),
                 AnimatedSize(
@@ -103,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: TextField(
                             controller: _referralCode,
                             textCapitalization: TextCapitalization.characters,
-                            decoration: const InputDecoration(hintText: "a friend's invite code"),
+                            decoration: InputDecoration(hintText: "a friend's invite code".tr),
                           ),
                         )
                       : Padding(
@@ -112,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             alignment: Alignment.centerLeft,
                             child: TextButton(
                               onPressed: () => setState(() => _showReferralField = true),
-                              child: Text('have an invite code?',
+                              child: Text('have an invite code?'.tr,
                                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
                             ),
                           ),

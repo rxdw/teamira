@@ -7,6 +7,7 @@ import '../models/media_item.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'title_share.dart';
+import '../services/app_translations.dart';
 
 /// The [Hero] tag shared between a poster thumbnail and the lightbox it
 /// opens into, so the artwork visibly grows into place instead of just
@@ -229,7 +230,7 @@ class _LightboxContentState extends State<_LightboxContent> {
                                   [
                                     if (item.year != null) '${item.year}',
                                     if (item.runtimeMinutes != null && item.mediaType != 'book')
-                                      '${item.runtimeMinutes} мин',
+                                      '${item.runtimeMinutes} мин'.tr,
                                   ].join('  ·  '),
                                   style: SeenlyText.mono(
                                     size: 13,
@@ -344,7 +345,7 @@ class _ShareThisTitleButton extends StatelessWidget {
             const Icon(Icons.ios_share_rounded, size: 16, color: SeenlyPalette.paper),
             const SizedBox(width: 8),
             Text(
-              'share this title',
+              'share this title'.tr,
               style: SeenlyText.mono(
                 size: 13,
                 color: SeenlyPalette.paper,

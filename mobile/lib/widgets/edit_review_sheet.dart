@@ -12,6 +12,7 @@ import 'review_composer.dart';
 import 'tear_ticket_confirm.dart';
 import 'themed_loading_indicator.dart';
 import 'wow_motion.dart' show PressScale;
+import '../services/app_translations.dart';
 
 /// What [showEditReviewSheet] resolved with. `deleted` means the person
 /// removed the evening entirely rather than saving changes to it — see
@@ -138,7 +139,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't save those changes — try again")),
+        SnackBar(content: Text("couldn't save those changes — try again".tr)),
       );
     }
   }
@@ -178,7 +179,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text('delete this evening?', style: SeenlyText.serif(italic: true, size: 18)),
+              Text('delete this evening?'.tr, style: SeenlyText.serif(italic: true, size: 18)),
               const SizedBox(height: 6),
               Text(
                 widget.entry.season != null
@@ -201,7 +202,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
               Center(
                 child: TextButton(
                   onPressed: () => Navigator.of(sheetContext).pop(false),
-                  child: Text('keep it', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
+                  child: Text('keep it'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted)),
                 ),
               ),
             ],
@@ -218,7 +219,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
       if (!mounted) return;
       setState(() => _deleting = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't delete this entry — try again")),
+        SnackBar(content: Text("couldn't delete this entry — try again".tr)),
       );
     }
   }
@@ -236,7 +237,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
           icon: const Icon(Icons.close),
           onPressed: (_saving || _deleting) ? null : () => Navigator.of(context).pop(),
         ),
-        title: Text('edit this evening', style: SeenlyText.serif(italic: true, size: 16)),
+        title: Text('edit this evening'.tr, style: SeenlyText.serif(italic: true, size: 16)),
         centerTitle: false,
         actions: [
           TextButton(
@@ -247,7 +248,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                     height: 16,
                     child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
                   )
-                : Text('save',
+                : Text('save'.tr,
                     style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accent)),
           ),
           const SizedBox(width: 8),
@@ -265,7 +266,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                   overflow: TextOverflow.ellipsis,
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const SizedBox(height: 18),
-              Text('rating', style: SeenlyText.metaLabel),
+              Text('rating'.tr, style: SeenlyText.metaLabel),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -278,14 +279,14 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                     const SizedBox(width: 10),
                     GestureDetector(
                       onTap: () => setState(() => _rating = 0),
-                      child: Text('clear',
+                      child: Text('clear'.tr,
                           style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                     ),
                   ],
                 ],
               ),
               const SizedBox(height: 18),
-              Text('review', style: SeenlyText.metaLabel),
+              Text('review'.tr, style: SeenlyText.metaLabel),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -300,7 +301,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                   style: SeenlyText.serif(italic: true, size: 13),
                   decoration: InputDecoration(
                     border: InputBorder.none,
-                    hintText: 'what did you think?',
+                    hintText: 'what did you think?'.tr,
                     hintStyle: SeenlyText.serif(
                         italic: true, size: 13, color: SeenlyPalette.placeholder),
                   ),
@@ -317,7 +318,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
               ),
               if ((_availableCast ?? const []).isNotEmpty) ...[
                 const SizedBox(height: 22),
-                Text('cast', style: SeenlyText.metaLabel),
+                Text('cast'.tr, style: SeenlyText.metaLabel),
                 const SizedBox(height: 4),
                 Text(
                   _favoriteCast.isEmpty ? 'who stood out? pick up to 3' : '${_favoriteCast.length}/3 picked',
@@ -359,7 +360,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                           child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.coral),
                         )
                       : const Icon(Icons.delete_outline, size: 15, color: SeenlyPalette.coral),
-                  label: Text('delete this evening',
+                  label: Text('delete this evening'.tr,
                       style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
                 ),
               ),

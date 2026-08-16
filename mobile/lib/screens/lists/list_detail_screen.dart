@@ -10,6 +10,7 @@ import '../title/title_detail_screen.dart';
 import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
+import '../../services/app_translations.dart';
 
 class ListDetailScreen extends StatefulWidget {
   final String listId;
@@ -43,7 +44,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       if (!mounted) return;
       setState(() => _busy = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't remove that — try again")),
+        SnackBar(content: Text("couldn't remove that — try again".tr)),
       );
     }
   }
@@ -72,7 +73,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
             Entrance(
               delay: const Duration(milliseconds: 50),
               child: Text(
-                'the titles themselves stay in your diary — only the list goes away',
+                'the titles themselves stay in your diary — only the list goes away'.tr,
                 textAlign: TextAlign.center,
                 style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
               ),
@@ -91,7 +92,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   alignment: Alignment.center,
-                  child: Text('delete',
+                  child: Text('delete'.tr,
                       style: SeenlyText.serif(
                           italic: true, color: SeenlyPalette.accentOnAccent)),
                 ),
@@ -103,7 +104,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 alignment: Alignment.center,
-                child: Text('keep it',
+                child: Text('keep it'.tr,
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
               ),
             ),
@@ -119,7 +120,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't delete that list — try again")),
+        SnackBar(content: Text("couldn't delete that list — try again".tr)),
       );
     }
   }
@@ -141,7 +142,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                   _Header(title: '', onBack: () => Navigator.of(context).pop()),
                   Expanded(
                     child: Center(
-                      child: Text("couldn't load this list",
+                      child: Text("couldn't load this list".tr,
                           style: SeenlyText.serif(
                               italic: true, color: SeenlyPalette.inkMuted)),
                     ),
@@ -172,7 +173,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 32),
                             child: Entrance(
                               child: Text(
-                                'empty for now — add titles here from any title\'s page',
+                                'empty for now — add titles here from any title\'s page'.tr,
                                 textAlign: TextAlign.center,
                                 style: SeenlyText.serif(
                                     italic: true, color: SeenlyPalette.placeholder),

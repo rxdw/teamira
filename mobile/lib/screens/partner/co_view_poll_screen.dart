@@ -15,6 +15,7 @@ import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker;
+import '../../services/app_translations.dart';
 
 const _pollInterval = Duration(seconds: 2);
 const _tickInterval = Duration(seconds: 1);
@@ -107,7 +108,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
           onFinished: (ctx, pool, filters) {
             if (pool.length < 2) {
               ScaffoldMessenger.of(ctx).showSnackBar(
-                const SnackBar(content: Text("need at least two titles to vote between — try loosening the filters")),
+                SnackBar(content: Text("need at least two titles to vote between — try loosening the filters".tr)),
               );
               return;
             }
@@ -241,7 +242,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
                     ),
                   ),
                   const Spacer(),
-                  Text('vote it out', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                  Text('vote it out'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 ],
               ),
             ),
@@ -276,14 +277,13 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             const SizedBox(height: 14),
             Entrance(
               delay: const Duration(milliseconds: 60),
-              child: Text('vote it out', style: SeenlyText.screenTitle),
+              child: Text('vote it out'.tr, style: SeenlyText.screenTitle),
             ),
             const SizedBox(height: 8),
             Entrance(
               delay: const Duration(milliseconds: 110),
               child: Text(
-                "a shortlist, a countdown, whoever's got the most votes when "
-                "time's up — a tie just runs another round between whoever's left.",
+                "a shortlist, a countdown, whoever's got the most votes when time's up — a tie just runs another round between whoever's left.".tr,
                 style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
               ),
             ),
@@ -291,7 +291,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             Entrance(
               delay: const Duration(milliseconds: 150),
               child: Text(
-                "what should the shortlist come from?",
+                "what should the shortlist come from?".tr,
                 style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
               ),
             ),
@@ -378,7 +378,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
               Entrance(
                 delay: const Duration(milliseconds: 110),
                 child: Text(
-                  "put on the shared list for tonight.",
+                  "put on the shared list for tonight.".tr,
                   style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
                 ),
               ),
@@ -415,7 +415,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
               Entrance(
                 delay: const Duration(milliseconds: 110),
                 child: Text(
-                  'nobody voted before time ran out.',
+                  'nobody voted before time ran out.'.tr,
                   style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
                 ),
               ),
@@ -429,7 +429,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             Center(
               child: PressScale(
                 onTap: _voteAgain,
-                child: Text('vote on something else', style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+                child: Text('vote on something else'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
               ),
             ),
           ],

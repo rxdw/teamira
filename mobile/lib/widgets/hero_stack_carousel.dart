@@ -6,6 +6,7 @@ import '../theme/text_styles.dart';
 import 'section_header.dart';
 import 'themed_poster_tile.dart';
 import 'wow_motion.dart';
+import '../services/app_translations.dart';
 
 /// A swipeable "stack of tickets" carousel — the centered card sits tall
 /// and upright, its neighbours peek out from behind it a little smaller,
@@ -196,7 +197,7 @@ class _HeroStackCarouselState extends State<HeroStackCarousel> {
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 if (active.year != null && active.rating != null) ...[
                   const SizedBox(width: 8),
-                  Text('·', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                  Text('·'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                   const SizedBox(width: 8),
                 ],
                 if (active.rating != null) ...[

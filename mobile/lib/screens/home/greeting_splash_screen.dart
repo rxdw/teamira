@@ -12,6 +12,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
+import '../../services/app_translations.dart';
 
 /// The very first thing a signed-in person sees on each cold launch —
 /// a full-bleed "good evening, you're still on {last title}" front door,
@@ -194,7 +195,7 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                               borderRadius: BorderRadius.circular(28),
                             ),
                             alignment: Alignment.center,
-                            child: Text('into the diary',
+                            child: Text('into the diary'.tr,
                                 style: SeenlyText.mono(
                                     size: 12, color: SeenlyPalette.ink, weight: FontWeight.w700)),
                           ),

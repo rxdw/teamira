@@ -8,6 +8,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
 import '../widgets/themed_loading_indicator.dart';
+import '../services/app_translations.dart';
 
 /// Opened from the title screen's "add to list" button. Shows every list
 /// the user has, checked if this title is already in it; tapping toggles
@@ -92,7 +93,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't update that list — try again")),
+        SnackBar(content: Text("couldn't update that list — try again".tr)),
       );
     } finally {
       if (mounted) setState(() => _pending.remove(list.id));
@@ -119,7 +120,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't create that list — try again")),
+        SnackBar(content: Text("couldn't create that list — try again".tr)),
       );
     }
   }
@@ -140,7 +141,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('add to a list',
+            Text('add to a list'.tr,
                 style: SeenlyText.serif(italic: true, size: 16)),
             const SizedBox(height: 4),
             Text(widget.item.title.display,
@@ -228,7 +229,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                           decoration: InputDecoration(
                             isDense: true,
                             border: InputBorder.none,
-                            hintText: 'list name…',
+                            hintText: 'list name…'.tr,
                             hintStyle: SeenlyText.mono(
                                 size: 11, color: SeenlyPalette.placeholder),
                           ),
@@ -259,7 +260,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                     children: [
                       const Icon(Icons.add, size: 16, color: SeenlyPalette.accent),
                       const SizedBox(width: 8),
-                      Text('new list',
+                      Text('new list'.tr,
                           style: SeenlyText.serif(
                               italic: true, size: 13, color: SeenlyPalette.accent)),
                     ],

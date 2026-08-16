@@ -12,6 +12,7 @@ import '../decide/decide_random_screen.dart';
 import '../decide/decide_roulette_screen.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker, proposeToCircle;
+import '../../services/app_translations.dart';
 
 enum CoViewPickMethod { random, reel }
 
@@ -90,7 +91,7 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't load that pool just now — try again")),
+        SnackBar(content: Text("couldn't load that pool just now — try again".tr)),
       );
     }
   }
@@ -104,7 +105,7 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
           onFinished: (ctx, pool, filters) {
             if (pool.isEmpty) {
               ScaffoldMessenger.of(ctx).showSnackBar(
-                const SnackBar(content: Text("nothing matches that in this pool — try loosening it up")),
+                SnackBar(content: Text("nothing matches that in this pool — try loosening it up".tr)),
               );
               return;
             }
@@ -158,7 +159,7 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
                     Entrance(
                       delay: const Duration(milliseconds: 60),
                       child: Text(
-                        "what should it come from?",
+                        "what should it come from?".tr,
                         style: SeenlyText.serif(size: 18.5, weight: FontWeight.w600),
                       ),
                     ),

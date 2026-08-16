@@ -15,6 +15,7 @@ import 'review_composer.dart';
 import 'share_card.dart';
 import 'share_sheet.dart';
 import 'source_video_link.dart';
+import '../services/app_translations.dart';
 
 /// Everything [WatchedPreviewCard] needs to draw itself, gathered from
 /// whichever shelf the person tapped into — the diary log, a "route"/
@@ -580,7 +581,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                           ),
                           if (isLongNote) ...[
                             const SizedBox(height: 8),
-                            Text('read the full review →',
+                            Text('read the full review →'.tr,
                                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                           ],
                         ],
@@ -606,7 +607,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                         );
                       },
                       icon: const Icon(Icons.ios_share, size: 15, color: SeenlyPalette.accent),
-                      label: Text('share this evening',
+                      label: Text('share this evening'.tr,
                           style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accent)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),

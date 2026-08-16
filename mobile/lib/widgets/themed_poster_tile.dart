@@ -31,6 +31,15 @@ class ThemedPosterTile extends StatelessWidget {
   final String? mediaType;
   final VoidCallback? onTap;
   final Widget? badge;
+  // Callers that build a mosaic/masonry layout (varied tile heights) pass
+  // something other than the standard 2:3 poster ratio. Defaults to the
+  // normal poster shape so every other call site is unaffected.
+  final double aspectRatio;
+  // Vertical pixel offset applied to the poster art itself (not the whole
+  // tile/frame/badge) — driven by scroll position from the caller (see
+  // _ParallaxPoster in collection_full_screen.dart). Zero by default, so
+  // every other call site renders exactly as before.
+  final double parallax;
 
   const ThemedPosterTile({
     super.key,
@@ -40,6 +49,8 @@ class ThemedPosterTile extends StatelessWidget {
     this.mediaType,
     this.onTap,
     this.badge,
+    this.aspectRatio = 2 / 3,
+    this.parallax = 0,
   });
 
   @override
@@ -50,14 +61,14 @@ class ThemedPosterTile extends StatelessWidget {
       onTap: onTap,
       scaleTo: 0.95,
       child: AspectRatio(
-        aspectRatio: 2 / 3,
+        aspectRatio: aspectRatio,
         child: switch (theme) {
           LogTheme.ticket => _TicketPoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge),
+              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
           LogTheme.coach => _CoachPoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge),
+              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
           LogTheme.garden => _GardenPoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge),
+              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
         },
       ),
     );
@@ -68,7 +79,8 @@ class ThemedPosterTile extends StatelessWidget {
 // Shared bits
 // ---------------------------------------------------------------------
 
-Widget _posterFill(String? url, Color color, String title, {String? mediaType}) {
+Widget _posterFill(String? url, Color color, String title, {String? mediaType, double parallax = 0}) {
+  Widget content;
   if (url != null && url.isNotEmpty) {
     // YouTube/Twitch imports (media_type == "video") only ever have a
     // 16:9 video thumbnail on file, never a real vertical poster — see
@@ -77,15 +89,26 @@ Widget _posterFill(String? url, Color color, String title, {String? mediaType}) 
     // whatever's dead center, which is why those tiles look like a
     // random crop instead of a cover. Letterbox them instead.
     if (mediaType == 'video') {
-      return _letterboxedFill(url, color, title);
+      content = _letterboxedFill(url, color, title);
+    } else {
+      content = FadeInNetworkImage(
+        url: url,
+        fit: BoxFit.cover,
+        placeholder: _fallbackFill(color, title),
+      );
     }
-    return FadeInNetworkImage(
-      url: url,
-      fit: BoxFit.cover,
-      placeholder: _fallbackFill(color, title),
-    );
+  } else {
+    content = _fallbackFill(color, title, showTitle: true);
   }
-  return _fallbackFill(color, title, showTitle: true);
+  if (parallax == 0) return content;
+  // Scaled up first so the vertical shift below never uncovers empty
+  // space at the top/bottom edge of the frame — the outer ClipPath in
+  // each theme's poster (sprocket/tag/edge-notch shape) then trims the
+  // overscan back down to the tile's real footprint.
+  return Transform.translate(
+    offset: Offset(0, parallax),
+    child: Transform.scale(scale: 1.18, child: content),
+  );
 }
 
 /// A landscape thumbnail placed inside the app's vertical 2:3 poster
@@ -230,6 +253,7 @@ class _TicketPoster extends StatelessWidget {
   final Color color;
   final String? mediaType;
   final Widget? badge;
+  final double parallax;
 
   const _TicketPoster({
     required this.title,
@@ -237,6 +261,7 @@ class _TicketPoster extends StatelessWidget {
     required this.color,
     this.mediaType,
     this.badge,
+    this.parallax = 0,
   });
 
   @override
@@ -248,7 +273,7 @@ class _TicketPoster extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _posterFill(posterUrl, color, title, mediaType: mediaType),
+            _posterFill(posterUrl, color, title, mediaType: mediaType, parallax: parallax),
             if (badge != null) Positioned(top: 6, right: 6, child: badge!),
           ],
         ),
@@ -294,6 +319,7 @@ class _CoachPoster extends StatelessWidget {
   final Color color;
   final String? mediaType;
   final Widget? badge;
+  final double parallax;
 
   const _CoachPoster({
     required this.title,
@@ -301,6 +327,7 @@ class _CoachPoster extends StatelessWidget {
     required this.color,
     this.mediaType,
     this.badge,
+    this.parallax = 0,
   });
 
   static const double _stubH = 14;
@@ -316,7 +343,7 @@ class _CoachPoster extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.only(bottom: _stubH),
-              child: _posterFill(posterUrl, color, title, mediaType: mediaType),
+              child: _posterFill(posterUrl, color, title, mediaType: mediaType, parallax: parallax),
             ),
             Positioned(
               left: 4,
@@ -383,6 +410,7 @@ class _GardenPoster extends StatelessWidget {
   final Color color;
   final String? mediaType;
   final Widget? badge;
+  final double parallax;
 
   const _GardenPoster({
     required this.title,
@@ -390,6 +418,7 @@ class _GardenPoster extends StatelessWidget {
     required this.color,
     this.mediaType,
     this.badge,
+    this.parallax = 0,
   });
 
   static const double _labelH = 22;
@@ -409,7 +438,7 @@ class _GardenPoster extends StatelessWidget {
           children: [
             Padding(
               padding: EdgeInsets.only(top: 12, bottom: hasPoster ? 0 : _labelH),
-              child: _posterFill(posterUrl, color, title, mediaType: mediaType),
+              child: _posterFill(posterUrl, color, title, mediaType: mediaType, parallax: parallax),
             ),
             // Soft paper label, like a plant marker's name strip, rather
             // than a hard bar — no straight-across color block. Fallback

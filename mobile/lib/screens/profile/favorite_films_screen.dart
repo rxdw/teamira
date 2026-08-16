@@ -12,6 +12,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import 'favorite_add_screen.dart';
+import '../../services/app_translations.dart';
 
 /// Every favorite film on one account's profile — reached from the
 /// "favorite" row on the profile screen (see FavoritesShowcaseRow in
@@ -126,7 +127,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
     } else {
       if (current.length >= _maxTopPicks) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('можно выбрать не больше 5')),
+          SnackBar(content: Text('можно выбрать не больше 5'.tr)),
         );
         return;
       }
@@ -142,7 +143,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("that didn't save — try again")));
+          .showSnackBar(SnackBar(content: Text("that didn't save — try again".tr)));
     }
   }
 
@@ -210,7 +211,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
                   if (widget.isOwn && _collections != null)
                     IconButton(
                       icon: const Icon(Icons.add_circle_outline, size: 21, color: SeenlyPalette.accent),
-                      tooltip: 'add a favorite',
+                      tooltip: 'add a favorite'.tr,
                       onPressed: _openAdd,
                     ),
                 ],
@@ -238,13 +239,13 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text("couldn't load favorites",
+                                Text("couldn't load favorites".tr,
                                     textAlign: TextAlign.center,
                                     style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                                 const SizedBox(height: 10),
                                 GestureDetector(
                                   onTap: _load,
-                                  child: Text('tap to try again',
+                                  child: Text('tap to try again'.tr,
                                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                                 ),
                               ],

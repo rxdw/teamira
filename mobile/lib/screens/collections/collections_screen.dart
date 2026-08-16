@@ -16,6 +16,7 @@ import 'collection_full_screen.dart';
 import 'collection_interests_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart';
+import '../../services/app_translations.dart';
 
 class CollectionsScreen extends StatefulWidget {
   const CollectionsScreen({super.key});
@@ -32,6 +33,102 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
   String _source = 'editorial'; // editorial (TMDB/IGDB/Open Library) | teamira (hand-curated)
   bool? _onboarded; // null while we're still checking storage
   Set<String> _interests = {};
+
+  // Backend shelf titles spell out the media type ("Top Anime", "Лучшие
+  // фильмы этого года") so a mixed "all" shelf list stays legible. That's
+  // redundant once someone's already on a single-type tab — under
+  // "anime" a shelf header saying "top ANIME" is just repeating the tab
+  // it's sitting in. This table gives the shorter, tab-aware wording for
+  // exactly the titles known to repeat their own filter; anything not
+  // listed here (most genre/franchise shelf names never said the type
+  // out loud to begin with) is shown unchanged. Keyed by exact backend
+  // title text, kept in sync with the shelf lists in
+  // backend/app/adapters/{tmdb,igdb,shikimori}.py.
+  static const Map<String, Map<String, String>> _shortRuTitlesByFilter = {
+    'movie': {
+      'Лучшие фильмы': 'Лучшие',
+      'Лучшие фильмы этого года': 'Лучшие этого года',
+      'Популярные фильмы недели': 'Популярное недели',
+      'Анимационные фильмы': 'Анимационные',
+    },
+    'series': {
+      'Лучшие сериалы': 'Лучшие',
+      'Лучшие сериалы этого года': 'Лучшие этого года',
+      'Премьеры сериалов': 'Премьеры',
+      'Скоро: сериалы': 'Скоро',
+      'Популярные сериалы недели': 'Популярное недели',
+      'Драматические сериалы': 'Драматические',
+      'Комедийные сериалы': 'Комедийные',
+      'Криминальные сериалы': 'Криминальные',
+    },
+    'anime': {
+      'Лучшее аниме': 'Лучшее',
+      'Лучшее аниме этого года': 'Лучшее этого года',
+      'Премьеры аниме': 'Премьеры',
+      'Скоро: аниме': 'Скоро',
+      'Популярное аниме недели': 'Популярное недели',
+      'Аниме-боевики': 'Боевики',
+      'Романтическое аниме': 'Романтическое',
+      'Аниме-фэнтези': 'Фэнтези',
+    },
+    'game': {
+      'Игры с высоким рейтингом': 'С высоким рейтингом',
+      'Ролевые игры': 'Ролевые',
+      'Инди-игры': 'Инди',
+    },
+    'manga': {
+      'Популярная манга': 'Популярная',
+      'Манга с высоким рейтингом': 'С высоким рейтингом',
+      'Завершённая манга': 'Завершённая',
+    },
+  };
+
+  static const Map<String, Map<String, String>> _shortEnTitlesByFilter = {
+    'movie': {
+      'Top Movies': 'Top',
+      'Top Movies This Year': 'Top This Year',
+      'Popular Movies This Week': 'Popular This Week',
+      'Animated Movies': 'Animated',
+    },
+    'series': {
+      'Top Series': 'Top',
+      'Top Series This Year': 'Top This Year',
+      'New Series Premieres': 'New Premieres',
+      'Coming Soon: Series': 'Coming Soon',
+      'Popular Series This Week': 'Popular This Week',
+      'Drama Series': 'Drama',
+      'Comedy Series': 'Comedy',
+      'Crime Series': 'Crime',
+    },
+    'anime': {
+      'Top Anime': 'Top',
+      'Top Anime This Year': 'Top This Year',
+      'New Anime Premieres': 'New Premieres',
+      'Coming Soon: Anime': 'Coming Soon',
+      'Popular Anime This Week': 'Popular This Week',
+      'Action Anime': 'Action',
+      'Romance Anime': 'Romance',
+      'Fantasy Anime': 'Fantasy',
+    },
+    'game': {
+      'Top Rated Games': 'Top Rated',
+      'Role-Playing Games': 'Role-Playing',
+      'Indie Games': 'Indie',
+    },
+    'manga': {
+      'Popular Manga': 'Popular',
+      'Top Rated Manga': 'Top Rated',
+      'Completed Manga': 'Completed',
+    },
+  };
+
+  /// Looks up the tab-aware short title for [title] under [filter];
+  /// returns [title] unchanged when nothing in the table matches (the
+  /// common case — most shelf names never repeated the type at all).
+  static String _shortTitle(String filter, String title, {required bool en}) {
+    final table = en ? _shortEnTitlesByFilter[filter] : _shortRuTitlesByFilter[filter];
+    return table?[title] ?? title;
+  }
 
   static const _allFilters = [
     ('all', 'all'),
@@ -111,8 +208,8 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
     });
     if (isRevisit) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('updated — come back to this menu anytime to bring a tab back'),
+        SnackBar(
+          content: Text('updated — come back to this menu anytime to bring a tab back'.tr),
         ),
       );
     }
@@ -138,7 +235,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
       Padding(
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
         child: SectionHeader(
-          title: c.title,
+          title: c.displayTitle,
           trailing: 'all →',
           centerTitle: true,
           onTrailingTap: () => Navigator.of(context).push(
@@ -189,7 +286,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('collections', style: SeenlyText.screenTitle),
+              Text('collections'.tr, style: SeenlyText.screenTitle),
               Row(
                 children: [
                   PressScale(
@@ -288,11 +385,11 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 60),
                     children: [
-                      Text('couldn\'t reach the collections',
+                      Text('couldn\'t reach the collections'.tr,
                           textAlign: TextAlign.center,
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                       const SizedBox(height: 10),
-                      Text('pull down, or tap the refresh icon above, to try again',
+                      Text('pull down, or tap the refresh icon above, to try again'.tr,
                           textAlign: TextAlign.center,
                           style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
                     ],
@@ -330,8 +427,10 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                     c.items.where((it) => it.mediaType == _filter).toList();
                 if (onlyThisType.length < minShelfSize) continue;
                 collections.add(SeenlyCollection(
-                  title: c.title,
-                  titleEn: c.titleEn,
+                  title: _shortTitle(_filter, c.title, en: false),
+                  titleEn: c.titleEn == null
+                      ? null
+                      : _shortTitle(_filter, c.titleEn!, en: true),
                   items: onlyThisType,
                   isFranchise: c.isFranchise,
                   description: c.description,
@@ -393,7 +492,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                         style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
                       ),
                       const SizedBox(height: 10),
-                      Text('pull down, or tap the refresh icon above, to check again',
+                      Text('pull down, or tap the refresh icon above, to check again'.tr,
                           textAlign: TextAlign.center,
                           style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
                     ],
@@ -618,9 +717,9 @@ class _CantDecideBanner extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('can\'t decide?', style: SeenlyText.sectionTitle),
+                  Text('can\'t decide?'.tr, style: SeenlyText.sectionTitle),
                   const SizedBox(height: 2),
-                  Text('let\'s figure it out',
+                  Text('let\'s figure it out'.tr,
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 ],
               ),

@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app.dart';
 import '../../models/achievement.dart';
@@ -26,6 +27,7 @@ import '../../widgets/evening_plan_card.dart';
 import '../../widgets/favorites_showcase_row.dart';
 import '../../widgets/series_episodes_sheet.dart';
 import '../../widgets/invite_friends_sheet.dart';
+import '../../widgets/mosaic_poster_grid.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/planned_preview_sheet.dart';
@@ -46,6 +48,7 @@ import 'settings_screen.dart';
 import 'stats_screen.dart';
 import 'wrapped_screen.dart';
 import '../../widgets/user_avatar.dart';
+import '../../services/app_translations.dart';
 
 const _kWeekdayAbbrev = ['', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -232,13 +235,13 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 60),
               children: [
-                Text('couldn\'t load your profile',
+                Text('couldn\'t load your profile'.tr,
                     textAlign: TextAlign.center,
                     style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: _refresh,
-                  child: Text('pull down, or tap here, to try again',
+                  child: Text('pull down, or tap here, to try again'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                 ),
@@ -374,12 +377,12 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text('recently logged',
+                        Text('recently logged'.tr,
                             style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)
                                 .copyWith(letterSpacing: 0.6)),
                         GestureDetector(
                           onTap: () => RootShell.switchTab(context, RootShell.diaryTab),
-                          child: Text('diary ›',
+                          child: Text('diary ›'.tr,
                               style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                         ),
                       ],
@@ -434,7 +437,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                               builder: (_) => AchievementsScreen(initial: data.achievements),
                             ),
                           ),
-                          child: Text('all ›', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
+                          child: Text('all ›'.tr, style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                         ),
                       ],
                     ),
@@ -513,7 +516,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                             children: [
                               const Icon(Icons.casino_outlined, size: 13, color: SeenlyPalette.accent),
                               const SizedBox(width: 4),
-                              Text('random', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent)),
+                              Text('random'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent)),
                             ],
                           ),
                         ),
@@ -530,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
                             child: Text(
-                              'nothing in progress — start watching something to see it here',
+                              'nothing in progress — start watching something to see it here'.tr,
                               style: SeenlyText.serif(
                                   italic: true, color: SeenlyPalette.placeholder),
                             ),
@@ -581,46 +584,46 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                             ),
                           ),
                         )
-                      : SliverGrid(
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 14,
-                            crossAxisSpacing: 14,
-                            childAspectRatio: 2 / 3,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, i) {
+                      : SliverToBoxAdapter(
+                          child: MosaicPosterGrid(
+                            itemCount: shelf.length,
+                            order: List.generate(shelf.length, (i) => i),
+                            revealGen: 0,
+                            keyOf: (i) => shelf[i].id,
+                            tileBuilder: (context, i, gridIndex, aspect) {
                               final e = shelf[i];
                               final isSeries = _tab == 0 &&
                                   (e.mediaType == 'series' || e.mediaType == 'anime');
-                              return ScrollReveal(
-                                delay: Duration(milliseconds: 35 * (i % 6)),
-                                child: ThemedPosterTile(
-                                  title: e.displayTitle,
-                                  posterUrl: e.posterUrl,
-                                  mediaType: e.mediaType,
-                                  fallbackColor: SeenlyPalette.gridColorFor(i),
-                                  onTap: () => isSeries
-                                      ? showSeriesEpisodesSheet(
-                                          context,
-                                          mediaId: e.mediaId,
-                                          source: e.source,
-                                          title: e.displayTitle,
-                                          mediaType: e.mediaType,
-                                          posterUrl: e.posterUrl,
-                                        )
-                                      : _tab == 0
-                                          ? showWatchedPreview(context, WatchedPreviewData.fromWatchlistEntry(e))
-                                          : showPlannedPreview(
-                                              context,
-                                              PlannedPreviewData.fromWatchlistEntry(e),
-                                              onMarkedWatched: _refresh,
-                                            ),
+                              return TiltPosterTile(
+                                onTap: () => isSeries
+                                    ? showSeriesEpisodesSheet(
+                                        context,
+                                        mediaId: e.mediaId,
+                                        source: e.source,
+                                        title: e.displayTitle,
+                                        mediaType: e.mediaType,
+                                        posterUrl: e.posterUrl,
+                                      )
+                                    : _tab == 0
+                                        ? showWatchedPreview(context, WatchedPreviewData.fromWatchlistEntry(e))
+                                        : showPlannedPreview(
+                                            context,
+                                            PlannedPreviewData.fromWatchlistEntry(e),
+                                            onMarkedWatched: _refresh,
+                                          ),
+                                onLongPress: () => _shareEntry(e),
+                                child: MosaicParallaxPoster(
+                                  builder: (parallax) => ThemedPosterTile(
+                                    title: e.displayTitle,
+                                    posterUrl: e.posterUrl,
+                                    mediaType: e.mediaType,
+                                    fallbackColor: SeenlyPalette.gridColorFor(i),
+                                    aspectRatio: aspect,
+                                    parallax: parallax,
+                                  ),
                                 ),
                               );
                             },
-                            childCount: shelf.length,
                           ),
                         ),
                 ),
@@ -970,7 +973,7 @@ class _ProfileHeader extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('“',
+                            Text('“'.tr,
                                 style: SeenlyText.serif(
                                     size: 13, italic: true, color: SeenlyPalette.accent.withOpacity(0.55))),
                             const SizedBox(width: 2),
@@ -1245,7 +1248,7 @@ class _StoriesBannerState extends State<_StoriesBanner> with SingleTickerProvide
         ),
         alignment: Alignment.center,
         child: Text(
-          'выбери любимые фильмы',
+          'выбери любимые фильмы'.tr,
           style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkMuted),
         ),
       );
@@ -1406,7 +1409,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text('friends', style: SeenlyText.sectionTitle),
+                Text('friends'.tr, style: SeenlyText.sectionTitle),
                 // A quiet pill instead of a bare "see all" link once
                 // there's something to actually flag — a plain trailing
                 // label doesn't compete with the eye for attention the
@@ -1428,7 +1431,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                     ),
                   )
                 else
-                  Text('see all ›', style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                  Text('see all ›'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               ],
             ),
           ),
@@ -1448,7 +1451,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
               onTap: _openFriendsScreen,
               child: friends.isEmpty
                   ? Text(
-                      "you haven't added any friends yet — search a username or invite someone",
+                      "you haven't added any friends yet — search a username or invite someone".tr,
                       style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
                     )
                   : Row(
@@ -1473,7 +1476,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                                     style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                               ],
                             ),
-                            Text('tap to see everyone',
+                            Text('tap to see everyone'.tr,
                                 style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
                           ],
                         ),
@@ -1498,7 +1501,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                   children: [
                     const Icon(Icons.person_add_alt_1_rounded, size: 13, color: SeenlyPalette.accent),
                     const SizedBox(width: 6),
-                    Text('invite friends',
+                    Text('invite friends'.tr,
                         style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
                   ],
                 ),
@@ -1661,7 +1664,7 @@ class _TicketStub extends StatelessWidget {
       child: theme == LogTheme.ticket
           ? RotatedBox(
               quarterTurns: 3,
-              child: Text('ADMIT ONE',
+              child: Text('ADMIT ONE'.tr,
                   style: SeenlyText.mono(size: 7, color: SeenlyPalette.clay)
                       .copyWith(letterSpacing: 2)),
             )
@@ -2110,7 +2113,7 @@ class _StatsGridCardState extends State<_StatsGridCard>
                 children: [
                   const Icon(Icons.bar_chart_rounded, size: 15, color: SeenlyPalette.accent),
                   const SizedBox(width: 7),
-                  Text('подробная статистика',
+                  Text('подробная статистика'.tr,
                       style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.accent, weight: FontWeight.w600)),
                   const Spacer(),
                   const Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.accent),
@@ -2306,7 +2309,7 @@ class _CategoryRow extends StatelessWidget {
   Widget _emptySwatch() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Text('nothing here yet', style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.placeholder)),
+      child: Text('nothing here yet'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.placeholder)),
     );
   }
 }
@@ -2613,7 +2616,7 @@ class _YourListsRow extends StatelessWidget {
                 size: 17, color: SeenlyPalette.accent),
             const SizedBox(width: 10),
             Expanded(
-              child: Text('your lists', style: SeenlyText.sectionTitle),
+              child: Text('your lists'.tr, style: SeenlyText.sectionTitle),
             ),
             const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
@@ -2649,7 +2652,7 @@ class _YourSourcesRow extends StatelessWidget {
             const Icon(Icons.smart_display_outlined, size: 17, color: SeenlyPalette.accent),
             const SizedBox(width: 10),
             Expanded(
-              child: Text('your sources', style: SeenlyText.sectionTitle),
+              child: Text('your sources'.tr, style: SeenlyText.sectionTitle),
             ),
             const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
@@ -2893,12 +2896,12 @@ class _WrappedTeaser extends StatelessWidget {
                       color: SeenlyPalette.accentOnAccent.withOpacity(0.16),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text('premium · free in demo',
+                    child: Text('premium · free in demo'.tr,
                         style: SeenlyText.mono(
                             size: 8, color: SeenlyPalette.accentOnAccent)),
                   ),
                   const SizedBox(height: 8),
-                  Text('your wrapped',
+                  Text('your wrapped'.tr,
                       style: SeenlyText.serif(
                           italic: true, size: 16, color: SeenlyPalette.accentOnAccent)),
                   const SizedBox(height: 3),
@@ -2921,4 +2924,15 @@ class _WrappedTeaser extends StatelessWidget {
   }
 }
 
+/// Long-press action for a shelf tile (see the mosaic grid in the
+/// watched/plan-to-watch tabs above) — same title + year fallback as
+/// collection_full_screen.dart's own `_shareMediaItem`, since a
+/// [WatchlistEntry] carries no external ids to link out to.
+void _shareEntry(WatchlistEntry e) {
+  final bits = [
+    e.displayTitle,
+    if (e.year != null) '(${e.year})',
+  ].join(' ');
+  Share.share(bits);
+}
 

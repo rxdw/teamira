@@ -11,6 +11,7 @@ import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import '../../widgets/wow_motion.dart';
+import '../../services/app_translations.dart';
 
 /// The full-screen version of the "friends" teaser card on Home — every
 /// recent friend event, each with a real poster instead of a plain text
@@ -83,7 +84,7 @@ class _FriendsActivityFeedScreenState extends State<FriendsActivityFeedScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
-                  Text('friends activity', style: SeenlyText.screenTitle),
+                  Text('friends activity'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -95,7 +96,7 @@ class _FriendsActivityFeedScreenState extends State<FriendsActivityFeedScreen> {
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 40),
                             child: Text(
-                              "nothing from friends yet — once they log something, it'll show up here",
+                              "nothing from friends yet — once they log something, it'll show up here".tr,
                               textAlign: TextAlign.center,
                               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
                             ),

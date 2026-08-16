@@ -10,6 +10,7 @@ import 'list_detail_screen.dart';
 import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
+import '../../services/app_translations.dart';
 
 /// Profile → "your lists": the user's own made-up collections, distinct
 /// from the editorial shelves on the Collections tab. "Cozy rainy-day
@@ -55,7 +56,7 @@ class _ListsScreenState extends State<ListsScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("couldn't create that list — try again")),
+        SnackBar(content: Text("couldn't create that list — try again".tr)),
       );
     }
   }
@@ -80,7 +81,7 @@ class _ListsScreenState extends State<ListsScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Expanded(child: Text('your lists', style: SeenlyText.screenTitle)),
+                  Expanded(child: Text('your lists'.tr, style: SeenlyText.screenTitle)),
                   PressScale(
                     onTap: _createList,
                     haptics: true,
@@ -101,7 +102,7 @@ class _ListsScreenState extends State<ListsScreen> {
                   }
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text("couldn't load your lists",
+                      child: Text("couldn't load your lists".tr,
                           style: SeenlyText.serif(
                               italic: true, color: SeenlyPalette.inkMuted)),
                     );
@@ -116,7 +117,7 @@ class _ListsScreenState extends State<ListsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
                         children: [
                           Entrance(
-                            child: Text('no lists yet',
+                            child: Text('no lists yet'.tr,
                                 textAlign: TextAlign.center,
                                 style: SeenlyText.serif(italic: true, size: 15)),
                           ),
@@ -124,7 +125,7 @@ class _ListsScreenState extends State<ListsScreen> {
                           Entrance(
                             delay: const Duration(milliseconds: 60),
                             child: Text(
-                              'group whatever you like together — a mood, a marathon, favorites you keep coming back to',
+                              'group whatever you like together — a mood, a marathon, favorites you keep coming back to'.tr,
                               textAlign: TextAlign.center,
                               style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder),
                             ),
@@ -292,7 +293,7 @@ class _NewListSheetState extends State<_NewListSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Entrance(
-              child: Text('new list',
+              child: Text('new list'.tr,
                   textAlign: TextAlign.center,
                   style: SeenlyText.serif(italic: true, size: 16)),
             ),
@@ -315,7 +316,7 @@ class _NewListSheetState extends State<_NewListSheet> {
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
-                    hintText: 'cozy rainy-day picks…',
+                    hintText: 'cozy rainy-day picks…'.tr,
                     hintStyle: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder),
                   ),
                 ),

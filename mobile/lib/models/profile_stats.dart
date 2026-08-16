@@ -1,3 +1,4 @@
+import '../services/app_translations.dart';
 class GenreCount {
   final String genre;
   final int count;
@@ -167,7 +168,7 @@ class WrappedDecadeBucket {
 }
 
 class WrappedTimelineBucket {
-  final String label; // day-of-month ("1".."31") for a month summary, month abbrev ("янв") otherwise
+  final String label; // day-of-month ("1".."31") for a month summary, month abbrev ("янв".tr) otherwise
   final int count;
   const WrappedTimelineBucket({required this.label, required this.count});
   factory WrappedTimelineBucket.fromJson(Map<String, dynamic> json) =>
@@ -660,10 +661,10 @@ const List<AvatarPresetOption> kAvatarPresets = [
 /// chips — tapping one just fills the free-text field with it, the
 /// server sees one plain `status_text` either way (see
 /// routers/profile.py::update_me).
-const List<String> kStatusPresets = [
-  'смотрю сериал 🍿',
-  'в поиске совместного просмотра',
-  'не беспокоить',
-  'на паузе',
-  'открыт(а) для рекомендаций',
+final List<String> kStatusPresets = [
+  'смотрю сериал 🍿'.tr,
+  'в поиске совместного просмотра'.tr,
+  'не беспокоить'.tr,
+  'на паузе'.tr,
+  'открыт(а) для рекомендаций'.tr,
 ];

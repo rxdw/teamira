@@ -20,6 +20,7 @@ import '../import/import_screen.dart';
 import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/region_picker_sheet.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../services/app_translations.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -46,12 +47,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('close this diary for now?',
+            Text('close this diary for now?'.tr,
                 textAlign: TextAlign.center,
                 style: SeenlyText.serif(italic: true, size: 16)),
             const SizedBox(height: 6),
             Text(
-              "everything you've logged stays right where it is — you'll pick up from here next time",
+              "everything you've logged stays right where it is — you'll pick up from here next time".tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
             ),
@@ -65,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(24),
                 ),
                 alignment: Alignment.center,
-                child: Text('log out',
+                child: Text('log out'.tr,
                     style: SeenlyText.serif(
                         italic: true, color: SeenlyPalette.accentOnAccent)),
               ),
@@ -76,7 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 alignment: Alignment.center,
-                child: Text('stay',
+                child: Text('stay'.tr,
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
               ),
             ),
@@ -109,12 +110,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('how should logging feel?',
+            Text('how should logging feel?'.tr,
                 textAlign: TextAlign.center,
                 style: SeenlyText.serif(italic: true, size: 16)),
             const SizedBox(height: 6),
             Text(
-              'same diary either way — just a different little ritual',
+              'same diary either way — just a different little ritual'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
             ),
@@ -144,7 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => Navigator.of(context).pop(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text('never mind',
+                child: Text('never mind'.tr,
                     textAlign: TextAlign.center,
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
               ),
@@ -174,7 +175,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
-                  Text('settings', style: SeenlyText.screenTitle),
+                  Text('settings'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -198,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('account', style: SeenlyText.metaLabel),
+              child: Text('account'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Padding(
@@ -236,7 +237,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('privacy', style: SeenlyText.metaLabel),
+              child: Text('privacy'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             const Padding(
@@ -246,7 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('connections', style: SeenlyText.metaLabel),
+              child: Text('connections'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             _SettingsTile(
@@ -269,7 +270,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('your sources', style: SeenlyText.metaLabel),
+              child: Text('your sources'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -290,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Icon(Icons.smart_display_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('mix your sources into the main list?',
+                            child: Text('mix your sources into the main list?'.tr,
                                 style: SeenlyText.serif(size: 13)),
                           ),
                           Switch(
@@ -305,10 +306,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'your YouTube and Twitch sources will show up alongside movies and '
-                          'shows in watched, watching, and plan to watch — heads up, they can '
-                          'look a little off there, since a source opens the video itself '
-                          'instead of a title page',
+                          'your YouTube and Twitch sources will show up alongside movies and shows in watched, watching, and plan to watch — heads up, they can look a little off there, since a source opens the video itself instead of a title page'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -320,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('co-viewing', style: SeenlyText.metaLabel),
+              child: Text('co-viewing'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -341,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('add matches to my own list too?',
+                            child: Text('add matches to my own list too?'.tr,
                                 style: SeenlyText.serif(size: 13)),
                           ),
                           Switch(
@@ -356,10 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'when a Watch Together match happens — one phone or over the '
-                          'network — it always shows up on your shared co-viewing screen '
-                          'if you have a partner linked. This only controls whether it '
-                          'also gets added to your own personal "watch together" list.',
+                          'when a Watch Together match happens — one phone or over the network — it always shows up on your shared co-viewing screen if you have a partner linked. This only controls whether it also gets added to your own personal "watch together" list.'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -371,7 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('spoilers', style: SeenlyText.metaLabel),
+              child: Text('spoilers'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -392,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Icon(Icons.local_movies_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('blur the synopsis', style: SeenlyText.serif(size: 13)),
+                            child: Text('blur the synopsis'.tr, style: SeenlyText.serif(size: 13)),
                           ),
                           Switch(
                             value: spoilerPrefs.blurDescriptions,
@@ -406,9 +401,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'off by default — a title\'s synopsis is usually written not to '
-                          'give anything away, so there\'s nothing to hide from unless you '
-                          'turn this on.',
+                          "off by default — a title's synopsis is usually written not to give anything away, so there's nothing to hide from unless you turn this on.".tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -420,7 +413,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Icon(Icons.rate_review_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('blur written reviews', style: SeenlyText.serif(size: 13)),
+                            child: Text('blur written reviews'.tr, style: SeenlyText.serif(size: 13)),
                           ),
                           Switch(
                             value: spoilerPrefs.blurReviews,
@@ -434,9 +427,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'on by default — other people\'s reviews say what they want, so '
-                          'each one stays softly covered until you tap it. Turn this off if '
-                          'you\'d rather just read them straight away.',
+                          "on by default — other people's reviews say what they want, so each one stays softly covered until you tap it. Turn this off if you'd rather just read them straight away.".tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -448,7 +439,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text("today's pick", style: SeenlyText.metaLabel),
+              child: Text("today's pick".tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -469,7 +460,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const Icon(Icons.local_movies_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text('show today\'s pick on Home', style: SeenlyText.serif(size: 13)),
+                            child: Text('show today\'s pick on Home'.tr, style: SeenlyText.serif(size: 13)),
                           ),
                           Switch(
                             value: todayPickPrefs.enabled,
@@ -483,10 +474,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'a franchise to marathon, picked fresh most days, with a little '
-                          'progress bar for however much of it you\'ve already seen — there\'s '
-                          'a shuffle button on the card itself if it\'s not your thing that day. '
-                          'turn this off if you\'d rather Home stayed without it.',
+                          "a franchise to marathon, picked fresh most days, with a little progress bar for however much of it you've already seen — there's a shuffle button on the card itself if it's not your thing that day. turn this off if you'd rather Home stayed without it.".tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -498,7 +486,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('language', style: SeenlyText.metaLabel),
+              child: Text('language'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -513,16 +501,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Text('🇷🇺', style: TextStyle(fontSize: 18)),
+                      Text('🇷🇺'.tr, style: TextStyle(fontSize: 18)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('show titles in Russian', style: SeenlyText.serif(size: 13)),
+                            Text('russian interface'.tr, style: SeenlyText.serif(size: 13)),
                             const SizedBox(height: 2),
                             Text(
-                              'when TMDB has a translation for it — otherwise English',
+                              'translates the whole app — titles too, when TMDB has one, otherwise English'.tr,
                               style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                             ),
                           ],
@@ -564,11 +552,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('streaming region', style: SeenlyText.serif(size: 13)),
+                              Text('streaming region'.tr, style: SeenlyText.serif(size: 13)),
                               const SizedBox(height: 2),
                               Text(
-                                'which country\'s services show under "where to watch" '
-                                '— Kinopoisk, ivi, Netflix, and the rest all vary by country',
+                                'which country\'s services show under "where to watch" — Kinopoisk, ivi, Netflix, and the rest all vary by country'.tr,
                                 style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                               ),
                             ],
@@ -586,7 +573,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('map style', style: SeenlyText.metaLabel),
+              child: Text('map style'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -606,14 +593,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           const Icon(Icons.layers_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
-                          Text('how the route map looks', style: SeenlyText.serif(size: 13)),
+                          Text('how the route map looks'.tr, style: SeenlyText.serif(size: 13)),
                         ],
                       ),
                       const SizedBox(height: 2),
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'same choice as the layers button on the route map itself',
+                          'same choice as the layers button on the route map itself'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -641,7 +628,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
-              child: Text('this diary', style: SeenlyText.metaLabel),
+              child: Text('this diary'.tr, style: SeenlyText.metaLabel),
             ),
             const SizedBox(height: 8),
             Builder(builder: (context) {
@@ -677,10 +664,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('skip the ritual', style: SeenlyText.serif(size: 13)),
+                            Text('skip the ritual'.tr, style: SeenlyText.serif(size: 13)),
                             const SizedBox(height: 2),
                             Text(
-                              'no seats, no tickets, no animations — every log just happens instantly',
+                              'no seats, no tickets, no animations — every log just happens instantly'.tr,
                               style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                             ),
                           ],
@@ -730,10 +717,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('rabbit companion', style: SeenlyText.serif(size: 13)),
+                            Text('rabbit companion'.tr, style: SeenlyText.serif(size: 13)),
                             const SizedBox(height: 2),
                             Text(
-                              'a little guide on empty screens, loading, and milestones',
+                              'a little guide on empty screens, loading, and milestones'.tr,
                               style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                             ),
                           ],
@@ -767,14 +754,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           const Icon(Icons.nights_stay_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
-                          Text('appearance', style: SeenlyText.serif(size: 13)),
+                          Text('appearance'.tr, style: SeenlyText.serif(size: 13)),
                         ],
                       ),
                       const SizedBox(height: 2),
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'dark mode is early — for now it just changes the rabbit',
+                          'dark mode is early — for now it just changes the rabbit'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -816,7 +803,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Icon(Icons.logout, size: 17, color: SeenlyPalette.coral),
                       const SizedBox(width: 10),
-                      Text('log out',
+                      Text('log out'.tr,
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.coral)),
                       const Spacer(),
                       if (_loggingOut)
@@ -837,10 +824,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Center(
                 child: Column(
                   children: [
-                    Text('teamira · v0.1.0',
+                    Text('teamira · v0.1.0'.tr,
                         style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
                     const SizedBox(height: 3),
-                    Text('formerly seenly — same diary, new name',
+                    Text('formerly seenly — same diary, new name'.tr,
                         style: SeenlyText.serif(
                             italic: true, size: 10, color: SeenlyPalette.placeholder)),
                   ],
@@ -1134,7 +1121,7 @@ class _PrivacySettingsCardState extends State<_PrivacySettingsCard> {
       if (!mounted) return;
       setState(() => _saving = null);
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("that didn't save — try again")));
+          .showSnackBar(SnackBar(content: Text("that didn't save — try again".tr)));
     }
   }
 
@@ -1156,7 +1143,7 @@ class _PrivacySettingsCardState extends State<_PrivacySettingsCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'who can see what you\'ve watched, are watching now, plan to watch, or have marked as a favorite',
+                  'who can see what you\'ve watched, are watching now, plan to watch, or have marked as a favorite'.tr,
                   style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
                 ),
                 const SizedBox(height: 12),
