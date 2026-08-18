@@ -127,7 +127,7 @@ class _SwipeDeck extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(22, 2, 22, 14),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: _CountPill(remaining == 1 ? 'one left' : '$remaining left'),
+            child: _CountPill('$remaining ${'left'.tr}'),
           ),
         ),
         Expanded(
@@ -176,7 +176,7 @@ class _SwipeDeck extends StatelessWidget {
             children: [
               _DecisionButton(
                 icon: Icons.close,
-                label: 'skip',
+                label: 'skip'.tr,
                 iconColor: SeenlyPalette.inkMuted,
                 background: SeenlyPalette.paper,
                 bordered: true,
@@ -184,7 +184,7 @@ class _SwipeDeck extends StatelessWidget {
               ),
               _DecisionButton(
                 icon: Icons.bookmark_add_outlined,
-                label: 'plan to watch',
+                label: 'plan to watch'.tr,
                 iconColor: SeenlyPalette.accentOnAccent,
                 background: SeenlyPalette.accent,
                 large: true,
@@ -221,13 +221,13 @@ class _SwipeCard extends StatelessWidget {
       background: _SwipeHint(
         alignment: Alignment.centerLeft,
         icon: Icons.bookmark_add_outlined,
-        label: 'plan to watch',
+        label: 'plan to watch'.tr,
         color: SeenlyPalette.accent,
       ),
       secondaryBackground: _SwipeHint(
         alignment: Alignment.centerRight,
         icon: Icons.close,
-        label: 'skip',
+        label: 'skip'.tr,
         color: SeenlyPalette.inkMuted,
       ),
       child: GestureDetector(
@@ -476,24 +476,24 @@ class _RecapView extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               added == 0
-                  ? 'nothing kept this round — try loosening the filters'
-                  : '$added ${added == 1 ? 'title' : 'titles'} added to plan to watch · $skipped skipped',
+                  ? 'nothing kept this round — try loosening the filters'.tr
+                  : '${ruCount(added, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles')} ${'added to plan to watch'.tr} · $skipped ${'skipped'.tr}',
               textAlign: TextAlign.center,
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
             ),
             const SizedBox(height: 26),
             if (added > 0) ...[
-              PrimaryButton(label: 'open plan to watch', onTap: onOpenPlan),
+              PrimaryButton(label: 'open plan to watch'.tr, onTap: onOpenPlan),
               const SizedBox(height: 10),
             ],
             Row(
               children: [
                 Expanded(
-                  child: _OutlineButton(label: 'swipe again', onTap: onRestart),
+                  child: _OutlineButton(label: 'swipe again'.tr, onTap: onRestart),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: _OutlineButton(label: 'done', onTap: onDone),
+                  child: _OutlineButton(label: 'done'.tr, onTap: onDone),
                 ),
               ],
             ),

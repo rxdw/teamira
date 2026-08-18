@@ -138,7 +138,7 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
           onSubmit: _resolve,
         );
       case _Phase.loading:
-        return const _LoadingStep(message: 'fetching what\'s at that link…');
+        return _LoadingStep(message: 'fetching what\'s at that link…'.tr);
       case _Phase.review:
         return _ReviewStep(
           preview: _preview!,
@@ -149,7 +149,7 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
           onImport: _commit,
         );
       case _Phase.importing:
-        return const _LoadingStep(message: 'adding these to your sources…');
+        return _LoadingStep(message: 'adding these to your sources…'.tr);
       case _Phase.done:
         return _DoneStep(
           result: _committed!,
@@ -196,17 +196,17 @@ class _InputStep extends StatelessWidget {
           runSpacing: 8,
           children: [
             PillChip(
-              label: 'plan to watch',
+              label: 'plan to watch'.tr,
               active: defaultStatus == 'watch_later',
               onTap: () => onStatusChanged('watch_later'),
             ),
             PillChip(
-              label: 'watching now',
+              label: 'watching now'.tr,
               active: defaultStatus == 'watching',
               onTap: () => onStatusChanged('watching'),
             ),
             PillChip(
-              label: 'already watched',
+              label: 'already watched'.tr,
               active: defaultStatus == 'watched',
               onTap: () => onStatusChanged('watched'),
             ),
@@ -236,7 +236,7 @@ class _InputStep extends StatelessWidget {
           Text(error!, style: SeenlyText.mono(size: 10, color: SeenlyPalette.coral)),
         ],
         const SizedBox(height: 20),
-        PrimaryButton(label: 'fetch link', onTap: onSubmit),
+        PrimaryButton(label: 'fetch link'.tr, onTap: onSubmit),
       ],
     );
   }
@@ -288,7 +288,7 @@ class _ReviewStep extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${preview.sourceDetected} — review below, then bring in what looks right',
+                  '${preview.sourceDetected} ${'— review below, then bring in what looks right'.tr}',
                   style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
                 ),
               ),
@@ -320,8 +320,8 @@ class _ReviewStep extends StatelessWidget {
               Expanded(
                 child: PrimaryButton(
                   label: selectedCount == 0
-                      ? 'nothing selected'
-                      : 'add $selectedCount item${selectedCount == 1 ? '' : 's'}',
+                      ? 'nothing selected'.tr
+                      : '${'add'.tr} ${ruCount(selectedCount, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'item', englishOther: 'items')}',
                   onTap: selectedCount == 0 ? null : onImport,
                 ),
               ),
@@ -402,7 +402,7 @@ class _SourceRowCard extends StatelessWidget {
                     maxLines: 2, overflow: TextOverflow.ellipsis, style: SeenlyText.cardTitle),
                 if (chosen.runtimeMinutes != null) ...[
                   const SizedBox(height: 2),
-                  Text('${chosen.runtimeMinutes} min', style: SeenlyText.metaLabel),
+                  Text('${chosen.runtimeMinutes} ${'min'.tr}', style: SeenlyText.metaLabel),
                 ],
                 const SizedBox(height: 6),
                 Wrap(
@@ -410,7 +410,7 @@ class _SourceRowCard extends StatelessWidget {
                   runSpacing: 4,
                   children: [
                     _StatusPill(
-                      label: 'plan to watch',
+                      label: 'plan to watch'.tr,
                       active: row.status == 'watch_later',
                       onTap: () {
                         row.status = 'watch_later';
@@ -418,7 +418,7 @@ class _SourceRowCard extends StatelessWidget {
                       },
                     ),
                     _StatusPill(
-                      label: 'watching',
+                      label: 'watching'.tr,
                       active: row.status == 'watching',
                       onTap: () {
                         row.status = 'watching';
@@ -426,7 +426,7 @@ class _SourceRowCard extends StatelessWidget {
                       },
                     ),
                     _StatusPill(
-                      label: 'watched',
+                      label: 'watched'.tr,
                       active: row.status == 'watched',
                       onTap: () {
                         row.status = 'watched';
@@ -479,8 +479,8 @@ class _DoneStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = <String>[
-      if (result.watchedCount > 0) '${result.watchedCount} watched',
-      if (result.watchLaterCount > 0) '${result.watchLaterCount} to your list',
+      if (result.watchedCount > 0) '${result.watchedCount} ${'watched'.tr}',
+      if (result.watchLaterCount > 0) '${result.watchLaterCount} ${'to your list'.tr}',
     ];
     return Center(
       child: Padding(
@@ -491,12 +491,14 @@ class _DoneStep extends StatelessWidget {
             const Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.accent),
             const SizedBox(height: 14),
             Text(
-              parts.isEmpty ? 'nothing was added' : 'added ${parts.join(' and ')}',
+              parts.isEmpty
+                  ? 'nothing was added'.tr
+                  : '${'added'.tr} ' + parts.join(' ${'and'.tr} '),
               textAlign: TextAlign.center,
               style: SeenlyText.serif(italic: true, size: 15),
             ),
             const SizedBox(height: 20),
-            PrimaryButton(label: 'done', onTap: onDone, expand: false),
+            PrimaryButton(label: 'done'.tr, onTap: onDone, expand: false),
           ],
         ),
       ),

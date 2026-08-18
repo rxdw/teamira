@@ -172,7 +172,7 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text('${collection.items.length} titles', style: SeenlyText.metaLabel),
+                      child: Text(ruCount(collection.items.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'), style: SeenlyText.metaLabel),
                     ),
                     if (collection.isFranchise) ...[
                       _AboutFranchisePill(collection: collection),

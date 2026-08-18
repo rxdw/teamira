@@ -292,7 +292,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                           Text("couldn't load co-viewing".tr,
                               style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
                           const SizedBox(height: 14),
-                          PrimaryButton(label: 'try again', onTap: _load, expand: false),
+                          PrimaryButton(label: 'try again'.tr, onTap: _load, expand: false),
                         ],
                       ),
                     ),
@@ -535,11 +535,11 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
     if (_suggestions.isEmpty) {
       final others = _otherUsernames();
       final who = others.length > 1
-          ? 'someone in your circle'
-          : (others.isNotEmpty ? others.first : 'your partner');
+          ? 'someone in your circle'.tr
+          : (others.isNotEmpty ? others.first : 'your partner'.tr);
       return _EmptyNote(
-        text: 'nothing suggested yet — when $who '
-            'suggests a title from any title page, it shows up here.',
+        text: '${'nothing suggested yet — when'.tr} $who '
+            '${'suggests a title from any title page, it shows up here.'.tr}',
       );
     }
     return LayoutBuilder(
@@ -980,7 +980,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                   children: [
                     Text(_loadError!, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),
                     const SizedBox(height: 10),
-                    PrimaryButton(label: 'try again', onTap: _load, expand: false),
+                    PrimaryButton(label: 'try again'.tr, onTap: _load, expand: false),
                   ],
                 ),
               )

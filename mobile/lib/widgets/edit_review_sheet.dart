@@ -192,8 +192,8 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
               SizedBox(
                 height: 124,
                 child: TearTicketConfirm(
-                  label: 'pull apart to tear it up',
-                  confirmedLabel: 'torn',
+                  label: 'pull apart to tear it up'.tr,
+                  confirmedLabel: 'torn'.tr,
                   accent: SeenlyPalette.coral,
                   onConfirmed: () => Navigator.of(sheetContext).pop(true),
                 ),

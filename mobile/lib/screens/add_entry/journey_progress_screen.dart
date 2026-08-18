@@ -217,22 +217,22 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
       };
 
   String get _headline => switch (widget.theme) {
-        LogTheme.coach => 'on the rails',
-        LogTheme.garden => 'out in the garden',
-        LogTheme.ticket => 'in the air',
+        LogTheme.coach => 'on the rails'.tr,
+        LogTheme.garden => 'out in the garden'.tr,
+        LogTheme.ticket => 'in the air'.tr,
       };
 
   String get _routeNoun => switch (widget.theme) {
-        LogTheme.coach => 'the train',
-        LogTheme.garden => 'the walk',
-        LogTheme.ticket => 'the flight',
+        LogTheme.coach => 'the train'.tr,
+        LogTheme.garden => 'the walk'.tr,
+        LogTheme.ticket => 'the flight'.tr,
       };
 
   String get _comparisonTail {
     final diff = widget.routeMinutes - _filmMinutes;
-    final diffText = diff.abs() < 2 ? 'right about the same time' : _fmtDuration(diff.abs());
+    final diffText = diff.abs() < 2 ? 'right about the same time'.tr : _fmtDuration(diff.abs());
     if (diff.abs() < 2) return diffText;
-    return diff < 0 ? '$diffText shorter' : '$diffText longer';
+    return diff < 0 ? '$diffText ${'shorter'.tr}' : '$diffText ${'longer'.tr}';
   }
 
   Widget _ratingScreen() => switch (widget.theme) {
@@ -281,7 +281,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
               Text(_cancelPrompt, style: SeenlyText.serif(italic: true, size: 18)),
               const SizedBox(height: 6),
               Text(
-                "${widget.item.title.display} won't be logged this way — this can't be undone.",
+                "${widget.item.title.display}${" won't be logged this way — this can't be undone.".tr}",
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
@@ -290,8 +290,8 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
               SizedBox(
                 height: 124,
                 child: TearTicketConfirm(
-                  label: 'pull apart to tear it up',
-                  confirmedLabel: 'torn',
+                  label: 'pull apart to tear it up'.tr,
+                  confirmedLabel: 'torn'.tr,
                   accent: SeenlyPalette.coral,
                   onConfirmed: () {
                     Navigator.of(sheetContext).pop();
@@ -558,10 +558,10 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _StatBlock(label: 'elapsed', value: _fmtDuration(_elapsed.inMinutes), shadows: _floatingTextShadow),
+                      _StatBlock(label: 'elapsed'.tr, value: _fmtDuration(_elapsed.inMinutes), shadows: _floatingTextShadow),
                       const Spacer(),
                       _StatBlock(
-                          label: 'remaining',
+                          label: 'remaining'.tr,
                           value: remainingText,
                           alignEnd: true,
                           shadows: _floatingTextShadow),
@@ -579,7 +579,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                   ),
                   const SizedBox(height: 9),
                   Text(
-                    'film runs ${_fmtDuration(_filmMinutes)} · $_routeNoun runs '
+                    '${'film runs'.tr} ${_fmtDuration(_filmMinutes)} · $_routeNoun ${'runs'.tr} '
                     '${_fmtDuration(widget.routeMinutes)} — $_comparisonTail',
                     textAlign: TextAlign.center,
                     style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.9))
@@ -694,9 +694,9 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('${_fmtDuration(_elapsed.inMinutes)} elapsed',
+                            Text('${_fmtDuration(_elapsed.inMinutes)} ${'elapsed'.tr}',
                                 style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
-                            Text('$remainingText left',
+                            Text('$remainingText ${'left'.tr}',
                                 style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
                           ],
                         ),
@@ -712,7 +712,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'film runs ${_fmtDuration(_filmMinutes)} · $_routeNoun runs '
+                          '${'film runs'.tr} ${_fmtDuration(_filmMinutes)} · $_routeNoun ${'runs'.tr} '
                           '${_fmtDuration(widget.routeMinutes)} — $_comparisonTail',
                           style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkMuted),
                         ),
@@ -830,7 +830,7 @@ class _MapStyleRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(info.label,
+                child: Text(info.label.tr,
                     style: SeenlyText.serif(
                         size: 14,
                         color: SeenlyPalette.ink,

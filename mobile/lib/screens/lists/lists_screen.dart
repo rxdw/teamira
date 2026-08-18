@@ -134,7 +134,7 @@ class _ListsScreenState extends State<ListsScreen> {
                           Entrance(
                             delay: const Duration(milliseconds: 110),
                             riseBy: 14,
-                            child: PrimaryButton(label: 'new list', onTap: _createList),
+                            child: PrimaryButton(label: 'new list'.tr, onTap: _createList),
                           ),
                         ],
                       ),
@@ -202,7 +202,7 @@ class _ListRow extends StatelessWidget {
                       style: SeenlyText.cardTitle),
                   const SizedBox(height: 4),
                   Text(
-                    list.itemCount == 1 ? '1 title' : '${list.itemCount} titles',
+                    ruCount(list.itemCount, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'),
                     style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint),
                   ),
                 ],
@@ -326,7 +326,7 @@ class _NewListSheetState extends State<_NewListSheet> {
             Entrance(
               delay: const Duration(milliseconds: 110),
               riseBy: 14,
-              child: PrimaryButton(label: 'create', onTap: _submit),
+              child: PrimaryButton(label: 'create'.tr, onTap: _submit),
             ),
           ],
         ),

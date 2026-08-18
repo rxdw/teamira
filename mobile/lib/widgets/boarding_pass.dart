@@ -282,7 +282,7 @@ class _PassStub extends StatelessWidget {
           child: RotatedBox(
             quarterTurns: 3,
             child: Text(
-              'SEAT $row$seatLetter · ${route.destCode}',
+              '${'SEAT'.tr} $row$seatLetter · ${route.destCode}',
               style: SeenlyText.mono(size: compact ? 6 : 7.5, color: tint, weight: FontWeight.w600),
             ),
           ),

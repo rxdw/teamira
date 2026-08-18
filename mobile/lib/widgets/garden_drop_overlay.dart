@@ -9,6 +9,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'light_bloom.dart' show flashOpacity;
 import '../services/app_translations.dart';
+import '../services/locale_service.dart';
 
 /// Plays right after an evening is saved in the garden theme — the
 /// seed from [showGardenPlant] has taken root as a closed bud, and
@@ -81,6 +82,12 @@ class _BloomDropOverlayState extends State<_BloomDropOverlay> with TickerProvide
   static const _months = [
     'jan', 'feb', 'mar', 'apr', 'may', 'jun',
     'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+  ];
+  // Short Russian month abbreviations for the same date line — not a 
+  // literal word-for-word .tr swap (that table has no per-word case 
+  // handling), just a parallel three-letter list in the same slot order.
+  static const _monthsRu = [
+    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
   ];
 
   static const double _openThreshold = 0.5;
@@ -320,7 +327,7 @@ class _BloomDropOverlayState extends State<_BloomDropOverlay> with TickerProvide
                                 ),
                                 const SizedBox(height: 5),
                                 Text(
-                                  '${widget.watchedAt.day} ${_months[widget.watchedAt.month - 1]} · bloomed in the bed',
+                                  '${widget.watchedAt.day} ${(LocaleService.appIsRussian ? _monthsRu : _months)[widget.watchedAt.month - 1]} ${'· bloomed in the bed'.tr}',
                                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                                 ),
                               ],

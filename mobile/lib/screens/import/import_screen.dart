@@ -131,7 +131,7 @@ class _ImportScreenState extends State<ImportScreen> {
                 ),
                 if (widget.embedded && _phase == _Phase.input) ...[
                   const SizedBox(width: 10),
-                  PillChip(label: 'skip for now', dashed: true, onTap: widget.onDone),
+                  PillChip(label: 'skip for now'.tr, dashed: true, onTap: widget.onDone),
                 ],
               ],
             ),
@@ -170,7 +170,7 @@ class _ImportScreenState extends State<ImportScreen> {
           onSubmit: _findMatches,
         );
       case _Phase.loading:
-        return _LoadingStep(message: 'looking these up in the catalog…', dark: _dark);
+        return _LoadingStep(message: 'looking these up in the catalog…'.tr, dark: _dark);
       case _Phase.review:
         return _ReviewStep(
           preview: _preview!,
@@ -182,7 +182,7 @@ class _ImportScreenState extends State<ImportScreen> {
           onImport: _commit,
         );
       case _Phase.importing:
-        return _LoadingStep(message: 'adding these to your diary…', dark: _dark);
+        return _LoadingStep(message: 'adding these to your diary…'.tr, dark: _dark);
       case _Phase.done:
         return _DoneStep(result: _committed!, embedded: widget.embedded, onDone: widget.onDone);
     }
@@ -413,7 +413,7 @@ class _InputStepState extends State<_InputStep> {
                   border: Border.all(color: SeenlyPalette.mediaColor(interest.value).withOpacity(0.4)),
                 ),
                 child: Text(
-                  interest.label,
+                  interest.label.tr,
                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.mediaColor(interest.value))
                       .copyWith(fontWeight: FontWeight.w800),
                 ),
@@ -432,7 +432,7 @@ class _InputStepState extends State<_InputStep> {
           children: [
             Expanded(
               child: PillChip(
-                label: 'already watched',
+                label: 'already watched'.tr,
                 fullWidth: true,
                 active: widget.defaultStatus == 'watched',
                 onTap: () => widget.onStatusChanged('watched'),
@@ -441,7 +441,7 @@ class _InputStepState extends State<_InputStep> {
             const SizedBox(width: 8),
             Expanded(
               child: PillChip(
-                label: 'plan to watch',
+                label: 'plan to watch'.tr,
                 fullWidth: true,
                 active: widget.defaultStatus == 'watch_later',
                 onTap: () => widget.onStatusChanged('watch_later'),
@@ -480,7 +480,7 @@ class _InputStepState extends State<_InputStep> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'from ${source.label}: ${source.instructions}',
+                          '${'from'.tr} ${source.label}: ${source.instructions.tr}',
                           style: SeenlyText.mono(size: 10, color: mutedColor),
                         ),
                       ),
@@ -502,7 +502,7 @@ class _InputStepState extends State<_InputStep> {
             decoration: InputDecoration(
               contentPadding: const EdgeInsets.all(14),
               border: InputBorder.none,
-              hintText: source?.hint ?? _plainListHint,
+              hintText: source?.hint.tr ?? _plainListHint.tr,
               hintStyle: SeenlyText.mono(size: 12, color: faintColor),
             ),
           ),
@@ -512,7 +512,7 @@ class _InputStepState extends State<_InputStep> {
           Text(widget.error!, style: SeenlyText.mono(size: 10, color: SeenlyPalette.coral)),
         ],
         const SizedBox(height: 20),
-        PrimaryButton(label: 'find matches', onTap: widget.onSubmit),
+        PrimaryButton(label: 'find matches'.tr, onTap: widget.onSubmit),
       ],
     );
   }
@@ -536,7 +536,7 @@ class _SourcePicker extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Text(
-              group.label,
+              group.label.tr,
               style: SeenlyText.mono(size: 9, color: dark ? Colors.white.withOpacity(0.42) : SeenlyPalette.placeholder),
             ),
           ),
@@ -690,8 +690,8 @@ class _ReviewStep extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'matched $matchedCount of ${preview.rows.length} — review below, '
-                  'then import what looks right',
+                  '${'matched'.tr} $matchedCount ${'of'.tr} ${preview.rows.length} ${'— review below, '.tr}'
+                  '${'then import what looks right'.tr}',
                   style: SeenlyText.serif(italic: true, size: 12, color: mutedColor),
                 ),
               ),
@@ -725,7 +725,7 @@ class _ReviewStep extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: PrimaryButton(
-                  label: selectedCount == 0 ? 'nothing selected' : 'import $selectedCount title${selectedCount == 1 ? '' : 's'}',
+                  label: selectedCount == 0 ? 'nothing selected'.tr : '${'import'.tr} ${ruCount(selectedCount, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles')}',
                   onTap: selectedCount == 0 ? null : onImport,
                 ),
               ),
@@ -828,13 +828,13 @@ class _ImportRowCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: SeenlyText.cardTitle.copyWith(color: dark ? SeenlyPalette.paper : null)),
                 const SizedBox(height: 2),
-                Text('${chosen.mediaType} · ${chosen.year ?? '—'}',
+                Text('${mediaTypeLabel(chosen.mediaType)} · ${chosen.year ?? '—'}',
                     style: SeenlyText.metaLabel.copyWith(color: faintColor)),
                 const SizedBox(height: 6),
                 Row(
                   children: [
                     _StatusPill(
-                      label: 'watched',
+                      label: 'watched'.tr,
                       active: row.status == 'watched',
                       dark: dark,
                       onTap: () {
@@ -844,7 +844,7 @@ class _ImportRowCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     _StatusPill(
-                      label: 'plan to watch',
+                      label: 'plan to watch'.tr,
                       active: row.status == 'watch_later',
                       dark: dark,
                       onTap: () {

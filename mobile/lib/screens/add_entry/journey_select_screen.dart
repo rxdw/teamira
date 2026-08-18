@@ -464,7 +464,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
             _PanelRow(
               icon: Icons.circle_outlined,
               iconColor: SeenlyPalette.periwinkle,
-              label: 'from',
+              label: 'from'.tr,
               value: _origin.name,
               expanded: _panel == _Panel.from,
               onTap: () => _togglePanel(_Panel.from),
@@ -483,7 +483,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
           _PanelRow(
             icon: Icons.adjust,
             iconColor: SeenlyPalette.inkFaint,
-            label: 'to',
+            label: 'to'.tr,
             value: _loadingOptions ? 'finding routes…' : (_current?.title ?? '—'),
             detail: (!_loadingOptions && _current != null) ? _fmtDuration(_current!.minutes) : null,
             expanded: _panel == _Panel.to,

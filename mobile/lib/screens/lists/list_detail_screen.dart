@@ -65,7 +65,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Entrance(
-              child: Text('delete "${list.name}"?',
+              child: Text('${'delete'.tr} "${list.name}"?',
                   textAlign: TextAlign.center,
                   style: SeenlyText.serif(italic: true, size: 16)),
             ),

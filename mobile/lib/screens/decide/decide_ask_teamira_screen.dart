@@ -250,7 +250,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 22),
-              child: PrimaryButton(label: 'find matches', onTap: _submit),
+              child: PrimaryButton(label: 'find matches'.tr, onTap: _submit),
             ),
           ],
         ),

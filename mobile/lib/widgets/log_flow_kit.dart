@@ -46,7 +46,7 @@ class LogFlowTopBar extends StatelessWidget {
               onTap: onTrailing,
               child: Padding(
                 padding: const EdgeInsets.all(10),
-                child: Text(trailingLabel!, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.6))),
+                child: Text(trailingLabel!.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.6))),
               ),
             )
           else
@@ -527,7 +527,7 @@ Future<void> showLeaveRouteDialog(
             Navigator.of(dialogContext).pop();
             onReturnToRoute();
           },
-          child: Text('back to $routeNoun',
+          child: Text('${'back to'.tr} $routeNoun',
               style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.paper, weight: FontWeight.w600)),
         ),
         TextButton(
@@ -535,7 +535,7 @@ Future<void> showLeaveRouteDialog(
             Navigator.of(dialogContext).pop();
             onEndRoute();
           },
-          child: Text('cancel $routeNoun',
+          child: Text('${'cancel'.tr} $routeNoun',
               style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.coral, weight: FontWeight.w600)),
         ),
       ],

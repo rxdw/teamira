@@ -270,7 +270,7 @@ class _MatchRow extends StatelessWidget {
               children: [
                 Text(item.title.display, style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600)),
                 const SizedBox(height: 3),
-                Text('${match.match}% match', style: SeenlyText.mono(size: 10, color: SeenlyPalette.periwinkle)),
+                Text('${match.match}% ${'match'.tr}', style: SeenlyText.mono(size: 10, color: SeenlyPalette.periwinkle)),
                 if (match.reasoning != null) ...[
                   const SizedBox(height: 4),
                   Text(

@@ -16,6 +16,7 @@ import 'tear_ticket_confirm.dart';
 import 'themed_loading_indicator.dart';
 import 'themed_poster_tile.dart';
 import '../services/app_translations.dart';
+import '../services/locale_service.dart';
 
 /// The whole "plan an evening" ritual, full screen: pick something off
 /// the plan-to-watch shelf, say when, say whether it's a co-viewing
@@ -372,7 +373,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'watching with ${_partnerStatus?.partnerUsername ?? 'your partner'}',
+                '${'watching with'.tr} ${_partnerStatus?.partnerUsername ?? 'your partner'.tr}',
                 style: SeenlyText.serif(size: 13),
               ),
             ),
@@ -555,11 +556,11 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _DateChip(label: 'tomorrow', selected: _sameDay(_date, tomorrow), onTap: () => setState(() => _date = tomorrow)),
+                child: _DateChip(label: 'tomorrow'.tr, selected: _sameDay(_date, tomorrow), onTap: () => setState(() => _date = tomorrow)),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _DateChip(label: 'this weekend', selected: _sameDay(_date, weekend), onTap: () => setState(() => _date = weekend)),
+                child: _DateChip(label: 'this weekend'.tr, selected: _sameDay(_date, weekend), onTap: () => setState(() => _date = weekend)),
               ),
             ],
           ),
@@ -578,7 +579,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
             children: [
               Expanded(
                 child: _DateChip(
-                  label: 'morning',
+                  label: 'morning'.tr,
                   selected: _isTimePreset(10, 0),
                   onTap: () => setState(() => _time = const TimeOfDay(hour: 10, minute: 0)),
                 ),
@@ -586,7 +587,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: _DateChip(
-                  label: 'afternoon',
+                  label: 'afternoon'.tr,
                   selected: _isTimePreset(14, 0),
                   onTap: () => setState(() => _time = const TimeOfDay(hour: 14, minute: 0)),
                 ),
@@ -594,7 +595,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: _DateChip(
-                  label: 'evening',
+                  label: 'evening'.tr,
                   selected: _isTimePreset(19, 0),
                   onTap: () => setState(() => _time = const TimeOfDay(hour: 19, minute: 0)),
                 ),
@@ -602,7 +603,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
               const SizedBox(width: 8),
               Expanded(
                 child: _DateChip(
-                  label: 'night',
+                  label: 'night'.tr,
                   selected: _isTimePreset(21, 0),
                   onTap: () => setState(() => _time = const TimeOfDay(hour: 21, minute: 0)),
                 ),
@@ -687,8 +688,8 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
           ),
           const SizedBox(height: 22),
           TearTicketConfirm(
-            label: 'pull apart to get your ticket',
-            confirmedLabel: 'it\'s yours',
+            label: 'pull apart to get your ticket'.tr,
+            confirmedLabel: 'it\'s yours'.tr,
             accent: SeenlyPalette.accent,
             onConfirmed: _confirm,
           ),
@@ -965,7 +966,17 @@ class _MiniCalendarState extends State<_MiniCalendar> {
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
+  // Nominative form for a standalone calendar heading ("Январь 2026") —
+  // a different case than the genitive month names in
+  // screens/profile/level_detail_screen.dart's "since ___" line, so kept
+  // separate rather than routed through the generic word-for-word .tr
+  // table.
+  static const _monthNamesRu = [
+    'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+    'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
+  ];
   static const _weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  static const _weekdayLabelsRu = ['П', 'В', 'С', 'Ч', 'П', 'С', 'В'];
 
   @override
   void initState() {
@@ -1029,7 +1040,7 @@ class _MiniCalendarState extends State<_MiniCalendar> {
               Expanded(
                 child: Center(
                   child: Text(
-                    '${_monthNames[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                    '${(LocaleService.appIsRussian ? _monthNamesRu : _monthNames)[_visibleMonth.month - 1]} ${_visibleMonth.year}',
                     style: SeenlyText.serif(size: 13.5, weight: FontWeight.w600),
                   ),
                 ),
@@ -1039,7 +1050,7 @@ class _MiniCalendarState extends State<_MiniCalendar> {
           ),
           const SizedBox(height: 8),
           Row(
-            children: _weekdayLabels
+            children: (LocaleService.appIsRussian ? _weekdayLabelsRu : _weekdayLabels)
                 .map((l) => Expanded(
                       child: Center(
                         child: Text(

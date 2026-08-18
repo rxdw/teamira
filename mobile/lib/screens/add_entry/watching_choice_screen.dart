@@ -172,8 +172,8 @@ class WatchingChoiceScreen extends StatelessWidget {
                 child: _ChoiceHalf(
                   icon: Icons.check,
                   iconColor: SeenlyPalette.sage,
-                  title: 'already watched',
-                  subtitle: 'rate it and log the evening now',
+                  title: 'already watched'.tr,
+                  subtitle: 'rate it and log the evening now'.tr,
                   background: SeenlyPalette.paper,
                   contentAlignment: const Alignment(0, 0.35),
                   entranceDelay: const Duration(milliseconds: 40),
@@ -184,7 +184,7 @@ class WatchingChoiceScreen extends StatelessWidget {
                 child: _ChoiceHalf(
                   icon: _watchingNowIcon(theme),
                   iconColor: SeenlyPalette.periwinkle,
-                  title: 'watching now',
+                  title: 'watching now'.tr,
                   subtitle: _watchingNowSubtitle(theme),
                   background: SeenlyPalette.periwinkle.withOpacity(0.08),
                   contentAlignment: const Alignment(0, -0.35),

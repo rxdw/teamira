@@ -247,7 +247,7 @@ class YearShareCard extends StatelessWidget {
               style: SeenlyText.serif(size: 52, weight: FontWeight.w700)),
           Text('evenings logged'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
           const SizedBox(height: 6),
-          Text('${stat.hours.toStringAsFixed(0)} hours in',
+          Text('${stat.hours.toStringAsFixed(0)} ${'hours in'.tr}',
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),
           const SizedBox(height: 18),
           if (stat.favoriteTitle != null) ...[
@@ -258,7 +258,7 @@ class YearShareCard extends StatelessWidget {
               height: 156,
             ),
             const SizedBox(height: 8),
-            Text('favorite: ${stat.favoriteTitle}',
+            Text('${'favorite'.tr}: ${stat.favoriteTitle}',
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -270,9 +270,9 @@ class YearShareCard extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: [
-              if (topGenre != null) _StatChip(label: 'top genre: $topGenre'),
+              if (topGenre != null) _StatChip(label: "${'top genre'.tr}: $topGenre"),
               if (stat.longestStreak > 1)
-                _StatChip(label: 'longest streak: ${stat.longestStreak}d'),
+                _StatChip(label: "${'longest streak'.tr}: ${ruCount(stat.longestStreak, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')}"),
             ],
           ),
           const SizedBox(height: 18),

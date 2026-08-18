@@ -326,7 +326,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
                     style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.inkMuted),
                   ),
                   const SizedBox(height: 20),
-                  PrimaryButton(label: 'try again', onTap: _start, expand: false),
+                  PrimaryButton(label: 'try again'.tr, onTap: _start, expand: false),
                 ],
               ),
             ),
@@ -423,7 +423,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             Entrance(
               delay: const Duration(milliseconds: 200),
               riseBy: 14,
-              child: PrimaryButton(label: 'done', onTap: () => Navigator.of(context).pop(winner)),
+              child: PrimaryButton(label: 'done'.tr, onTap: () => Navigator.of(context).pop(winner)),
             ),
             const SizedBox(height: 10),
             Center(
@@ -488,7 +488,7 @@ class _PollCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'runoff · round ${session.roundNumber}',
+                            '${'runoff · round'.tr} ${session.roundNumber}',
                             style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.8)),
                           ),
                         )
@@ -588,7 +588,7 @@ class _CandidateTile extends StatelessWidget {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: Text(
-                  votes == 1 ? '1 vote' : '$votes votes',
+                  ruCount(votes, one: 'голос', few: 'голоса', many: 'голосов', englishOne: 'vote', englishOther: 'votes'),
                   key: ValueKey(votes),
                   style: SeenlyText.mono(
                     size: 12,

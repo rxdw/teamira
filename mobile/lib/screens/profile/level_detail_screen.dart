@@ -15,10 +15,19 @@ import '../../widgets/achievement_badge.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 const _kMonthNames = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
+];
+// Genitive case ("since ___") — a different form from the nominative
+// month names used e.g. on _MiniCalendar's header, so this stays its
+// own array rather than going through the generic word-for-word .tr
+// table, which has no notion of grammatical case.
+const _kMonthNamesRuGenitive = [
+  '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
+  'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
 ];
 
 
@@ -140,7 +149,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          '${level.xpIntoLevel} / ${level.xpForNextLevel} xp to level ${level.level + 1}',
+                          '${level.xpIntoLevel} / ${level.xpForNextLevel} xp ${'to level'.tr} ${level.level + 1}',
                           textAlign: TextAlign.center,
                           style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted),
                         ),
@@ -459,7 +468,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("couldn't upload photo: $e")));
+          .showSnackBar(SnackBar(content: Text("${"couldn't upload photo".tr}: $e")));
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
@@ -637,7 +646,17 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
         if (user?.createdAt != null) ...[
           const SizedBox(height: 6),
           Text(
-            'on teamira since \${_kMonthNames[user!.createdAt!.month]} \${user.createdAt!.year}'.tr,
+            // Was a plain string with escaped `\$` in it, so the
+            // month/year never actually interpolated — it just printed
+            // the template literally. Built from real interpolation now,
+            // with the month name picked from whichever array matches
+            // the current interface language (the Russian one needs the
+            // genitive "since ___" form, not a word-for-word swap).
+            'on teamira since '.tr +
+                (LocaleService.appIsRussian
+                    ? _kMonthNamesRuGenitive[user!.createdAt!.month]
+                    : _kMonthNames[user!.createdAt!.month]) +
+                ' ${user.createdAt!.year}',
             style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
           ),
         ],
@@ -678,7 +697,7 @@ class _RealFriendsCountState extends State<_RealFriendsCount> {
   @override
   Widget build(BuildContext context) {
     if (_count == null) return const SizedBox(height: 15);
-    return _FollowCount(value: _count!, label: _count == 1 ? 'friend' : 'friends');
+    return _FollowCount(value: _count!, label: ruPluralForm(_count!, one: 'друг', few: 'друга', many: 'друзей', englishOne: 'friend', englishOther: 'friends'));
   }
 }
 
@@ -852,7 +871,7 @@ class _BreakdownRow extends StatelessWidget {
               children: [
                 Text(label, style: SeenlyText.serif(size: 13.5)),
                 const SizedBox(height: 1),
-                Text('$count logged', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
+                Text('$count ${'logged'.tr}', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
               ],
             ),
           ),
@@ -996,7 +1015,7 @@ class _LevelPathRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'level $levelNumber',
+              '${'level'.tr} $levelNumber',
               style: SeenlyText.serif(size: 13.5, weight: isCurrent ? FontWeight.w700 : FontWeight.w500),
             ),
           ),
@@ -1053,7 +1072,7 @@ class _LevelMilestoneCard extends StatelessWidget {
           children: [
             RoundBadgeMedallion(
               iconKey: 'level',
-              title: 'level $levelNumber',
+              title: '${'level'.tr} $levelNumber',
               rarity: levelBadgeRarityKey(levelNumber),
               unlocked: reached,
               diameter: 44,
@@ -1064,7 +1083,7 @@ class _LevelMilestoneCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('level $levelNumber', style: SeenlyText.serif(size: 16.5, weight: FontWeight.w700)),
+                  Text('${'level'.tr} $levelNumber', style: SeenlyText.serif(size: 16.5, weight: FontWeight.w700)),
                   const SizedBox(height: 3),
                   Text(subtitle, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkMuted)),
                   const SizedBox(height: 6),

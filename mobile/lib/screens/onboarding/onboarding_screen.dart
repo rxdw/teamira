@@ -1500,7 +1500,7 @@ class _WelcomeStep extends StatelessWidget {
                     style: SeenlyText.serif(size: 14, color: Colors.white.withOpacity(0.62)),
                   ),
                   const Spacer(flex: 3),
-                  PrimaryButton(label: "let's go", onTap: onNext),
+                  PrimaryButton(label: "let's go".tr, onTap: onNext),
                 ],
               ),
             ),
@@ -2116,9 +2116,9 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
           const SizedBox(height: 14),
           Container(width: 26, height: 2, color: card.color),
           const SizedBox(height: 10),
-          Text(card.tag, style: SeenlyText.mono(size: 9, color: Colors.white.withOpacity(0.48))),
+          Text(card.tag.tr, style: SeenlyText.mono(size: 9, color: Colors.white.withOpacity(0.48))),
           const SizedBox(height: 4),
-          Text(card.title,
+          Text(card.title.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 16, weight: FontWeight.w700, color: SeenlyPalette.paper)),
           const SizedBox(height: 8),
@@ -2126,7 +2126,7 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: useDeck
                 ? _DeckCaption(hasSecondary: secondaryDeck.isNotEmpty)
-                : Text(card.text,
+                : Text(card.text.tr,
                     textAlign: TextAlign.center,
                     style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55))),
           ),
@@ -3158,7 +3158,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
                   child: _ChoiceCard(
                     flag: '🇬🇧',
                     label: 'English',
-                    subtitle: 'always available',
+                    subtitle: 'always available'.tr,
                     selected: !locale.preferRussian,
                     onTap: () => _choose(false),
                   ),
@@ -3168,7 +3168,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
                   child: _ChoiceCard(
                     flag: '🇷🇺',
                     label: 'Russian',
-                    subtitle: 'when a title has one',
+                    subtitle: 'when a title has one'.tr,
                     selected: locale.preferRussian,
                     onTap: () => _choose(true),
                   ),
@@ -3177,7 +3177,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
             ),
           ),
           const Spacer(),
-          _StaggerIn(controller: _entrance, index: 4, child: PrimaryButton(label: 'continue', onTap: widget.onNext)),
+          _StaggerIn(controller: _entrance, index: 4, child: PrimaryButton(label: 'continue'.tr, onTap: widget.onNext)),
         ],
       ),
     );
@@ -3500,7 +3500,7 @@ class _RitualStepState extends State<_RitualStep> {
                       children: [
                         _DarkBackCircle(onTap: () => _go(-1)),
                         const SizedBox(width: 10),
-                        Expanded(child: PrimaryButton(label: 'choose this world', onTap: _choose)),
+                        Expanded(child: PrimaryButton(label: 'choose this world'.tr, onTap: _choose)),
                       ],
                     ),
                   ],
@@ -3679,11 +3679,11 @@ class _RitualWorldView extends StatelessWidget {
         children: [
           SizedBox(height: 150, child: Center(child: _artFor(world))),
           const SizedBox(height: 18),
-          Text(world.label,
+          Text(world.label.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 17, weight: FontWeight.w700, color: SeenlyPalette.paper)),
           const SizedBox(height: 8),
-          Text(world.diary,
+          Text(world.diary.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55))),
         ],
@@ -4141,7 +4141,7 @@ class _InterestStarState extends State<_InterestStar> with SingleTickerProviderS
                 color: widget.selected ? SeenlyPalette.paper : Colors.white54,
                 weight: widget.selected ? FontWeight.w700 : FontWeight.w400,
               ),
-              child: Text(widget.interest.label),
+              child: Text(widget.interest.label.tr),
             ),
           ],
         ),
@@ -4559,7 +4559,7 @@ class _MotivationStepState extends State<_MotivationStep> with SingleTickerProvi
             style: SeenlyText.serif(size: 13, color: Colors.white.withOpacity(0.55)),
           ),
           const Spacer(),
-          PrimaryButton(label: 'continue', onTap: widget.onNext),
+          PrimaryButton(label: 'continue'.tr, onTap: widget.onNext),
         ],
       ),
     );
@@ -5195,7 +5195,7 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
 
     final labels = [
       for (final v in interestValues)
-        kInterests.firstWhere((i) => i.value == v, orElse: () => kInterests.first).label,
+        kInterests.firstWhere((i) => i.value == v, orElse: () => kInterests.first).label.tr,
     ];
 
     late final _RitualWorld world;
@@ -5214,7 +5214,7 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
     }
 
     final interestsPhrase = _joinNaturally(labels);
-    final diary = world.diary; // e.g. "your diary becomes a jar, filling up with stubs"
+    final diary = world.diary.tr; // e.g. "your diary becomes a jar, filling up with stubs"
     final diaryCapitalized = diary.isEmpty ? diary : diary[0].toUpperCase() + diary.substring(1);
 
     setState(() {
@@ -5653,7 +5653,7 @@ class _PlanCard extends StatelessWidget {
               const SizedBox(height: 18),
               Row(
                 children: [
-                  _cardTag(world.label, world.color),
+                  _cardTag(world.label.tr, world.color),
                   const SizedBox(width: 8),
                   _cardTag(preferRussian ? 'RU' : 'EN', Colors.white.withOpacity(0.5)),
                 ],

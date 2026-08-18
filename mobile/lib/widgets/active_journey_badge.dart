@@ -113,7 +113,7 @@ class _ActiveJourneyBadgeState extends State<ActiveJourneyBadge> {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 150),
                       child: Text(
-                        '${journey.isPaused ? 'paused' : label} · ${journey.item.title.display}',
+                        '${journey.isPaused ? 'paused'.tr : label} · ${journey.item.title.display}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.paper, weight: FontWeight.w600),

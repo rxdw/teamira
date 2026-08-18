@@ -208,15 +208,15 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                         child: Row(
                           children: [
                             Expanded(
-                                child: _QuickJump(label: 'home', onTap: () => widget.onEnter(0))),
+                                child: _QuickJump(label: 'home'.tr, onTap: () => widget.onEnter(0))),
                             const SizedBox(width: 8),
                             Expanded(
                                 child: _QuickJump(
-                                    label: 'discover', onTap: () => widget.onEnter(2))),
+                                    label: 'discover'.tr, onTap: () => widget.onEnter(2))),
                             const SizedBox(width: 8),
                             Expanded(
                                 child: _QuickJump(
-                                    label: 'profile', onTap: () => widget.onEnter(3))),
+                                    label: 'profile'.tr, onTap: () => widget.onEnter(3))),
                           ],
                         ),
                       ),

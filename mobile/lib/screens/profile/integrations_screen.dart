@@ -55,7 +55,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
   Future<void> _copy(String value, String label) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label copied')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label ${'copied'.tr}')));
   }
 
   Future<void> _rotate() async {
@@ -135,7 +135,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         Text("couldn't load this just now".tr,
                             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
                         const SizedBox(height: 14),
-                        PrimaryButton(label: 'try again', onTap: _load, expand: false),
+                        PrimaryButton(label: 'try again'.tr, onTap: _load, expand: false),
                       ],
                     ),
                   ),
@@ -166,15 +166,15 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                           const SizedBox(height: 8),
                           _PickHintRow(
                             label: 'Plex or Jellyfin',
-                            detail: 'you (or a friend) run one of these to store and stream your own library',
+                            detail: 'you (or a friend) run one of these to store and stream your own library'.tr,
                           ),
                           _PickHintRow(
                             label: 'Kodi',
-                            detail: 'a media-center app on a TV box, PC, or console',
+                            detail: 'a media-center app on a TV box, PC, or console'.tr,
                           ),
                           _PickHintRow(
-                            label: 'browser extension',
-                            detail: 'you just watch things on streaming sites like Netflix or Kinopoisk in a normal browser',
+                            label: 'browser extension'.tr,
+                            detail: 'you just watch things on streaming sites like Netflix or Kinopoisk in a normal browser'.tr,
                           ),
                         ],
                       ),

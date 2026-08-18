@@ -75,7 +75,7 @@ class WatchOnSourceButton extends StatelessWidget {
           Icon(icon, size: 16, color: SeenlyPalette.accentOnAccent),
           const SizedBox(width: 8),
           Text(
-            'watch on ${sourceLabel(source)}',
+            '${'watch on'.tr} ${sourceLabel(source)}',
             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent),
           ),
         ],

@@ -93,7 +93,7 @@ class _GardenBoxState extends State<GardenBox> with SingleTickerProviderStateMix
             ),
             const SizedBox(height: 16),
             Text(
-              isEmpty ? 'an empty box, waiting' : '${widget.entries.length} ${widget.entries.length == 1 ? 'evening' : 'evenings'}, blooming',
+              isEmpty ? 'an empty box, waiting'.tr : '${ruCount(widget.entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')}, ${'blooming'.tr}',
               style: SeenlyText.serif(italic: true, size: 19),
             ),
             const SizedBox(height: 5),
@@ -331,8 +331,8 @@ class GardenBedScreen extends StatelessWidget {
                         Text('the window garden'.tr, style: SeenlyText.serif(italic: true, size: 18)),
                         Text(
                           entries.isEmpty
-                              ? 'nothing planted yet'
-                              : '${entries.length} ${entries.length == 1 ? 'evening' : 'evenings'} grown',
+                              ? 'nothing planted yet'.tr
+                              : '${ruCount(entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')} ${'grown'.tr}',
                           style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                         ),
                       ],

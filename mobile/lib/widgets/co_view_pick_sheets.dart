@@ -137,7 +137,7 @@ class _RandomPickSheetState extends State<_RandomPickSheet> {
               child: Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
             )
           else if (_failed)
-            _SheetMessage(text: 'tap to try again', onTap: _load)
+            _SheetMessage(text: 'tap to try again'.tr, onTap: _load)
           else if (_pick == null)
             _SheetMessage(text: coViewEmptyPoolHint(_source))
           else ...[
@@ -178,7 +178,7 @@ class _RandomPickSheetState extends State<_RandomPickSheet> {
               ],
             ),
             const SizedBox(height: 22),
-            PrimaryButton(label: 'propose it to the circle', onTap: _choose),
+            PrimaryButton(label: 'propose it to the circle'.tr, onTap: _choose),
           ],
         ],
       ),
@@ -325,7 +325,7 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
               child: Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
             )
           else if (_failed)
-            _SheetMessage(text: 'tap to try again', onTap: _load)
+            _SheetMessage(text: 'tap to try again'.tr, onTap: _load)
           else if (_pick == null)
             _SheetMessage(text: coViewEmptyPoolHint(_source))
           else ...[
@@ -392,13 +392,13 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
 String coViewEmptyPoolHint(String source) {
   switch (source) {
     case CoViewVotePoolSource.coview:
-      return "nothing planned together yet — suggest a few titles first";
+      return "nothing planned together yet — suggest a few titles first".tr;
     case CoViewVotePoolSource.both:
-      return "nothing queued on either side yet — add a few titles, or plan something together first";
+      return "nothing queued on either side yet — add a few titles, or plan something together first".tr;
     case CoViewVotePoolSource.catalog:
-      return "couldn't load the catalog just now — try again in a moment";
+      return "couldn't load the catalog just now — try again in a moment".tr;
     default:
-      return "nothing queued on either side yet — add a few titles to your plan-to-watch shelves first";
+      return "nothing queued on either side yet — add a few titles to your plan-to-watch shelves first".tr;
   }
 }
 

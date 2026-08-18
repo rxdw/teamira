@@ -598,9 +598,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(22, 0, 22, 6),
-                            child: SectionHeader(title: 'watching now'),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                            child: SectionHeader(title: 'watching now'.tr),
                           ),
                           _WatchingNowSection(
                             journeys: watchingNowJourneys,
@@ -665,7 +665,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SectionHeader(title: 'continue watching'),
+                        SectionHeader(title: 'continue watching'.tr),
                         const SizedBox(height: 10),
                         _ContinueWatchingCard(entry: recentSeries),
                       ],
@@ -685,7 +685,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: ScrollReveal(
                     delay: freshDelay = nextStagger(),
                     child: SectionHeader(
-                      title: 'fresh in your diary',
+                      title: 'fresh in your diary'.tr,
                       trailing: freshEntries.isNotEmpty ? 'all →' : null,
                       onTrailingTap: () => RootShell.switchTab(context, RootShell.diaryTab),
                     ),
@@ -802,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         Padding(
                           padding: const EdgeInsets.only(right: 22),
                           child: SectionHeader(
-                            title: 'for you, with trailers',
+                            title: 'for you, with trailers'.tr,
                             trailing: 'watch all →',
                             onTrailingTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
@@ -867,21 +867,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               children: [
                                 Expanded(
                                   child: _TonightBanner(
-                                    label: 'picked for tonight',
+                                    label: 'picked for tonight'.tr,
                                     collection: pickedCollection,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: _TonightBanner(
-                                    label: 'game of the evening',
+                                    label: 'game of the evening'.tr,
                                     collection: pickedGameCollection,
                                   ),
                                 ),
                               ],
                             )
                           : _TonightBanner(
-                              label: 'picked for tonight', collection: pickedCollection),
+                              label: 'picked for tonight'.tr, collection: pickedCollection),
                     ),
                   ),
                 )
@@ -909,7 +909,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         // the "fresh in your diary" group above.
                         ScrollReveal(
                           delay: feedDelay = nextStagger(),
-                          child: const SectionHeader(title: 'more for tonight'),
+                          child: SectionHeader(title: 'more for tonight'.tr),
                         ),
                         const SizedBox(height: 10),
                         for (final entry in _feedMosaicRows(feedItems).asMap().entries) ...[
@@ -1484,8 +1484,8 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          title: 'friends',
-          trailing: 'see all →',
+          title: 'friends'.tr,
+          trailing: 'see all →'.tr,
           onTrailingTap: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const FriendsActivityFeedScreen()),
           ),
@@ -1573,7 +1573,7 @@ class _ContinueWatchingCard extends StatelessWidget {
                 children: [
                   Text(entry.displayTitle, style: SeenlyText.cardTitle),
                   const SizedBox(height: 5),
-                  Text('last logged ${_relativeDay(entry.watchedAt)}',
+                  Text('${'last logged'.tr} ${_relativeDay(entry.watchedAt)}',
                       style: SeenlyText.metaLabel),
                 ],
               ),
@@ -1928,7 +1928,9 @@ class _WatchingNowEntryCardState extends State<_WatchingNowEntryCard> {
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
-    final label = _watched != null && _total != null ? '$_watched/$_total episodes' : 'in progress';
+    final label = _watched != null && _total != null
+        ? '$_watched/$_total ${ruPluralForm(_total, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}'
+        : 'in progress'.tr;
     // Only meaningful for the non-series tap path below (straight to
     // TitleDetailScreen) — series taps open a sheet instead, so this tag
     // just never gets matched there, which is harmless.
@@ -2648,7 +2650,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
           Row(
             children: [
               PrimaryButton(
-                label: 'get a code',
+                label: 'get a code'.tr,
                 onTap: _generateCode,
                 loading: _busy,
                 expand: false,
@@ -2714,7 +2716,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          pendingSuggestions == 1 ? '1 suggestion waiting' : '$pendingSuggestions suggestions waiting',
+                          '${ruCount(pendingSuggestions, one: 'предложение', few: 'предложения', many: 'предложений', englishOne: 'suggestion', englishOther: 'suggestions')} ${'waiting'.tr}',
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.accent, weight: FontWeight.w700),
                         ),
                       )
@@ -2784,7 +2786,7 @@ class _StreakInfoSheet extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            streakDays == 1 ? '1 evening streak' : '$streakDays evening streak',
+                            '${ruCount(streakDays, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')} ${'in a row'.tr}',
                             style: SeenlyText.serif(size: 16, weight: FontWeight.w700),
                           ),
                         ),
@@ -3105,7 +3107,7 @@ class _JoinCodeInline extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            PrimaryButton(label: 'join', onTap: onJoin, loading: busy, expand: false),
+            PrimaryButton(label: 'join'.tr, onTap: onJoin, loading: busy, expand: false),
           ],
         ),
         if (error != null) ...[
@@ -3228,7 +3230,7 @@ class _SuggestionRow extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${suggestion.senderUsername} suggested this',
+                      Text('${suggestion.senderUsername} ${'suggested this'.tr}',
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
                       const SizedBox(height: 3),
                       Text(suggestion.displayTitle,

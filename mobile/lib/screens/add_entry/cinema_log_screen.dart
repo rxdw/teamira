@@ -412,13 +412,13 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
       children: [
         LogFlowTopBar(
           onBack: _confirmLeaveSeatStep,
-          trailingLabel: 'skip',
+          trailingLabel: 'skip'.tr,
           onTrailing: _skipToConfirm,
         ),
         CollapsingAnnouncement(
           preshow: _preshow,
           breathe: _breathe,
-          text: 'please silence your phone — the show is about to start',
+          text: 'please silence your phone — the show is about to start'.tr,
           glow: SeenlyPalette.coral,
         ),
         const SizedBox(height: 6),
@@ -518,10 +518,10 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
     return Column(
       key: const ValueKey('details-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.seat), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.seat), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SeatPill(label: 'seat $_seatLabel'),
+          child: SeatPill(label: '${'seat'.tr} $_seatLabel'),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -578,7 +578,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                     Text('together'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                     const SizedBox(height: 10),
                     PillChip(
-                      label: 'watched with $_partnerUsername',
+                      label: "${'watched with'.tr} $_partnerUsername",
                       active: _watchedWithPartner,
                       onTap: () => setState(() => _watchedWithPartner = !_watchedWithPartner),
                     ),
@@ -612,7 +612,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'continue',
+            label: 'continue'.tr,
             onTap: () => _goTo(_Step.vibe),
           ),
         ),
@@ -643,10 +643,10 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
     return Column(
       key: const ValueKey('vibe-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.details), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.details), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SeatPill(label: 'seat $_seatLabel'),
+          child: SeatPill(label: '${'seat'.tr} $_seatLabel'),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -713,7 +713,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'continue',
+            label: 'continue'.tr,
             onTap: () => _goTo(_cast.isNotEmpty ? _Step.castPick : _Step.confirm),
           ),
         ),
@@ -734,10 +734,10 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
     return Column(
       key: const ValueKey('cast-pick-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.vibe), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.vibe), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SeatPill(label: 'seat $_seatLabel'),
+          child: SeatPill(label: '${'seat'.tr} $_seatLabel'),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -781,7 +781,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(label: 'continue', onTap: () => _goTo(_Step.confirm)),
+          child: PrimaryButton(label: 'continue'.tr, onTap: () => _goTo(_Step.confirm)),
         ),
       ],
     );
@@ -832,18 +832,18 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                           children: [
                             Text(item.title.display, style: SeenlyText.cardTitle),
                             const SizedBox(height: 3),
-                            Text('seat $_seatLabel · ${item.mediaType}', style: SeenlyText.metaLabel),
+                            Text('${'seat'.tr} $_seatLabel · ${mediaTypeLabel(item.mediaType)}', style: SeenlyText.metaLabel),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const Divider(height: 28, color: SeenlyPalette.border),
-                  ConfirmRow(label: 'when', value: _friendlyDate(_resolvedDate)),
+                  ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
-                    label: 'rating',
-                    value: _rating > 0 ? '$_rating/10 · ${_verdictFor(_rating)}' : 'not rated',
+                    label: 'rating'.tr,
+                    value: _rating > 0 ? '$_rating/10 · ${_verdictFor(_rating)}' : 'not rated'.tr,
                     valueColor: _rating > 0 ? SeenlyPalette.ratingColor(_rating) : SeenlyPalette.inkFaint,
                   ),
                   if (_moodTags.isNotEmpty) ...[
@@ -887,7 +887,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                   ],
                   if (_watchedWithPartner && _partnerUsername != null) ...[
                     const SizedBox(height: 12),
-                    ConfirmRow(label: 'together', value: 'with $_partnerUsername'),
+                    ConfirmRow(label: 'together'.tr, value: "${'with'.tr} $_partnerUsername"),
                   ],
                 ],
               ),
@@ -924,7 +924,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: TicketSubmitButton(label: 'confirm ticket', loading: _saving, onTap: _saving ? null : _confirmAndSave),
+          child: TicketSubmitButton(label: 'confirm ticket'.tr, loading: _saving, onTap: _saving ? null : _confirmAndSave),
         ),
       ],
     );
@@ -971,7 +971,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'keep the stub',
+            label: 'keep the stub'.tr,
             onTap: () => Navigator.of(context).pop(true),
           ),
         ),
@@ -1315,7 +1315,7 @@ class _ScreenStrip extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('HALL $hall', style: SeenlyText.mono(size: 13, color: SeenlyPalette.paper, weight: FontWeight.w600)),
+                    Text('${'HALL'.tr} $hall', style: SeenlyText.mono(size: 13, color: SeenlyPalette.paper, weight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text('tonight\'s screen'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.paper.withOpacity(0.55))),
                   ],
@@ -1347,7 +1347,7 @@ class _ScreenStrip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          Text('${runtimeMinutes ?? 105} min on screen · tonight', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.45))),
+          Text('${runtimeMinutes ?? 105} ${'min on screen · tonight'.tr}', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.45))),
         ],
       ),
     );

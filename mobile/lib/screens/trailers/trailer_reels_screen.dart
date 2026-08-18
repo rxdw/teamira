@@ -10,6 +10,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/poster_lightbox.dart' show scopedPosterHeroTag;
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// The "for you" trailer feed — reached by tapping a [TrailerPreviewCard] or
 /// Home's "watch all" link, never shown by default.
@@ -275,6 +276,7 @@ class _CardBadge extends StatelessWidget {
 }
 
 String _mediaTypeLabel(String mediaType) {
+  if (LocaleService.appIsRussian) return mediaTypeLabel(mediaType);
   if (mediaType.isEmpty) return mediaType;
   return mediaType[0].toUpperCase() + mediaType.substring(1);
 }
@@ -449,7 +451,7 @@ class _ReelCard extends StatelessWidget {
                     Expanded(
                       child: _PrimaryPill(
                         icon: Icons.favorite_border,
-                        label: 'plan to watch',
+                        label: 'plan to watch'.tr,
                         onTap: onLike,
                       ),
                     ),

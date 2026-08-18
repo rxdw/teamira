@@ -515,7 +515,7 @@ class _ShelvesStrip extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 4),
           child: _ShelfRow(
-            label: 'watching now',
+            label: 'watching now'.tr,
             icon: Icons.play_circle_outline,
             tint: SeenlyPalette.sage,
             entries: watching,
@@ -719,7 +719,7 @@ class _PickedForYouStrip extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                 child: SectionHeader(
-                  title: 'picked for you',
+                  title: 'picked for you'.tr,
                   trailing: 'all →',
                   centerTitle: true,
                   onTrailingTap: () => Navigator.of(context).push(
@@ -833,7 +833,7 @@ class _ShelfPickStripState extends State<_ShelfPickStrip> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                 child: SectionHeader(
-                  title: 'pick something from your shelf',
+                  title: 'pick something from your shelf'.tr,
                   trailing: shelf.length > 3 ? '↻' : null,
                   trailingStyle: SeenlyText.mono(size: 15, weight: FontWeight.w700, color: SeenlyPalette.inkFaint),
                   centerTitle: true,
@@ -1034,7 +1034,7 @@ class _SeriesEntryRow extends StatelessWidget {
     final watched = entry.episodesWatched;
     final progressLabel = watched == null || watched == 0
         ? 'S${entry.season}${entry.episode != null ? "E${entry.episode}" : ""}'
-        : '$watched episode${watched == 1 ? "" : "s"} watched · S${entry.season}'
+        : '$watched ${ruPluralForm(watched, one: "серия", few: "серии", many: "серий", englishOne: "episode", englishOther: "episodes")} ${"watched".tr} · S${entry.season}'
             '${entry.episode != null ? "E${entry.episode}" : ""}';
     return PressScale(
       onTap: () => showSeriesEpisodesSheet(
@@ -1233,7 +1233,7 @@ class _DiaryRow extends StatelessWidget {
                       children: [
                         const Icon(Icons.favorite, size: 10, color: SeenlyPalette.accent),
                         const SizedBox(width: 4),
-                        Text('watched with ${entry.watchedWithUsername}',
+                        Text('${'watched with'.tr} ${entry.watchedWithUsername}',
                             style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.accent)),
                       ],
                     ),

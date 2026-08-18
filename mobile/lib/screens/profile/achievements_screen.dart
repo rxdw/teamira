@@ -89,7 +89,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: SeenlyPalette.ink,
           behavior: SnackBarBehavior.floating,
-          content: Text('you can showcase up to $_kMaxPinned badges — unpin one first',
+          content: Text('${'you can showcase up to'.tr} $_kMaxPinned ${'badges — unpin one first'.tr}',
               style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper)),
         ));
         return;
@@ -232,7 +232,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                   children: [
                                     TextSpan(text: '${data.unlockedCount}'),
                                     TextSpan(
-                                      text: ' of ${data.totalCount} unlocked',
+                                      text: " ${'of'.tr} ${data.totalCount} ${'unlocked'.tr}",
                                       style: SeenlyText.serif(size: 15, color: SeenlyPalette.inkMuted),
                                     ),
                                   ],
@@ -286,7 +286,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: Text(
-                            '$shownUnlocked of ${shown.length} ${_activeRarity.label} badges earned',
+                            '$shownUnlocked ${'of'.tr} ${shown.length} ${_activeRarity.label} ${'badges earned'.tr}',
                             key: ValueKey(_activeRarity),
                             style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                           ),

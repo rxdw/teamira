@@ -103,7 +103,7 @@ class NarrowDownPrompt extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PrimaryButton(
-          label: 'narrow it down first',
+          label: 'narrow it down first'.tr,
           onTap: loading ? null : onNarrowDown,
         ),
         const SizedBox(height: 10),
@@ -408,9 +408,9 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
         final session = _session!;
         if (session.deck.isEmpty) {
           return _MessageView(
-            title: 'nothing there to vote on yet',
+            title: 'nothing there to vote on yet'.tr,
             subtitle: _emptyHint(session.poolSource),
-            buttonLabel: 'close',
+            buttonLabel: 'close'.tr,
             onButtonTap: () => _endAndClose(),
           );
         }
@@ -487,7 +487,7 @@ class _VoteDeck extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _CountPill(remaining == 1 ? 'one left' : '$remaining left'),
+              _CountPill('$remaining ${'left'.tr}'),
               _CountPill(otherProgressLabel),
             ],
           ),
@@ -538,7 +538,7 @@ class _VoteDeck extends StatelessWidget {
             children: [
               _VoteDecisionButton(
                 icon: Icons.close,
-                label: 'not this one',
+                label: 'not this one'.tr,
                 iconColor: SeenlyPalette.inkMuted,
                 background: SeenlyPalette.paper,
                 bordered: true,
@@ -546,7 +546,7 @@ class _VoteDeck extends StatelessWidget {
               ),
               _VoteDecisionButton(
                 icon: Icons.favorite,
-                label: 'yes, this',
+                label: 'yes, this'.tr,
                 iconColor: SeenlyPalette.accentOnAccent,
                 background: SeenlyPalette.accent,
                 large: true,
@@ -587,13 +587,13 @@ class _VoteCard extends StatelessWidget {
       background: _VoteSwipeHint(
         alignment: Alignment.centerLeft,
         icon: Icons.favorite,
-        label: 'yes',
+        label: 'yes'.tr,
         color: SeenlyPalette.accent,
       ),
       secondaryBackground: _VoteSwipeHint(
         alignment: Alignment.centerRight,
         icon: Icons.close,
-        label: 'not this one',
+        label: 'not this one'.tr,
         color: SeenlyPalette.inkMuted,
       ),
       child: _VoteCardFace(item: item, maxWidth: maxWidth, maxHeight: maxHeight, elevated: true),
@@ -970,7 +970,7 @@ class _MatchedView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 26),
-        PrimaryButton(label: 'nice', onTap: onDone, expand: false),
+        PrimaryButton(label: 'nice'.tr, onTap: onDone, expand: false),
       ],
     );
   }
@@ -1009,16 +1009,16 @@ class _RecapView extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           partnerDone
-              ? "no match this round — try again, or just pick for us."
+              ? "no match this round — try again, or just pick for us.".tr
               : others > 1
-                  ? 'waiting on the others to finish voting ($partnerDecidedCount of $othersTotal) — '
-                      "this updates the moment they catch up."
-                  : 'waiting on them to finish voting ($partnerDecidedCount of $deckSize) — '
-                      "this updates the moment they catch up.",
+                  ? '${'waiting on the others to finish voting'.tr} ($partnerDecidedCount ${'of'.tr} $othersTotal) — '
+                      "${'this updates the moment they catch up.'.tr}"
+                  : '${'waiting on them to finish voting'.tr} ($partnerDecidedCount ${'of'.tr} $deckSize) — '
+                      "${'this updates the moment they catch up.'.tr}",
           style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
         ),
         const SizedBox(height: 26),
-        PrimaryButton(label: 'vote again', onTap: onStartOver),
+        PrimaryButton(label: 'vote again'.tr, onTap: onStartOver),
         const SizedBox(height: 10),
         Center(
           child: TextButton(

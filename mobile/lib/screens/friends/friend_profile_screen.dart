@@ -519,7 +519,7 @@ class _ActionRowState extends State<_ActionRow> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: SeenlyPalette.paper,
-        title: Text('remove ${widget.data.nameForDisplay}?', style: SeenlyText.serif(weight: FontWeight.w700)),
+        title: Text('${'remove'.tr} ${widget.data.nameForDisplay}?', style: SeenlyText.serif(weight: FontWeight.w700)),
         content: Text("you'll need a new request to be friends again.".tr,
             style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted)),
         actions: [
@@ -615,7 +615,7 @@ class _ActionRowState extends State<_ActionRow> {
       case 'friends':
         return _SoftPill(
           icon: Icons.people_alt_rounded,
-          label: 'friends',
+          label: 'friends'.tr,
           filled: false,
           tint: SeenlyPalette.sage,
           onTap: _confirmUnfriend,
@@ -623,7 +623,7 @@ class _ActionRowState extends State<_ActionRow> {
       case 'pending_outgoing':
         return _SoftPill(
           icon: Icons.hourglass_top_rounded,
-          label: 'requested',
+          label: 'requested'.tr,
           filled: false,
           tint: SeenlyPalette.mustard,
           onTap: _cancelFriendRequest,
@@ -631,14 +631,14 @@ class _ActionRowState extends State<_ActionRow> {
       case 'pending_incoming':
         return _SoftPill(
           icon: Icons.person_add,
-          label: 'accept request',
+          label: 'accept request'.tr,
           filled: true,
           onTap: _acceptFriendRequest,
         );
       default:
         return _SoftPill(
           icon: Icons.person_add_alt,
-          label: 'add friend',
+          label: 'add friend'.tr,
           filled: true,
           onTap: _sendFriendRequest,
         );
@@ -651,7 +651,7 @@ class _ActionRowState extends State<_ActionRow> {
       case 'same_circle':
         return _SoftPill(
           icon: Icons.favorite_rounded,
-          label: 'in your circle',
+          label: 'in your circle'.tr,
           filled: false,
           tint: SeenlyPalette.pink,
           onTap: null,
@@ -659,7 +659,7 @@ class _ActionRowState extends State<_ActionRow> {
       case 'pending_outgoing':
         return _SoftPill(
           icon: Icons.hourglass_top_rounded,
-          label: 'invite sent',
+          label: 'invite sent'.tr,
           filled: false,
           tint: SeenlyPalette.periwinkle,
           onTap: _sendCoviewInvite, // tapping again just re-sends (idempotent server-side)
@@ -667,7 +667,7 @@ class _ActionRowState extends State<_ActionRow> {
       case 'pending_incoming':
         return _SoftPill(
           icon: Icons.favorite,
-          label: 'accept invite',
+          label: 'accept invite'.tr,
           filled: true,
           onTap: _acceptCoviewInvite,
           onLongPress: _declineCoviewInvite,
@@ -675,7 +675,7 @@ class _ActionRowState extends State<_ActionRow> {
       default:
         return _SoftPill(
           icon: Icons.tv_rounded,
-          label: 'invite to co-viewing',
+          label: 'invite to co-viewing'.tr,
           filled: false,
           tint: SeenlyPalette.periwinkle,
           onTap: _sendCoviewInvite,
@@ -791,7 +791,7 @@ class _Shelf extends StatelessWidget {
         child: Center(
           child: Entrance(
             child: Text(
-              '$friendName keeps this shelf private',
+              '$friendName ${'keeps this shelf private'.tr}',
               textAlign: TextAlign.center,
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
             ),

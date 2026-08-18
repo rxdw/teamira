@@ -96,8 +96,8 @@ class _TicketJarState extends State<TicketJar> with SingleTickerProviderStateMix
             const SizedBox(height: 16),
             Text(
               isEmpty
-                  ? 'an empty marquee, waiting'
-                  : '${widget.entries.length} ${widget.entries.length == 1 ? 'evening' : 'evenings'}, up on the marquee',
+                  ? 'an empty marquee, waiting'.tr
+                  : '${ruCount(widget.entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')}, ${'up on the marquee'.tr}',
               style: SeenlyText.serif(italic: true, size: 19),
             ),
             const SizedBox(height: 5),
@@ -356,7 +356,7 @@ class CinemaProgrammeScreen extends StatelessWidget {
                     children: [
                       Text('the programme'.tr, style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
                       Text(
-                        '${entries.length} ${entries.length == 1 ? 'screening' : 'screenings'}',
+                        ruCount(entries.length, one: 'показ', few: 'показа', many: 'показов', englishOne: 'screening', englishOther: 'screenings'),
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                       ),
                     ],

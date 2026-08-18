@@ -102,34 +102,38 @@ class HowItWorksSheet extends StatelessWidget {
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
+                            children: [
                               _HowItWorksStep(
                                 number: '1',
-                                title: 'suggest, then they agree',
+                                title: 'suggest, then they agree'.tr,
                                 body: 'One tap from a title page sends it to your partner\'s '
                                     'Home card, or the "suggested" tab here. It only lands '
-                                    'in "planned" once they accept — ✕ declines it for good.',
+                                    'in "planned" once they accept — ✕ declines it for good.'
+                                    .tr,
                               ),
                               _HowItWorksStep(
                                 number: '2',
-                                title: 'watch together — one phone',
+                                title: 'watch together — one phone'.tr,
                                 body: 'Passing the phone back and forth, one swipe is already '
                                     'both your yes — no second turn needed. It lands in '
-                                    '"planned" the moment you decide.',
+                                    '"planned" the moment you decide.'
+                                    .tr,
                               ),
                               _HowItWorksStep(
                                 number: '3',
-                                title: 'watch together — over the network',
+                                title: 'watch together — over the network'.tr,
                                 body: 'Each on your own phone with a shared code, swiping '
                                     'blind. Only a title you both separately say yes to '
-                                    'becomes a match.',
+                                    'becomes a match.'
+                                    .tr,
                               ),
                               _HowItWorksStep(
                                 number: '4',
-                                title: 'mark it watched',
+                                title: 'mark it watched'.tr,
                                 body: 'Either of you can tap "watched" once you\'ve actually '
                                     'seen it — that logs the evening into both your diaries '
-                                    'at once.',
+                                    'at once.'
+                                    .tr,
                                 isLast: true,
                               ),
                             ],

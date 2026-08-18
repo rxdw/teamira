@@ -205,7 +205,9 @@ class AppTranslations {
     'how should you decide?': 'как ты будешь решать?',
     'how the route map looks': 'как выглядит карта маршрута',
     'how this works': 'как это работает',
-    'https://youtube.com/playlist?list=…\\nor https://twitch.tv/…': 'https://youtube.com/playlist?list=…\\nили https://twitch.tv/…',
+    // Was double-escaped (two literal backslash-n characters), which
+    // never matches the hint text's real newline below.
+    'https://youtube.com/playlist?list=…\nor https://twitch.tv/…': 'https://youtube.com/playlist?list=…\nили https://twitch.tv/…',
     "i'm back — rate it": 'я вернулся(лась) — оцени',
     "if they're nearby, let them scan it": 'если они рядом, дай им отсканировать',
     'if you liked this': 'если тебе понравилось',
@@ -520,6 +522,374 @@ class AppTranslations {
     'co-viewing': 'совместный просмотр',
     'co-viewing settings': 'настройки совместного просмотра',
     'coax the petals apart — or just tap': 'аккуратно раскрой лепестки — или просто нажми',
+
+    // --- filled in: previously wired to .tr() but missing from this
+    // table, so they silently fell back to English even with the
+    // Russian toggle on ---
+    'a co-viewing evening': 'вечер совместного просмотра',
+    'a cozy evening diary for what you watch — not a tracker dashboard, not a leaderboard. just a quiet place to remember the evenings.': 'уютный вечерний дневник того, что ты смотришь — не трекер-дашборд, не таблица лидеров. просто тихое место, чтобы помнить свои вечера.',
+    'a franchise to marathon, picked fresh most days, with a little progress bar for however much of it you\'ve already seen — there\'s a shuffle button on the card itself if it\'s not your thing that day. turn this off if you\'d rather Home stayed without it.': 'франшиза для марафона — свежая подборка почти каждый день, с небольшим прогресс-баром того, сколько ты уже посмотрел(а). на самой карточке есть кнопка «перемешать», если сегодня не твой день. отключи это, если хочешь, чтобы на главном экране её не было.',
+    'a shortlist, a countdown, whoever\'s got the most votes when time\'s up — a tie just runs another round between whoever\'s left.': 'шорт-лист, обратный отсчёт — побеждает тот, у кого больше голосов, когда время выходит. при ничьей просто проходит ещё один раунд между оставшимися.',
+    'already keeping track somewhere else? bring it over — paste a plain list of titles, or an export from any of the services below, and teamira will match each one against the right shelf on its own.': 'уже ведёшь учёт где-то ещё? перенеси сюда — вставь обычный список тайтлов или экспорт из любого из сервисов ниже, и teamira сама сопоставит каждый с нужной полкой.',
+    'auto-tracking picks it up from Plex, Jellyfin, Kodi or your browser and logs it here on its own — set it up once': 'автотрекинг подхватывает это из Plex, Jellyfin, Kodi или твоего браузера и сам логирует здесь — настрой один раз',
+    'every so often, reaching a new level brings a new bunny into your collection — for good. it doesn\'t leave even if a streak breaks later.': 'время от времени новый уровень приносит нового кролика в твою коллекцию — навсегда. он не исчезнет, даже если потом прервётся серия.',
+    'every URL you\'ve already pasted into Plex, Jellyfin, Kodi, or the browser extension stops working — you\'ll need to paste the new one into each of them again.': 'все ссылки, которые ты уже вставил(а) в Plex, Jellyfin, Kodi или расширение браузера, перестанут работать — новую нужно будет вставить в каждый из них заново.',
+    'everyone you\'re friends with is already here — add more friends first, then invite them from here.': 'все, с кем ты дружишь, уже здесь — сначала добавь ещё друзей, а потом приглашай их отсюда.',
+    'just a handful — not everything you\'ve ever watched, that part comes next when you import your history. Pick a few favorites here and "for you" on your home screen starts leaning toward them right away.': 'всего горстка — не всё, что ты когда-либо смотрел(а), это будет дальше, когда импортируешь историю. выбери несколько любимых здесь, и раздел «для тебя» на главном экране сразу начнёт под них подстраиваться.',
+    'leave this alone for anything — pick a few to narrow the deck down to just those': 'оставь как есть, чтобы увидеть всё — или выбери несколько, чтобы сузить подборку только до них',
+    'mark it watched, or let this plan go': 'отметь просмотренным или отпусти этот план',
+    'no account to match? no problem — the box below is exactly what "or just type it in" above is talking about.': 'нет аккаунта для сопоставления? не страшно — поле ниже как раз то, о чём говорит «или просто впиши» выше.',
+    'no streaks to keep and nothing to fall behind on — log an evening whenever you actually have one, and teamira quietly fills in around it.': 'никаких серий, которые нужно поддерживать, и нечего пропускать — записывай вечер, когда он действительно был, а teamira тихо заполнит всё вокруг.',
+    'normally you log something by opening the app yourself. auto-tracking flips that around: you connect one thing below, one time, and after that, finishing an episode or a movie somewhere else logs it here on its own — no app, no remembering.': 'обычно ты сам(а) открываешь приложение, чтобы что-то записать. автотрекинг переворачивает это: один раз подключаешь что-то ниже, и после этого просмотр серии или фильма где-то ещё сам логируется здесь — без приложения, без необходимости помнить.',
+    'nothing here yet — paste a YouTube or Twitch link to bring something over': 'здесь пока пусто — вставь ссылку на YouTube или Twitch, чтобы что-то перенести',
+    'nothing on your plan-to-watch shelf yet — search for a title above, or add a few to that shelf first.': 'на полке «посмотреть позже» пока пусто — найди тайтл через поиск выше или сначала добавь что-нибудь на эту полку.',
+    'off by default — a title\'s synopsis is usually written not to give anything away, so there\'s nothing to hide from unless you turn this on.': 'по умолчанию выключено — синопсис тайтла обычно написан так, чтобы ничего не выдавать, так что скрывать нечего, пока ты сам(а) это не включишь.',
+    'on by default — other people\'s reviews say what they want, so each one stays softly covered until you tap it. Turn this off if you\'d rather just read them straight away.': 'по умолчанию включено — чужие рецензии говорят что хотят, поэтому каждая слегка скрыта, пока ты по ней не тапнешь. отключи, если хочешь читать их сразу.',
+    'once linked, evenings you plan together show up on both of your co-viewing screens.': 'как только вы связаны, вечера, которые вы планируете вместе, появляются на экранах совместного просмотра у вас обоих.',
+    'paste a public YouTube or Twitch link — a single video, a whole playlist, a channel\'s uploads, or a Twitch channel\'s past broadcasts — and teamira will pull in what\'s there.': 'вставь публичную ссылку на YouTube или Twitch — отдельное видео, весь плейлист, загрузки канала или прошлые трансляции канала на Twitch — и teamira подтянет всё, что там есть.',
+    'private lists like YouTube\'s Watch Later or Liked videos can\'t be reached this way — only things the link itself can actually see.': 'приватные списки вроде «Смотреть позже» или понравившихся видео на YouTube так не подтянуть — только то, что видно по самой ссылке.',
+    'shows these alongside movies and shows in watched, watching, and plan to watch — heads up, they can look a little off there, since a source opens the video itself instead of a title page': 'показывает их вместе с фильмами и сериалами в «посмотрено», «смотрю» и «посмотреть позже» — учти, там они могут выглядеть немного не так, потому что источник открывает само видео, а не страницу тайтла',
+    'take a photo of it and we\'ll pull the title off it, straight into search — from there it\'s one tap to plan to watch or watched, same as any other title.': 'сфотографируй его, и мы вытащим название прямо в поиск — оттуда один тап до «посмотреть позже» или «посмотрено», как с любым другим тайтлом.',
+    'tap any bunny you\'ve unlocked to make it your favorite — that\'s who tags along everywhere: right after you log something, on your welcome screen, while things load.': 'тапни на любого открытого кролика, чтобы сделать его любимым — именно он будет появляться везде: сразу после того, как ты что-то запишешь, на приветственном экране, во время загрузки.',
+    'teamira\'s own words stay in English everywhere — this just decides whether title cards prefer Russian when there\'s a translation for them. change this anytime in settings.': 'собственные фразы teamira везде остаются на английском — это только решает, показывать ли карточки тайтлов на русском, если для них есть перевод. поменять можно в любой момент в настройках.',
+    'the flame counts consecutive evenings with at least one log — any diary entry keeps it going. today doesn\'t break it until it\'s over, so there\'s still time before it resets.': 'огонёк считает подряд идущие вечера хотя бы с одной записью — любая запись в дневнике поддерживает его. сегодняшний день не прерывает серию, пока не закончится, так что время ещё есть.',
+    'this shared list is separate from your own "plan to watch" on Profile. Whether a match also lands there is up to you — see "co-viewing" in Settings.': 'этот общий список отдельно от твоего личного «посмотреть позже» в профиле. попадёт ли туда совпадение тоже — решаешь ты, смотри «совместный просмотр» в настройках.',
+    'type or paste any mix of them below, one per line — teamira sorts out what\'s what and matches each to the right shelf.': 'впиши или вставь любую их смесь ниже, по одному в строке — teamira сама разберётся, что есть что, и сопоставит каждое с нужной полкой.',
+    'when a Watch Together match happens — one phone or over the network — it always shows up on your shared co-viewing screen if you have a partner linked. This only controls whether it also gets added to your own personal "watch together" list.': 'когда происходит совпадение в «Смотрим вместе» — на одном телефоне или по сети — оно всегда появляется на общем экране совместного просмотра, если у тебя подключён партнёр. Это только решает, добавится ли оно ещё и в твой личный список «смотрим вместе».',
+    'which country\'s services show under "where to watch" — Kinopoisk, ivi, Netflix, and the rest all vary by country': 'какие сервисы показывать в разделе «где посмотреть» — Кинопоиск, ivi, Netflix и остальные отличаются по странам',
+    'which country\'s streaming info a title shows — change this anytime, it never touches what\'s already in your diary.': 'для какой страны показывать информацию о стриминге у тайтла — поменять можно в любой момент, это никак не затронет то, что уже в дневнике.',
+    'your evening, on the calendar': 'твой вечер в календаре',
+    'your level here comes from real evenings — what you log, the notes you write, the streaks you keep. it\'s the same number on your profile\'s level ring, nothing extra to farm.': 'твой уровень здесь складывается из настоящих вечеров — того, что ты записываешь, заметок, которые пишешь, серий, которые поддерживаешь. это то же число, что на кольце уровня в профиле, ничего отдельного фармить не нужно.',
+    'your YouTube and Twitch sources will show up alongside movies and shows in watched, watching, and plan to watch — heads up, they can look a little off there, since a source opens the video itself instead of a title page': 'твои источники YouTube и Twitch будут появляться вместе с фильмами и сериалами в «посмотрено», «смотрю» и «посмотреть позже» — учти, там они могут выглядеть немного не так, потому что источник открывает само видео, а не страницу тайтла',
+    'YouTube and Twitch, brought in by link — kept separate from your movies and shows so it never skews those stats.': 'YouTube и Twitch, добавленные по ссылке, — отдельно от твоих фильмов и сериалов, чтобы не искажать эту статистику.',
+
+    // --- batch 2: wired up raw interpolated strings across add_entry/*, import_screen, friends, home, journey_progress ---
+    ' won\'t be logged this way — this can\'t be undone.': ' не будет так залогирован(а) — это нельзя отменить.',
+    ', tucked in among the rest · tonight': ', среди остальных · сегодня вечером',
+    'already watched': 'уже посмотрено',
+    'anime & manga': 'аниме и манга',
+    'books': 'книги',
+    'elapsed': 'прошло',
+    'film runs': 'фильм идёт',
+    'from': 'из',
+    'games': 'игры',
+    'HALL': 'ЗАЛ',
+    'in the air': 'в воздухе',
+    'keeps this shelf private': 'держит эту полку в приватности',
+    'last logged': 'последняя запись',
+    'left': 'осталось',
+    'longer': 'дольше',
+    'matched': 'совпало',
+    'min on screen · tonight': 'мин на экране · сегодня',
+    'min on the rails · tonight': 'мин в пути · сегодня',
+    'movies & TV': 'фильмы и сериалы',
+    'of': 'из',
+    'on the rails': 'в пути',
+    'out in the garden': 'в саду',
+    'plan to watch': 'посмотреть позже',
+    'right about the same time': 'примерно то же время',
+    'runs': 'идёт',
+    'seat': 'место',
+    'shorter': 'короче',
+    'skip for now': 'пропустить пока',
+    'suggested this': 'предложил(а) это',
+    'the flight': 'полёт',
+    'the train': 'поезд',
+    'the walk': 'прогулка',
+    'then import what looks right': 'затем импортируй то, что подходит',
+    'to pick from': 'на выбор',
+    'watched with': 'смотрел(а) вместе с',
+    '· bloomed in the bed': '· распустился на грядке',
+    '— review below, ': '— проверь ниже, ',
+
+    // --- import_screen.dart: per-service instructions & hints ---
+    'Amélie\nParasite\n…or paste a Trakt export here': 'Amélie\nParasite\n…или вставь сюда экспорт из Trakt',
+    'Amélie\nParasite\n…or paste an IMDb export here': 'Amélie\nParasite\n…или вставь сюда экспорт из IMDb',
+    'Amélie (2001)\nParasite (2019)\nThe Bear\nElden Ring\nChainsaw Man\n…one title per line, any kind': 'Amélie (2001)\nParasite (2019)\nThe Bear\nElden Ring\nChainsaw Man\n…по одному названию в строке, любого вида',
+    'Amélie (2001)\nParasite (2019)\n…or paste a Letterboxd export here': 'Amélie (2001)\nParasite (2019)\n…или вставь сюда экспорт из Letterboxd',
+    'Frieren\nVinland Saga\n…or paste a MAL export here': 'Frieren\nVinland Saga\n…или вставь сюда экспорт из MAL',
+    'Frieren\nVinland Saga\n…or paste an AniList export here': 'Frieren\nVinland Saga\n…или вставь сюда экспорт из AniList',
+    'Hades\nOuter Wilds\n…or paste a Backloggd export here': 'Hades\nOuter Wilds\n…или вставь сюда экспорт из Backloggd',
+    'Hades\nOuter Wilds\n…paste titles from your list here': 'Hades\nOuter Wilds\n…вставь сюда названия из своего списка',
+    'My Books → Import/Export → Export Library, then open the CSV and paste the Title column below.': 'My Books → Import/Export → Export Library, затем открой CSV и вставь колонку Title ниже.',
+    'Open a list → the ⋯ menu → Export as CSV, then paste the titles column below.': 'Открой список → меню ⋯ → Export as CSV, затем вставь колонку с названиями ниже.',
+    'Panel → List → Export List, then open the file and paste the titles below.': 'Panel → List → Export List, затем открой файл и вставь названия ниже.',
+    'Piranesi\nThe Bell Jar\n…or paste a Goodreads export here': 'Piranesi\nThe Bell Jar\n…или вставь сюда экспорт из Goodreads',
+    'Piranesi\nThe Bell Jar\n…or paste a StoryGraph export here': 'Piranesi\nThe Bell Jar\n…или вставь сюда экспорт из StoryGraph',
+    'Settings → Import & Export → Export, then open watched.csv (or watchlist.csv) and paste its contents below.': 'Настройки → Импорт и экспорт → Export, затем открой watched.csv (или watchlist.csv) и вставь содержимое ниже.',
+    'Settings → Import/Export → Export Data, then paste the titles from your list below.': 'Settings → Import/Export → Export Data, затем вставь названия из своего списка ниже.',
+    'Settings → Manage Your Account → Export StoryGraph Data, then paste the titles from the CSV below.': 'Settings → Manage Your Account → Export StoryGraph Data, затем вставь названия из CSV ниже.',
+    'Your profile → Games, then just type or paste the titles you see there below — HLTB doesn\'t offer a CSV export.': 'Твой профиль → Games, затем просто впиши или вставь названия, которые там видишь — у HLTB нет экспорта в CSV.',
+    'Your profile → the games list → Export, then paste the game titles below.': 'Твой профиль → список игр → Export, затем вставь названия игр ниже.',
+    'Your Ratings page → Export (or a watchlist → the ⋯ menu → Export), then open the CSV and paste the Title column below.': 'Страница Your Ratings → Export (или список → меню ⋯ → Export), затем открой CSV и вставь колонку Title ниже.',
+
+    // --- level_detail_screen, series_episodes_sheet, season_tracker ---
+    'couldn\'t upload photo': 'не удалось загрузить фото',
+    'episode': 'серия',
+    'level': 'уровень',
+    'logged': 'записано',
+    'season': 'сезон',
+    'to level': 'до уровня',
+    'watch': 'смотреть',
+
+    // --- batch 3: pluralized counters, empty-shelf states, badges ---
+    'an empty box, waiting': 'пустая коробка, ждёт',
+    'an empty marquee, waiting': 'пустая афиша, ждёт',
+    'an empty road, waiting': 'пустая дорога, ждёт',
+    'badges earned': 'значков получено',
+    'badges — unpin one first': 'значков — сначала открепи один',
+    'blooming': 'распустился',
+    'devoted': 'преданность',
+    'growing': 'растёт',
+    'grown': 'выросло',
+    'habit': 'привычка',
+    'hours in': 'часов в пути',
+    'import': 'импортировать',
+    'in a row': 'подряд',
+    'in progress': 'в процессе',
+    'legend': 'легенда',
+    'new ›': 'новых ›',
+    'no matches this round': 'в этот раз совпадений нет',
+    'nothing kept this round — try loosening the filters': 'в этот раз ничего не оставлено — попробуй ослабить фильтры',
+    'nothing matches that combination': 'под это сочетание ничего не подходит',
+    'nothing planted yet': 'пока ничего не посажено',
+    'nothing selected': 'ничего не выбрано',
+    'obsession': 'одержимость',
+    'on the road': 'в пути',
+    'running': 'идёт',
+    'SEAT': 'МЕСТО',
+    'skipped': 'пропущено',
+    'so far': 'пока что',
+    'they': 'они',
+    'to choose from': 'на выбор',
+    'up on the marquee': 'на афише',
+    'waiting': 'в ожидании',
+    'you can showcase up to': 'можно закрепить максимум',
+
+    // --- batch 4: button/tile labels across settings, decide, together, log flows ---
+    'a little cinema, ticket torn for each evening': 'маленький кинотеатр, билет отрывается за каждый вечер',
+    'a media-center app on a TV box, PC, or console': 'медиацентр на ТВ-приставке, компьютере или консоли',
+    'a ticket, torn open': 'билет, оторванный корешок',
+    'a window garden, a flower grown for each evening': 'сад на подоконнике, цветок за каждый вечер',
+    'a window garden, in bloom': 'сад на подоконнике, в цвету',
+    'accept invite': 'принять приглашение',
+    'accept request': 'принять запрос',
+    'add friend': 'добавить друга',
+    'afternoon': 'день',
+    'an evening route, boarded and torn at the gate': 'вечерний маршрут, посадочный талон отрывается на входе',
+    'an evening route, by train': 'вечерний маршрут на поезде',
+    'bring over a list from Letterboxd or elsewhere': 'перенеси список из Letterboxd или откуда угодно',
+    'ch.': 'гл.',
+    'check in': 'регистрация',
+    'confirm boarding': 'подтвердить посадку',
+    'confirm planting': 'подтвердить посадку',
+    'confirm ticket': 'подтвердить билет',
+    'create my diary': 'создать мой дневник',
+    'Developer': 'Разработчик',
+    'discover': 'подборки',
+    'doesn\'t matter — any genre': 'не важно — любой жанр',
+    'doesn\'t matter — any type': 'не важно — любой тип',
+    'doesn\'t matter — any year': 'не важно — любой год',
+    'done': 'готово',
+    'evening': 'вечер',
+    'favorite films': 'любимые фильмы',
+    'game of the evening': 'игра вечера',
+    'home': 'главная',
+    'in your circle': 'в твоём кругу',
+    'invite sent': 'приглашение отправлено',
+    'invite to co-viewing': 'пригласить в совместный просмотр',
+    'ISBN': 'ISBN',
+    'it\'s yours': 'он твой',
+    'join': 'присоединиться',
+    'keep the stub': 'оставить корешок',
+    'leave it growing': 'оставить расти',
+    'Length': 'Объём',
+    'logging ritual': 'ритуал записи',
+    'min': 'мин',
+    'Modes': 'Режимы',
+    'morning': 'утро',
+    'night': 'ночь',
+    'not rated': 'без оценки',
+    'not tonight': 'не сегодня',
+    'one phone': 'один телефон',
+    'open': 'открыть',
+    'open plan to watch': 'открыть «посмотреть позже»',
+    'open the list': 'открыть список',
+    'over the network': 'по сети',
+    'picked for tonight': 'выбрано на сегодня',
+    'Platforms': 'Платформы',
+    'Plex, Jellyfin, Kodi, browser extension': 'Plex, Jellyfin, Kodi, расширение браузера',
+    'profile': 'профиль',
+    'Publisher': 'Издатель',
+    'pull apart to get your ticket': 'разорви, чтобы получить билет',
+    'pull apart to tear it up': 'разорви его',
+    'remaining': 'осталось',
+    'reroll': 'выбрать другое',
+    'sign in': 'войти',
+    'soon': 'скоро',
+    'spin again': 'крутить ещё раз',
+    'start a session': 'начать сессию',
+    'start swiping': 'начать свайпать',
+    'Status': 'Статус',
+    'swipe again': 'свайпать ещё раз',
+    'the synopsis might give things away': 'синопсис может выдать сюжет',
+    'this review might spoil it': 'эта рецензия может содержать спойлеры',
+    'this weekend': 'на выходных',
+    'to': 'куда',
+    'torn': 'оторвано',
+    'vol.': 'том.',
+    'watching now': 'смотрю сейчас',
+    'with': 'с',
+    'you (or a friend) run one of these to store and stream your own library': 'ты (или друг) держите один из них, чтобы хранить и стримить свою библиотеку',
+    'you just watch things on streaming sites like Netflix or Kinopoisk in a normal browser': 'ты просто смотришь на стриминговых сайтах вроде Netflix или Кинопоиска в обычном браузере',
+
+    // --- interest_picker.dart categories & hints ---
+    'anime': 'аниме',
+    'evenings at the cinema, rewatches, the classics': 'вечера в кино, пересмотры, классика',
+    'manga': 'манга',
+    'movies': 'фильмы',
+    'season by season, whatever\'s airing tonight': 'сезон за сезоном, всё, что идёт сегодня',
+    'series': 'сериалы',
+    'shows you\'re marathoning, new episodes as they land': 'то, что смотришь запоем, новые серии сразу после выхода',
+    'volumes and chapters, one at a time': 'тома и главы, по одному за раз',
+    'what you\'re playing, or about to start': 'во что играешь или собираешься начать',
+    'whatever you\'re reading, page by page': 'всё, что читаешь, страница за страницей',
+
+    // --- onboarding world-diary phrases ---
+    'create': 'создать',
+    'your diary becomes a board of journeys taken': 'твой дневник становится доской пройденных маршрутов',
+    'your diary becomes a garden, filling in over time': 'твой дневник становится садом, который расцветает со временем',
+    'your diary becomes a jar, filling up with stubs': 'твой дневник становится банкой, полной корешков',
+
+    // --- mood chips, ticket scan, co_view_vote screen ---
+    'a movie like Interstellar': 'фильм вроде «Интерстеллара»',
+    'a nostalgic 90s pick': 'что-то ностальгическое из 90-х',
+    'a twisty whodunit': 'детектив с неожиданной развязкой',
+    'cozy comedy series': 'уютный комедийный сериал',
+    'high-fantasy, big world': 'высокое фэнтези, большой мир',
+    'just spooky enough': 'в меру жуткое',
+    'mindless popcorn action': 'лёгкий боевик под попкорн',
+    'narrow it down first': 'сначала сузить выбор',
+    'nice': 'отлично',
+    'not this one': 'не этот',
+    'rainy day, no thinking required': 'дождливый день, думать не нужно',
+    'search': 'искать',
+    'slow-burn slice of life': 'неспешные истории из жизни',
+    'something that\'ll make me cry': 'что-то, от чего заплачу',
+    'take a photo': 'сфотографировать',
+    'this updates the moment they catch up.': 'это обновится, как только они наверстают.',
+    'vote again': 'голосовать ещё раз',
+    'waiting on the others to finish voting': 'ждём, пока остальные закончат голосовать',
+    'waiting on them to finish voting': 'ждём, пока они закончат голосовать',
+    'write your own…': 'написать своё…',
+    'yes, this': 'да, этот',
+
+    // --- map style swatches ---
+    'classic': 'классика',
+    'paper': 'бумага',
+    'terrain': 'рельеф',
+
+    // --- share card/sheet, co_view/planned pick sheets ---
+    'open it': 'открыть',
+    'propose it to the circle': 'предложить кругу',
+    'share the card': 'поделиться карточкой',
+    'top genre': 'любимый жанр',
+
+    // --- final sweep: onboarding features, how-it-works, error states, loading messages ---
+    'a shortlist, a countdown, most votes wins': 'шорт-лист, обратный отсчёт, побеждает большинство голосов',
+    'added': 'добавлено',
+    'adding these to your diary…': 'добавляем в твой дневник…',
+    'adding these to your sources…': 'добавляем в твои источники…',
+    'always available': 'доступен всегда',
+    'and': 'и',
+    'check the camera permission in your device settings and try again': 'проверь разрешение камеры в настройках устройства и попробуй снова',
+    'check the connection and try again': 'проверь соединение и попробуй снова',
+    'choose this world': 'выбрать этот мир',
+    'collections leads with whatever you\'re into, from day one — change what it leads with anytime.': '«коллекции» с первого дня показывают то, что тебе интересно — поменять это можно в любой момент.',
+    'continue watching': 'продолжить просмотр',
+    'couldn\'t gather any cards': 'не удалось собрать карточки',
+    'couldn\'t make out any text on that': 'не удалось разобрать текст на этом',
+    'couldn\'t open the camera': 'не удалось открыть камеру',
+    'couldn\'t start a session': 'не удалось начать сессию',
+    'describe the evening, propose the pick': 'опиши вечер, предложи выбор',
+    'Each on your own phone with a shared code, swiping blind. Only a title you both separately say yes to becomes a match.': 'каждый на своём телефоне с общим кодом, свайпаете вслепую. совпадением станет только то, чему вы оба отдельно сказали «да».',
+    'Either of you can tap "watched" once you\'ve actually seen it — that logs the evening into both your diaries at once.': 'любой из вас может нажать «просмотрено», когда вы это действительно увидели — это сразу запишет вечер в оба дневника.',
+    'everyone swipes, a match wins': 'все свайпают, побеждает совпадение',
+    'fetch link': 'получить по ссылке',
+    'fetching what\'s at that link…': 'получаем то, что по этой ссылке…',
+    'for you': 'для тебя',
+    'for you, with trailers': 'для тебя, с трейлерами',
+    'fresh in your diary': 'свежее в дневнике',
+    'home learns from what you\'ve watched and loved, and ask teamira helps when you can\'t decide.': '«главная» учится на том, что ты смотрел(а) и любил(а), а «спросить teamira» поможет, если не можешь решить.',
+    'left to skip, right for plan to watch': 'влево — пропустить, вправо — «посмотреть позже»',
+    'let\'s go': 'поехали',
+    'log an evening, your way': 'записывай вечер по-своему',
+    'longest streak': 'самая длинная серия',
+    'looking these up in the catalog…': 'ищем это в каталоге…',
+    'mark it watched': 'отметить просмотренным',
+    'more for tonight': 'ещё на сегодня',
+    'movies, shows, books, games, manga — one diary for all of it, with a little ritual to close it out.': 'фильмы, сериалы, книги, игры, манга — один дневник для всего, с маленьким ритуалом в конце.',
+    'no match this round — try again, or just pick for us.': 'в этот раз совпадений нет — попробуйте снова, или выберите за нас.',
+    'nothing there to vote on yet': 'пока не за что голосовать',
+    'nothing to shuffle right now': 'сейчас нечего перемешать',
+    'nothing was added': 'ничего не добавлено',
+    'One tap from a title page sends it to your partner\'s Home card, or the "suggested" tab here. It only lands in "planned" once they accept — ✕ declines it for good.': 'один тап со страницы тайтла отправляет его на главный экран партнёра или во вкладку «предложено» здесь. он попадёт в «запланировано», только когда партнёр согласится — ✕ отклоняет насовсем.',
+    'one title, drawn from the pool': 'один тайтл, вытянутый из подборки',
+    'one title, pulled from the pool above': 'один тайтл, вытянутый из подборки выше',
+    'pair up with a partner or friends, vote on what\'s next, and keep a shared thread of evenings.': 'объединись с партнёром или друзьями, голосуйте за следующее и ведите общую ленту вечеров.',
+    'Passing the phone back and forth, one swipe is already both your yes — no second turn needed. It lands in "planned" the moment you decide.': 'передавая телефон по кругу, один свайп уже значит «да» для вас обоих — второй ход не нужен. это попадает в «запланировано» в момент решения.',
+    'pick something from your shelf': 'выбери что-то со своей полки',
+    'picked for you': 'выбрано для тебя',
+    'rate it and log the evening now': 'оцени и запиши вечер прямо сейчас',
+    'reading your ticket…': 'читаем твой билет…',
+    'request sent': 'запрос отправлен',
+    'see all →': 'смотреть все →',
+    'shelves built around you': 'полки, собранные вокруг тебя',
+    'something for tonight': 'что-то на сегодня',
+    'suggest, then they agree': 'предложи, а они согласятся',
+    'tell it what kind of evening you\'re after': 'расскажи, какой вечер тебе нужен',
+    'to your list': 'в твой список',
+    'try a different category, or check back later': 'попробуй другую категорию или загляни позже',
+    'try again with better light, or hold it flatter to the camera': 'попробуй снова при лучшем освещении или держи ровнее к камере',
+    'wants to be friends': 'хочет дружить',
+    'watch it roll and land on something': 'смотри, как крутится и останавливается на чём-то',
+    'watch it together': 'смотрите вместе',
+    'watch together — one phone': 'смотрим вместе — один телефон',
+    'watch together — over the network': 'смотрим вместе — по сети',
+    'watching': 'смотрю',
+    'when a title has one': 'когда у тайтла есть перевод',
+
+    // --- very last sweep: theme announcements, empty states, misc ---
+    'couldn\'t load the catalog just now — try again in a moment': 'не удалось загрузить каталог — попробуй ещё раз через минуту',
+    'directed by': 'режиссёр',
+    'nothing planned together yet — suggest a few titles first': 'пока ничего не запланировано вместе — сначала предложи пару тайтлов',
+    'nothing queued on either side yet — add a few titles to your plan-to-watch shelves first': 'пока ничего в очереди ни с одной стороны — сначала добавь пару тайтлов на полку «посмотреть позже»',
+    'nothing queued on either side yet — add a few titles, or plan something together first': 'пока ничего в очереди ни с одной стороны — добавь пару тайтлов или сначала запланируйте что-то вместе',
+    'nothing suggested yet — when': 'пока никто ничего не предложил — когда',
+    'please fasten your seatbelt — we\'re pulling out shortly': 'пристегни ремень — отправляемся через минуту',
+    'please silence your phone — the show is about to start': 'выключи звук на телефоне — сеанс вот-вот начнётся',
+    'someone in your circle': 'кто-то из твоего круга',
+    'suggests a title from any title page, it shows up here.': 'предложит тайтл с любой страницы, он появится здесь.',
+    'the birds have gone quiet for the night': 'птицы затихли на ночь',
+    'unlocked': 'открыто',
+    'your partner': 'твой партнёр',
+
+    // --- absolute final sweep: journey badge, plan card, invite, log flow, reviews, sources ---
+    'back to': 'назад к',
+    'comes off your ticket — you can always plan another evening.': 'уйдёт с твоего билета — можно запланировать другой вечер в любой момент.',
+    'copied': 'скопировано',
+    'every friend who joins with your code earns you': 'каждый друг, который присоединится по твоему коду, приносит тебе',
+    'match': 'совпадение',
+    'more planned': 'ещё запланировано',
+    'nothing streaming for': 'нигде не стримится для региона',
+    'open on': 'открыть на',
+    'paused': 'на паузе',
+    'picked': 'выбрано',
+    'runoff · round': 'переголосование · раунд',
+    'watch on': 'смотреть на',
+    'watching with': 'смотрю с',
+    '— review below, then bring in what looks right': '— посмотри ниже и добавь то, что подходит',
+    '— try a different region': '— попробуй другой регион',
   };
 
   static const Map<String, String> en = {
@@ -607,6 +977,43 @@ final RegExp _cyrillic = RegExp(r'[а-яА-ЯёЁ]');
 /// A few screens were originally written source-Russian; for those this
 /// looks the other way through [AppTranslations.en]. Either way, a string
 /// with no entry yet just passes through unchanged rather than breaking.
+/// Singular localized label for a MediaItem's `mediaType` ("movie",
+/// "series", "anime", "game", "book", "manga") — used for spots like a
+/// "$type · $year" meta line. Kept as its own lookup table rather than
+/// routed through [AppTranslations.ru] because "series" is spelled the
+/// same in English whether singular or plural, so a flat string map
+/// can't hold both a singular and a plural Russian translation under
+/// that one key — see [mediaTypeLabelPlural] for the plural form.
+const _mediaTypeSingularRu = {
+  'movie': 'фильм',
+  'series': 'сериал',
+  'anime': 'аниме',
+  'game': 'игра',
+  'book': 'книга',
+  'manga': 'манга',
+};
+
+String mediaTypeLabel(String mediaType) {
+  if (!LocaleService.appIsRussian) return mediaType;
+  return _mediaTypeSingularRu[mediaType] ?? mediaType;
+}
+
+/// Plural counterpart to [mediaTypeLabel] — e.g. a tab or filter chip
+/// labelled "movies" / "series" / "games".
+const _mediaTypePluralRu = {
+  'movie': 'фильмы',
+  'series': 'сериалы',
+  'anime': 'аниме',
+  'game': 'игры',
+  'book': 'книги',
+  'manga': 'манга',
+};
+
+String mediaTypeLabelPlural(String mediaType) {
+  if (!LocaleService.appIsRussian) return mediaType;
+  return _mediaTypePluralRu[mediaType] ?? mediaType;
+}
+
 extension TrString on String {
   String get tr {
     final wantRussian = LocaleService.appIsRussian;
@@ -619,4 +1026,56 @@ extension TrString on String {
       return AppTranslations.en[this] ?? this;
     }
   }
+}
+
+/// Russian noun plurals depend on the number itself (1 title vs. 2–4 vs.
+/// 5+, with an exception for 11–14), unlike English's simple one/other
+/// split — so a string like `'$n title${n == 1 ? '' : 's'}'` has no
+/// single Russian counterpart to look up in [AppTranslations.ru]. Call
+/// sites that build a "count + noun" string should reach for this
+/// instead of hand-rolling the English `== 1 ? '' : 's'` ternary, so the
+/// Russian noun actually agrees with the number rather than picking one
+/// fixed form.
+///
+/// [one]/[few]/[many] are the three Russian plural forms for the noun —
+/// e.g. ('тайтл', 'тайтла', 'тайтлов') for 1, 2, 5. [englishOne] and
+/// [englishOther] are the two English forms — e.g. ('title', 'titles').
+/// Just the plural-agreeing noun form for [n], with no number attached —
+/// for spots like `'$watched/$total ${ruPluralForm(total, one: 'серия',
+/// few: 'серии', many: 'серий', englishOne: 'episode', englishOther:
+/// 'episodes')}'` where the count is already rendered as a fraction and
+/// only the trailing word needs to match Russian grammar. [ruCount]
+/// (below) is the "number + noun" version of the same three-form logic
+/// for the more common case.
+String ruPluralForm(
+  int n, {
+  required String one,
+  required String few,
+  required String many,
+  required String englishOne,
+  required String englishOther,
+}) {
+  if (!LocaleService.appIsRussian) {
+    return n == 1 ? englishOne : englishOther;
+  }
+  final mod10 = n % 10;
+  final mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  if (mod10 == 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+String ruCount(
+  int n, {
+  required String one,
+  required String few,
+  required String many,
+  required String englishOne,
+  required String englishOther,
+}) {
+  if (!LocaleService.appIsRussian) {
+    return '$n ${n == 1 ? englishOne : englishOther}';
+  }
+  return '$n ${ruPluralForm(n, one: one, few: few, many: many, englishOne: englishOne, englishOther: englishOther)}';
 }

@@ -10,6 +10,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/polaroid_card.dart';
 import '../../widgets/wow_motion.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// Profile -> "статистика": the numbers-and-charts sibling of Wrapped's
 /// card-by-card narrative (same WrappedSummary, same month/year/all-time
@@ -111,7 +112,10 @@ class _StatsScreenState extends State<StatsScreen> {
                         key: ValueKey('stats-empty-${s.scope}'),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 40),
-                          child: Text('за ${s.periodLabel} в дневнике пока пусто'.tr,
+                          child: Text(
+                              LocaleService.appIsRussian
+                                  ? 'за ${s.periodLabel} в дневнике пока пусто'
+                                  : 'the diary is still empty for ${s.periodLabel}',
                               textAlign: TextAlign.center,
                               style: SeenlyText.serif(color: SeenlyPalette.inkMuted)),
                         ),
@@ -535,7 +539,9 @@ class _ActivityCard extends StatelessWidget {
           _CardTitle(
             'активность'.tr,
             caption: summary.busiestTimelineLabel != null
-                ? (isMonth ? 'самый плотный день — ${summary.busiestTimelineLabel}'.tr : 'самый активный — ${summary.busiestTimelineLabel}'.tr)
+                ? (LocaleService.appIsRussian
+                    ? (isMonth ? 'самый плотный день — ${summary.busiestTimelineLabel}' : 'самый активный — ${summary.busiestTimelineLabel}')
+                    : (isMonth ? 'busiest day — ${summary.busiestTimelineLabel}' : 'most active — ${summary.busiestTimelineLabel}'))
                 : null,
           ),
           const SizedBox(height: 22),
@@ -636,7 +642,10 @@ class _RhythmCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CardTitle('ритм недели'.tr, caption: '${summary.weekendPercent.round()}% сеансов на выходных'.tr),
+          _CardTitle('ритм недели'.tr,
+              caption: LocaleService.appIsRussian
+                  ? '${summary.weekendPercent.round()}% сеансов на выходных'
+                  : '${summary.weekendPercent.round()}% of sessions on weekends'),
           const SizedBox(height: 18),
           IntrinsicHeight(
             child: Row(
@@ -763,7 +772,9 @@ class _PercentileCard extends StatelessWidget {
           _RankGauge(percent: pct),
           const SizedBox(height: 10),
           Text(
-            'смотришь активнее, чем $pct% пользователей за ${summary.periodLabel}'.tr,
+            LocaleService.appIsRussian
+                ? 'смотришь активнее, чем $pct% пользователей за ${summary.periodLabel}'
+                : 'watching more actively than $pct% of users for ${summary.periodLabel}',
             style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -1029,7 +1040,7 @@ class _EraShelfRow extends StatelessWidget {
                                       size: 26, weight: FontWeight.w700, color: SeenlyPalette.accent.withOpacity(0.55))),
                               const SizedBox(height: 2),
                               Text(
-                                '$count ${count == 1 ? 'фильм' : 'фильмов'}'.toUpperCase(),
+                                ruCount(count, one: 'фильм', few: 'фильма', many: 'фильмов', englishOne: 'movie', englishOther: 'movies').toUpperCase(),
                                 style: SeenlyText.mono(size: 10, weight: FontWeight.w600, color: SeenlyPalette.inkMuted)
                                     .copyWith(letterSpacing: 1.0),
                               ),
@@ -1184,7 +1195,10 @@ class _RatingsCard extends StatelessWidget {
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: 5),
-                  child: Text('средняя оценка · ${summary.reviewCount} рецензий'.tr,
+                  child: Text(
+                      LocaleService.appIsRussian
+                          ? 'средняя оценка · ${summary.reviewCount} ${ruPluralForm(summary.reviewCount, one: 'рецензия', few: 'рецензии', many: 'рецензий', englishOne: 'review', englishOther: 'reviews')}'
+                          : 'average rating · ${summary.reviewCount} ${summary.reviewCount == 1 ? 'review' : 'reviews'}',
                       style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis),
@@ -1198,7 +1212,10 @@ class _RatingsCard extends StatelessWidget {
               children: [
                 const Icon(Icons.star, size: 12, color: SeenlyPalette.mustard),
                 const SizedBox(width: 6),
-                Text('${summary.fullMarksCount} на полную десятку'.tr,
+                Text(
+                    LocaleService.appIsRussian
+                        ? '${summary.fullMarksCount} на полную десятку'
+                        : '${summary.fullMarksCount} perfect ${summary.fullMarksCount == 1 ? 'ten' : 'tens'}',
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint)),
               ],
             ),

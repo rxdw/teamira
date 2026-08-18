@@ -196,7 +196,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                               children: [
                                 Text(item.title.display, style: SeenlyText.cardTitle),
                                 const SizedBox(height: 3),
-                                Text('${item.mediaType} · ${item.year ?? '—'}',
+                                Text('${mediaTypeLabel(item.mediaType)} · ${item.year ?? '—'}',
                                     style: SeenlyText.metaLabel),
                               ],
                             ),
@@ -250,7 +250,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                       delay: const Duration(milliseconds: 150),
                       riseBy: 12,
                       child: PillChip(
-                        label: 'watched with $_partnerUsername',
+                        label: "${'watched with'.tr} $_partnerUsername",
                         active: _watchedWithPartner,
                         onTap: () => setState(() => _watchedWithPartner = !_watchedWithPartner),
                       ),

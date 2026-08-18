@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/app_translations.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
@@ -123,18 +124,18 @@ class InterestPickerRow extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Text(interest.label,
+                          Text(interest.label.tr,
                               style: SeenlyText.cardTitle.copyWith(
                                 color: interest.soon ? SeenlyPalette.placeholder : SeenlyPalette.ink,
                               )),
                           if (interest.soon) ...[
                             const SizedBox(width: 8),
-                            const PillChip(label: 'soon', dashed: true),
+                            PillChip(label: 'soon'.tr, dashed: true),
                           ],
                         ],
                       ),
                       const SizedBox(height: 3),
-                      Text(interest.hint,
+                      Text(interest.hint.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                     ],
                   ),

@@ -153,7 +153,7 @@ class _SeasonTrackerState extends State<SeasonTracker> {
           children: [
             Text('seasons'.tr,
                 style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
-            Text('$watched/$total episodes', style: SeenlyText.metaLabel),
+            Text('$watched/$total ${ruPluralForm(total, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}', style: SeenlyText.metaLabel),
           ],
         ),
         const SizedBox(height: 10),
@@ -287,7 +287,7 @@ class _SeasonPagerState extends State<_SeasonPager> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          Text('season ${season.season}',
+                          Text('${'season'.tr} ${season.season}',
                               style: SeenlyText.serif(italic: true, size: 15)),
                         ],
                       ),

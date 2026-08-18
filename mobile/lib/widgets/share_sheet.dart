@@ -185,7 +185,7 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
                 ],
                 const SizedBox(height: 18),
                 PrimaryButton(
-                  label: 'share the card',
+                  label: 'share the card'.tr,
                   loading: _sharing,
                   onTap: _share,
                 ),

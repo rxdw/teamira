@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/app_translations.dart';
 import '../services/log_theme_service.dart';
 
 /// Everywhere the [LogTheme] shows up *outside* the logging ritual
@@ -48,9 +49,9 @@ class LogThemeCopy {
   /// streak" figure everywhere else on Profile — see
   /// ProfileYearStats.streakDays), just dressed in the theme's own words.
   static String streakHeadline(LogTheme theme, int count) => switch (theme) {
-        LogTheme.garden => '$count day${count == 1 ? '' : 's'} growing',
-        LogTheme.coach => '$count stop${count == 1 ? '' : 's'} so far',
-        LogTheme.ticket => '$count night${count == 1 ? '' : 's'} running',
+        LogTheme.garden => '${ruCount(count, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'growing'.tr}',
+        LogTheme.coach => '${ruCount(count, one: 'остановка', few: 'остановки', many: 'остановок', englishOne: 'stop', englishOther: 'stops')} ${'so far'.tr}',
+        LogTheme.ticket => '${ruCount(count, one: 'ночь', few: 'ночи', many: 'ночей', englishOne: 'night', englishOther: 'nights')} ${'running'.tr}',
       };
 
   /// Profile streak card, small line underneath — only ever shown when a

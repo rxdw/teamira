@@ -605,7 +605,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                         Expanded(
                           child: _SecondaryButton(
                             icon: Icons.rotate_right_rounded,
-                            label: 'spin again',
+                            label: 'spin again'.tr,
                             onTap: _spin,
                           ),
                         ),
@@ -621,7 +621,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    PrimaryButton(label: 'open', onTap: _open),
+                    PrimaryButton(label: 'open'.tr, onTap: _open),
                   ] else
                     PrimaryButton(
                       label: _phase == _Phase.spinning ? 'rolling…' : 'spin',

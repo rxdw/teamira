@@ -12,6 +12,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_pull_to_refresh.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// The screen Ask Teamira opens into. Reads a query typed on Home (see
 /// _AskTeamiraCard in home_screen.dart) and fetches the ranked shortlist
@@ -268,7 +269,9 @@ class _StaggerInState extends State<_StaggerIn> with SingleTickerProviderStateMi
 /// entirely rather than showing an empty bar.
 String? _friendlyReasoning(String raw) {
   final kept = raw.split(';').map((p) => p.trim()).where((p) => !p.startsWith('genres: ')).map((p) {
-    if (p.startsWith('similar to ')) return 'похоже на «${p.substring(11)}»'.tr;
+    if (p.startsWith('similar to ')) {
+      return LocaleService.appIsRussian ? 'похоже на «${p.substring(11)}»' : 'similar to "${p.substring(11)}"';
+    }
     if (p == 'era matches') return 'подходящая эпоха'.tr;
     if (p == 'matches what you described') return 'совпадает с описанием'.tr;
     return p;

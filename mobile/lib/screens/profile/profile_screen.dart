@@ -503,8 +503,8 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                     children: [
                       Text(
                         _tab == 2
-                            ? (watchingNowCount == 1 ? '1 in progress' : '$watchingNowCount in progress')
-                            : '${shelf.length} titles',
+                            ? '$watchingNowCount ${'in progress'.tr}'
+                            : ruCount(shelf.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'),
                         style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted),
                       ),
                       if (_tab == 1 && shelf.isNotEmpty) ...[
@@ -1426,7 +1426,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                         color: SeenlyPalette.coral,
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text('$incoming new ›',
+                      child: Text('$incoming ${'new ›'.tr}',
                           style: SeenlyText.mono(size: 10, color: Colors.white, weight: FontWeight.w700)),
                     ),
                   )
@@ -1472,7 +1472,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                                   style: SeenlyText.serif(size: 20, weight: FontWeight.w700),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(friends.length == 1 ? 'friend' : 'friends',
+                                Text(ruPluralForm(friends.length, one: 'друг', few: 'друга', many: 'друзей', englishOne: 'friend', englishOther: 'friends'),
                                     style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                               ],
                             ),

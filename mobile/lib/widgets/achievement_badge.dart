@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../models/achievement.dart';
+import '../services/app_translations.dart';
 import '../services/log_theme_service.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
@@ -126,13 +127,13 @@ extension BadgeRarityStyle on BadgeRarity {
   String get label {
     switch (this) {
       case BadgeRarity.habit:
-        return 'habit';
+        return 'habit'.tr;
       case BadgeRarity.devoted:
-        return 'devoted';
+        return 'devoted'.tr;
       case BadgeRarity.obsession:
-        return 'obsession';
+        return 'obsession'.tr;
       case BadgeRarity.legend:
-        return 'legend';
+        return 'legend'.tr;
     }
   }
 
@@ -736,7 +737,7 @@ class _BadgeDetailCard extends StatelessWidget {
                       ),
                       if (!a.unlocked && a.progressCurrent > 0) ...[
                         const SizedBox(height: 10),
-                        Text('${a.progressCurrent} / ${a.progressTarget} so far',
+                        Text('${a.progressCurrent} / ${a.progressTarget} ${'so far'.tr}',
                             style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                       ],
                       if (onTogglePin != null) ...[

@@ -189,7 +189,7 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
       if (pick.year != null)
         MetaLine(icon: Icons.calendar_today_outlined, label: '${pick.year}'),
       if (pick.runtimeMinutes != null && pick.mediaType != 'book')
-        MetaLine(icon: Icons.schedule_outlined, label: '${pick.runtimeMinutes} min'),
+        MetaLine(icon: Icons.schedule_outlined, label: '${pick.runtimeMinutes} ${'min'.tr}'),
       if (pick.rating != null)
         MetaLine(
           icon: Icons.star_rounded,
@@ -289,7 +289,7 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
                       Expanded(
                         child: _SecondaryButton(
                           icon: Icons.refresh,
-                          label: 'reroll',
+                          label: 'reroll'.tr,
                           onTap: widget.pool.length > 1 ? _reroll : null,
                         ),
                       ),
@@ -305,7 +305,7 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  PrimaryButton(label: 'open', onTap: _open),
+                  PrimaryButton(label: 'open'.tr, onTap: _open),
                 ],
               ),
             ),

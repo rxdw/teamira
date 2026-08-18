@@ -411,13 +411,13 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
       children: [
         LogFlowTopBar(
           onBack: _confirmLeaveSeatStep,
-          trailingLabel: 'skip',
+          trailingLabel: 'skip'.tr,
           onTrailing: _skipToConfirm,
         ),
         CollapsingAnnouncement(
           preshow: _preshow,
           breathe: _breathe,
-          text: "please fasten your seatbelt — we're pulling out shortly",
+          text: "please fasten your seatbelt — we're pulling out shortly".tr,
           glow: SeenlyPalette.mustard,
         ),
         const SizedBox(height: 6),
@@ -517,10 +517,10 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
     return Column(
       key: const ValueKey('details-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.seat), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.seat), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SeatPill(label: 'seat $_seatLabel'),
+          child: SeatPill(label: '${'seat'.tr} $_seatLabel'),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -583,7 +583,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                     Text('together'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                     const SizedBox(height: 10),
                     PillChip(
-                      label: 'watched with $_partnerUsername',
+                      label: "${'watched with'.tr} $_partnerUsername",
                       active: _watchedWithPartner,
                       onTap: () => setState(() => _watchedWithPartner = !_watchedWithPartner),
                     ),
@@ -617,7 +617,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'continue',
+            label: 'continue'.tr,
             onTap: () => _goTo(_Step.vibe),
           ),
         ),
@@ -647,10 +647,10 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
     return Column(
       key: const ValueKey('vibe-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.details), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.details), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SeatPill(label: 'seat $_seatLabel'),
+          child: SeatPill(label: '${'seat'.tr} $_seatLabel'),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -721,7 +721,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'continue',
+            label: 'continue'.tr,
             onTap: () => _goTo(_cast.isNotEmpty ? _Step.castPick : _Step.confirm),
           ),
         ),
@@ -739,10 +739,10 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
     return Column(
       key: const ValueKey('cast-pick-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.vibe), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.vibe), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
-          child: SeatPill(label: 'seat $_seatLabel'),
+          child: SeatPill(label: '${'seat'.tr} $_seatLabel'),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -786,7 +786,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(label: 'continue', onTap: () => _goTo(_Step.confirm)),
+          child: PrimaryButton(label: 'continue'.tr, onTap: () => _goTo(_Step.confirm)),
         ),
       ],
     );
@@ -837,18 +837,18 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                           children: [
                             Text(item.title.display, style: SeenlyText.cardTitle),
                             const SizedBox(height: 3),
-                            Text('seat $_seatLabel · ${_route.originCode} → ${_route.destCode}', style: SeenlyText.metaLabel),
+                            Text('${'seat'.tr} $_seatLabel · ${_route.originCode} → ${_route.destCode}', style: SeenlyText.metaLabel),
                           ],
                         ),
                       ),
                     ],
                   ),
                   const Divider(height: 28, color: SeenlyPalette.border),
-                  ConfirmRow(label: 'when', value: _friendlyDate(_resolvedDate)),
+                  ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
-                    label: 'rating',
-                    value: _rating > 0 ? '$_rating/10 · ${_verdictFor(_rating)}' : 'not rated',
+                    label: 'rating'.tr,
+                    value: _rating > 0 ? '$_rating/10 · ${_verdictFor(_rating)}' : 'not rated'.tr,
                     valueColor: _rating > 0 ? SeenlyPalette.ratingColor(_rating) : SeenlyPalette.inkFaint,
                   ),
                   if (_moodTags.isNotEmpty) ...[
@@ -892,7 +892,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                   ],
                   if (_watchedWithPartner && _partnerUsername != null) ...[
                     const SizedBox(height: 12),
-                    ConfirmRow(label: 'together', value: 'with $_partnerUsername'),
+                    ConfirmRow(label: 'together'.tr, value: "${'with'.tr} $_partnerUsername"),
                   ],
                 ],
               ),
@@ -923,7 +923,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: CoachSubmitButton(label: 'confirm boarding', loading: _saving, onTap: _saving ? null : _confirmAndSave),
+          child: CoachSubmitButton(label: 'confirm boarding'.tr, loading: _saving, onTap: _saving ? null : _confirmAndSave),
         ),
       ],
     );
@@ -971,7 +971,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'check in',
+            label: 'check in'.tr,
             onTap: () => Navigator.of(context).pop(true),
           ),
         ),
@@ -1343,7 +1343,7 @@ class _RouteStrip extends StatelessWidget {
           child: CustomPaint(painter: _RouteDashPainter(t: t)),
         ),
         const SizedBox(height: 10),
-        Text('${route.minutes} min on the rails · tonight', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.45))),
+        Text('${route.minutes} ${'min on the rails · tonight'.tr}', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.45))),
       ],
     );
   }

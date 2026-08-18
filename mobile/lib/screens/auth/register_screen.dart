@@ -136,7 +136,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   delay: const Duration(milliseconds: 200),
                   riseBy: 16,
                   child: PrimaryButton(
-                    label: 'create my diary',
+                    label: 'create my diary'.tr,
                     loading: _loading,
                     onTap: _submit,
                   ),

@@ -195,7 +195,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                             style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
                           ),
                           const SizedBox(height: 18),
-                          PrimaryButton(label: 'add a source', onTap: _addSource, expand: false),
+                          PrimaryButton(label: 'add a source'.tr, onTap: _addSource, expand: false),
                         ],
                       ),
                     );
@@ -221,7 +221,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(21, 14, 21, 6),
                           sliver: SliverToBoxAdapter(
-                            child: Text('${shelf.length} item${shelf.length == 1 ? '' : 's'}',
+                            child: Text(ruCount(shelf.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'item', englishOther: 'items'),
                                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                           ),
                         ),

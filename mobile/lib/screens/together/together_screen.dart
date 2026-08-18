@@ -186,9 +186,9 @@ class _TogetherScreenState extends State<TogetherScreen> {
       if (!mounted) return;
       if (pool.isEmpty) {
         setState(() => _showMessage(
-              title: 'nothing to shuffle right now',
-              subtitle: 'try a different category, or check back later',
-              buttonLabel: 'back',
+              title: 'nothing to shuffle right now'.tr,
+              subtitle: 'try a different category, or check back later'.tr,
+              buttonLabel: 'back'.tr,
               onTap: () => setState(() => _phase = _Phase.setup),
               phase: _Phase.empty,
             ));
@@ -203,9 +203,9 @@ class _TogetherScreenState extends State<TogetherScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _showMessage(
-            title: "couldn't gather any cards",
-            subtitle: 'check the connection and try again',
-            buttonLabel: 'try again',
+            title: "couldn't gather any cards".tr,
+            subtitle: 'check the connection and try again'.tr,
+            buttonLabel: 'try again'.tr,
             onTap: _startSession,
             phase: _Phase.error,
           ));
@@ -334,18 +334,18 @@ class _TogetherScreenState extends State<TogetherScreen> {
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _showMessage(
-            title: "couldn't start a session",
+            title: "couldn't start a session".tr,
             subtitle: e.message,
-            buttonLabel: 'back',
+            buttonLabel: 'back'.tr,
             onTap: _backToSetup,
             phase: _Phase.error,
           ));
     } catch (_) {
       if (!mounted) return;
       setState(() => _showMessage(
-            title: "couldn't start a session",
-            subtitle: 'check the connection and try again',
-            buttonLabel: 'try again',
+            title: "couldn't start a session".tr,
+            subtitle: 'check the connection and try again'.tr,
+            buttonLabel: 'try again'.tr,
             onTap: _createNetworkSession,
             phase: _Phase.error,
           ));
@@ -697,13 +697,13 @@ class _SetupView extends StatelessWidget {
         Row(
           children: [
             PillChip(
-              label: 'one phone',
+              label: 'one phone'.tr,
               active: mode == 'local',
               onTap: () => onModeChange('local'),
             ),
             const SizedBox(width: 8),
             PillChip(
-              label: 'over the network',
+              label: 'over the network'.tr,
               active: isNetwork,
               onTap: () => onModeChange('network'),
             ),
@@ -730,7 +730,7 @@ class _SetupView extends StatelessWidget {
             Text('any particular genre?'.tr, style: SeenlyText.metaLabel),
             const SizedBox(width: 8),
             if (selectedGenres.isNotEmpty)
-              Text('${selectedGenres.length} picked',
+              Text('${selectedGenres.length} ${'picked'.tr}',
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
           ],
         ),
@@ -754,9 +754,9 @@ class _SetupView extends StatelessWidget {
         ),
         const SizedBox(height: 30),
         if (!isNetwork)
-          PrimaryButton(label: 'start swiping', onTap: onStartLocal)
+          PrimaryButton(label: 'start swiping'.tr, onTap: onStartLocal)
         else ...[
-          PrimaryButton(label: 'start a session', onTap: onCreateNetworkSession),
+          PrimaryButton(label: 'start a session'.tr, onTap: onCreateNetworkSession),
           const SizedBox(height: 10),
           Center(
             child: TextButton(
@@ -876,7 +876,7 @@ class _JoinCodeView extends StatelessWidget {
           Text(error!, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
         ],
         const SizedBox(height: 22),
-        PrimaryButton(label: 'join', onTap: onJoin, loading: busy),
+        PrimaryButton(label: 'join'.tr, onTap: onJoin, loading: busy),
         const SizedBox(height: 10),
         Center(
           child: TextButton(
@@ -904,7 +904,7 @@ class _SwipeDeck extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 2, 22, 14),
-          child: _CountPill(remaining == 1 ? 'one left' : '$remaining left'),
+          child: _CountPill('$remaining ${'left'.tr}'),
         ),
         Expanded(
           child: Padding(
@@ -952,7 +952,7 @@ class _SwipeDeck extends StatelessWidget {
             children: [
               _DecisionButton(
                 icon: Icons.close,
-                label: 'not tonight',
+                label: 'not tonight'.tr,
                 iconColor: SeenlyPalette.inkMuted,
                 background: SeenlyPalette.paper,
                 bordered: true,
@@ -960,7 +960,7 @@ class _SwipeDeck extends StatelessWidget {
               ),
               _DecisionButton(
                 icon: Icons.favorite,
-                label: 'together',
+                label: 'together'.tr,
                 iconColor: SeenlyPalette.accentOnAccent,
                 background: SeenlyPalette.accent,
                 large: true,
@@ -1109,8 +1109,8 @@ class _NetSwipeDeck extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _CountPill(remaining == 1 ? 'one left' : '$remaining left'),
-              _CountPill('${partnerUsername ?? 'they'}: $partnerSwiped of ${deck.length}'),
+              _CountPill('$remaining ${'left'.tr}'),
+              _CountPill('${partnerUsername ?? 'they'.tr}: $partnerSwiped ${'of'.tr} ${deck.length}'),
             ],
           ),
         ),
@@ -1160,7 +1160,7 @@ class _NetSwipeDeck extends StatelessWidget {
             children: [
               _DecisionButton(
                 icon: Icons.close,
-                label: 'not tonight',
+                label: 'not tonight'.tr,
                 iconColor: SeenlyPalette.inkMuted,
                 background: SeenlyPalette.paper,
                 bordered: true,
@@ -1168,7 +1168,7 @@ class _NetSwipeDeck extends StatelessWidget {
               ),
               _DecisionButton(
                 icon: Icons.favorite,
-                label: 'together',
+                label: 'together'.tr,
                 iconColor: SeenlyPalette.accentOnAccent,
                 background: SeenlyPalette.accent,
                 large: true,
@@ -1207,13 +1207,13 @@ class _SwipeCard extends StatelessWidget {
       background: _SwipeHint(
         alignment: Alignment.centerLeft,
         icon: Icons.favorite,
-        label: 'together',
+        label: 'together'.tr,
         color: SeenlyPalette.accent,
       ),
       secondaryBackground: _SwipeHint(
         alignment: Alignment.centerRight,
         icon: Icons.close,
-        label: 'not tonight',
+        label: 'not tonight'.tr,
         color: SeenlyPalette.inkMuted,
       ),
       child: _CardFace(item: item, maxWidth: maxWidth, maxHeight: maxHeight, elevated: true),
@@ -1508,8 +1508,8 @@ class _RecapView extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           hasMatches
-              ? (matches.length == 1 ? 'one match!' : '${matches.length} matches!')
-              : 'no matches this round',
+              ? '${ruCount(matches.length, one: 'совпадение', few: 'совпадения', many: 'совпадений', englishOne: 'match', englishOther: 'matches')}!'
+              : 'no matches this round'.tr,
           style: SeenlyText.screenTitle,
         ),
         const SizedBox(height: 8),
@@ -1541,7 +1541,7 @@ class _RecapView extends StatelessWidget {
         ],
         const SizedBox(height: 26),
         if (onOpenList != null) ...[
-          PrimaryButton(label: 'open the list', onTap: onOpenList),
+          PrimaryButton(label: 'open the list'.tr, onTap: onOpenList),
           const SizedBox(height: 10),
         ],
         Center(
@@ -1588,8 +1588,8 @@ class _NetRecapView extends StatelessWidget {
         const SizedBox(height: 14),
         Text(
           hasMatches
-              ? (matches.length == 1 ? 'one match so far!' : '${matches.length} matches so far!')
-              : "you're through the deck",
+              ? '${ruCount(matches.length, one: 'совпадение', few: 'совпадения', many: 'совпадений', englishOne: 'match', englishOther: 'matches')} ${'so far'.tr}!'
+              : "you're through the deck".tr,
           style: SeenlyText.screenTitle,
         ),
         const SizedBox(height: 8),
@@ -1624,7 +1624,7 @@ class _NetRecapView extends StatelessWidget {
         ],
         const SizedBox(height: 26),
         if (onOpenList != null) ...[
-          PrimaryButton(label: 'open the list', onTap: onOpenList),
+          PrimaryButton(label: 'open the list'.tr, onTap: onOpenList),
           const SizedBox(height: 10),
         ],
         Center(

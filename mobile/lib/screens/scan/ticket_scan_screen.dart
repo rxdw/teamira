@@ -179,23 +179,23 @@ class _TicketScanScreenState extends State<TicketScanScreen> {
         return _CenteredMessage(
           icon: null,
           spinning: true,
-          title: 'reading your ticket…',
+          title: 'reading your ticket…'.tr,
           subtitle: null,
         );
       case _ScanPhase.empty:
         return _CenteredMessage(
           icon: Icons.receipt_long_outlined,
-          title: "couldn't make out any text on that",
-          subtitle: 'try again with better light, or hold it flatter to the camera',
-          buttonLabel: 'try again',
+          title: "couldn't make out any text on that".tr,
+          subtitle: 'try again with better light, or hold it flatter to the camera'.tr,
+          buttonLabel: 'try again'.tr,
           onButtonTap: _retry,
         );
       case _ScanPhase.error:
         return _CenteredMessage(
           icon: Icons.error_outline,
-          title: "couldn't open the camera",
-          subtitle: 'check the camera permission in your device settings and try again',
-          buttonLabel: 'try again',
+          title: "couldn't open the camera".tr,
+          subtitle: 'check the camera permission in your device settings and try again'.tr,
+          buttonLabel: 'try again'.tr,
           onButtonTap: _retry,
         );
       case _ScanPhase.results:
@@ -248,7 +248,7 @@ class _IntroBody extends StatelessWidget {
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
           ),
           const Spacer(),
-          PrimaryButton(label: 'take a photo', onTap: onTakePhoto),
+          PrimaryButton(label: 'take a photo'.tr, onTap: onTakePhoto),
           const SizedBox(height: 10),
           Text('read entirely on your device — nothing is uploaded'.tr,
               style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.placeholder)),
@@ -297,7 +297,7 @@ class _ResultsBody extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-        PrimaryButton(label: 'search', onTap: onSearch),
+        PrimaryButton(label: 'search'.tr, onTap: onSearch),
         const SizedBox(height: 10),
         Center(
           child: TextButton(

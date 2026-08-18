@@ -97,7 +97,7 @@ class _PlannedRandomPickSheetState extends State<_PlannedRandomPickSheet> {
           ),
           const SizedBox(height: 22),
           PrimaryButton(
-            label: 'open it',
+            label: 'open it'.tr,
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(

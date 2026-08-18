@@ -448,10 +448,10 @@ class _AskTeamiraInviteState extends State<_AskTeamiraInvite> {
                 final moodIndex = i - (hasQuery ? 1 : 0);
                 if (moodIndex < moods.length) {
                   final mood = moods[moodIndex];
-                  return _MoodChip(label: mood, onTap: () => widget.onPickMood(mood));
+                  return _MoodChip(label: mood.tr, onTap: () => widget.onPickMood(mood));
                 }
                 return _MoodChip(
-                  label: 'write your own…',
+                  label: 'write your own…'.tr,
                   outlined: true,
                   onTap: widget.onWriteOwn,
                 );
@@ -568,7 +568,7 @@ class _ResultRow extends StatelessWidget {
                       children: [
                         Text(item.title.display, style: SeenlyText.cardTitle),
                         const SizedBox(height: 4),
-                        Text('${item.mediaType} · ${item.year ?? '—'}',
+                        Text('${mediaTypeLabel(item.mediaType)} · ${item.year ?? '—'}',
                             style: SeenlyText.metaLabel),
                         if (status == 'watched') ...[
                           const SizedBox(height: 4),

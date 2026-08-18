@@ -75,8 +75,8 @@ class RouteBoard extends StatelessWidget {
             const SizedBox(height: 18),
             Text(
               isEmpty
-                  ? 'an empty road, waiting'
-                  : '${entries.length} ${entries.length == 1 ? 'stop' : 'stops'} on the road',
+                  ? 'an empty road, waiting'.tr
+                  : '${ruCount(entries.length, one: 'остановка', few: 'остановки', many: 'остановок', englishOne: 'stop', englishOther: 'stops')} ${'on the road'.tr}',
               style: SeenlyText.serif(size: 21, weight: FontWeight.w600),
             ),
             const SizedBox(height: 5),
@@ -213,7 +213,7 @@ class EveningRoadScreen extends StatelessWidget {
                     children: [
                       Text('the route'.tr, style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
                       Text(
-                        '${entries.length} ${entries.length == 1 ? 'stop' : 'stops'}',
+                        ruCount(entries.length, one: 'остановка', few: 'остановки', many: 'остановок', englishOne: 'stop', englishOther: 'stops'),
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                       ),
                     ],

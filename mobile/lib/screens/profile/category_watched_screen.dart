@@ -59,7 +59,7 @@ class CategoryWatchedScreen extends StatelessWidget {
                     children: [
                       Text(label, style: SeenlyText.serif(size: 34, weight: FontWeight.w700)),
                       const SizedBox(height: 6),
-                      Text('${entries.length} title${entries.length == 1 ? '' : 's'}',
+                      Text(ruCount(entries.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'),
                           style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                     ],
                   ),

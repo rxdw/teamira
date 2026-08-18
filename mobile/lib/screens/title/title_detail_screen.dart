@@ -575,7 +575,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                         if (_item.description.display != '—') ...[
                           SpoilerVeil(
                             active: context.watch<SpoilerPrefsService>().blurDescriptions,
-                            label: 'the synopsis might give things away',
+                            label: 'the synopsis might give things away'.tr,
                             child: Text(_item.description.display, style: SeenlyText.bodyText),
                           ),
                           const SizedBox(height: 20),
@@ -1212,7 +1212,7 @@ class _HeaderTitleBlock extends StatelessWidget {
                       // min" reads as nonsense next to a book, so it's left
                       // out here.
                       if (item.runtimeMinutes != null && item.mediaType != 'book')
-                        MetaLine(icon: Icons.schedule_outlined, label: '${item.runtimeMinutes} min'),
+                        MetaLine(icon: Icons.schedule_outlined, label: '${item.runtimeMinutes} ${'min'.tr}'),
                       // certification doubles as an age rating (ESRB/PEGI,
                       // games) or a page-count badge (books/manga) — see
                       // backend app/schemas.py::MediaItem.certification.
@@ -1269,7 +1269,7 @@ class _ExtraFactsSection extends StatelessWidget {
     final rows = <Widget>[];
 
     if (item.developer != null) {
-      rows.add(_FactRow(label: 'Developer', value: item.developer!));
+      rows.add(_FactRow(label: 'Developer'.tr, value: item.developer!));
     }
     // Books already show the publisher via the tagline ("Published by
     // ..." isn't set there — see _normalize in google_books.py, which
@@ -1277,26 +1277,26 @@ class _ExtraFactsSection extends StatelessWidget {
     // gets its own row here; a book's publisher shows here too since its
     // tagline is authors, not publisher.
     if (item.publisher != null) {
-      rows.add(_FactRow(label: 'Publisher', value: item.publisher!));
+      rows.add(_FactRow(label: 'Publisher'.tr, value: item.publisher!));
     }
     if (item.mediaType == 'manga' && item.status != null) {
-      rows.add(_FactRow(label: 'Status', value: item.status!));
+      rows.add(_FactRow(label: 'Status'.tr, value: item.status!));
     }
     if (item.mediaType == 'manga' && (item.volumes != null || item.chapters != null)) {
       final parts = <String>[
-        if (item.volumes != null) '${item.volumes} vol.',
-        if (item.chapters != null) '${item.chapters} ch.',
+        if (item.volumes != null) '${item.volumes} ${'vol.'.tr}',
+        if (item.chapters != null) '${item.chapters} ${'ch.'.tr}',
       ];
-      rows.add(_FactRow(label: 'Length', value: parts.join(' · ')));
+      rows.add(_FactRow(label: 'Length'.tr, value: parts.join(' · ')));
     }
     if (item.mediaType == 'book' && item.isbn != null) {
-      rows.add(_FactRow(label: 'ISBN', value: item.isbn!));
+      rows.add(_FactRow(label: 'ISBN'.tr, value: item.isbn!));
     }
     if (item.platforms.isNotEmpty) {
-      rows.add(_FactRow(label: 'Platforms', value: item.platforms.join(', ')));
+      rows.add(_FactRow(label: 'Platforms'.tr, value: item.platforms.join(', ')));
     }
     if (item.gameModes.isNotEmpty) {
-      rows.add(_FactRow(label: 'Modes', value: item.gameModes.join(', ')));
+      rows.add(_FactRow(label: 'Modes'.tr, value: item.gameModes.join(', ')));
     }
 
     return Column(
@@ -1392,7 +1392,7 @@ class _RatingsRow extends StatelessWidget {
                     Icon(Icons.chat_bubble_outline, size: 11, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 6),
                     Text(
-                      '${ratings.reviewsCount} reviews',
+                      ruCount(ratings.reviewsCount, one: 'рецензия', few: 'рецензии', many: 'рецензий', englishOne: 'review', englishOther: 'reviews'),
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                     if (onTapReviews != null) ...[
@@ -1600,7 +1600,7 @@ class _CastSection extends StatelessWidget {
             child: Text.rich(
               TextSpan(
                 children: [
-                  TextSpan(text: 'directed by  ', style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
+                  TextSpan(text: '${'directed by'.tr}  ', style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
                   TextSpan(
                     text: director,
                     style: directorId != null
@@ -1876,7 +1876,7 @@ class _WhereToWatchSection extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    "nothing streaming for $regionLabel — try a different region",
+                    "${'nothing streaming for'.tr} $regionLabel ${'— try a different region'.tr}",
                     style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
                   ),
                 ),

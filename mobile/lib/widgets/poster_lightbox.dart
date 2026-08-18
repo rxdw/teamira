@@ -230,7 +230,7 @@ class _LightboxContentState extends State<_LightboxContent> {
                                   [
                                     if (item.year != null) '${item.year}',
                                     if (item.runtimeMinutes != null && item.mediaType != 'book')
-                                      '${item.runtimeMinutes} мин'.tr,
+                                      '${item.runtimeMinutes} ${'min'.tr}',
                                   ].join('  ·  '),
                                   style: SeenlyText.mono(
                                     size: 13,

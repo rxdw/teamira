@@ -584,7 +584,7 @@ class _NextEpisodeButton extends StatelessWidget {
           children: [
             const Icon(Icons.play_arrow_rounded, size: 15, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
-            Text('watch S${season}E$episode',
+            Text('${'watch'.tr} S${season}E$episode',
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
           ],
         ),
@@ -732,10 +732,10 @@ class _SeasonPagerState extends State<_SeasonPager> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('season ${season.season}',
+                      Text('${'season'.tr} ${season.season}',
                           style: SeenlyText.serif(italic: true, size: 14)),
                       const SizedBox(height: 2),
-                      Text('$watchedCount/${season.episodes.length} episodes',
+                      Text('$watchedCount/${season.episodes.length} ${ruPluralForm(season.episodes.length, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}',
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                     ],
                   ),
@@ -982,14 +982,14 @@ class _EpisodeRatingDialogState extends State<_EpisodeRatingDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('episode ${widget.episode.episode}', style: SeenlyText.metaLabel),
+            Text('${'episode'.tr} ${widget.episode.episode}', style: SeenlyText.metaLabel),
             const SizedBox(height: 4),
-            Text(hasTitle ? widget.episode.title! : 'episode ${widget.episode.episode}',
+            Text(hasTitle ? widget.episode.title! : '${'episode'.tr} ${widget.episode.episode}',
                 style: SeenlyText.serif(size: 16, italic: !hasTitle)),
             const SizedBox(height: 10),
             if (widget.watchedAt != null)
               Text(
-                'watched ${widget.watchedAt!.day}/${widget.watchedAt!.month}/${widget.watchedAt!.year}',
+                '${'watched'.tr} ${widget.watchedAt!.day}/${widget.watchedAt!.month}/${widget.watchedAt!.year}',
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
               ),
             const SizedBox(height: 12),

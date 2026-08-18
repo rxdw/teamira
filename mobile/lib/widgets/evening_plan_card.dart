@@ -179,7 +179,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
         backgroundColor: SeenlyPalette.paper,
         title: Text('let this plan go?'.tr, style: SeenlyText.serif(size: 15)),
         content: Text(
-          '"${widget.plan.title}" comes off your ticket — you can always plan another evening.',
+          '"${widget.plan.title}" ${'comes off your ticket — you can always plan another evening.'.tr}',
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
         ),
         actions: [
@@ -384,7 +384,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                           child: GestureDetector(
                             onTap: _showAllPlans,
                             child: Text(
-                              '+${widget.otherCount} more planned',
+                              '+${widget.otherCount} ${'more planned'.tr}',
                               style: SeenlyText.mono(
                                 size: 10,
                                 color: SeenlyPalette.accent,

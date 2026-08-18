@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../services/app_translations.dart';
 import '../services/log_theme_service.dart';
 import '../theme/log_theme_copy.dart';
 import '../theme/palette.dart';
@@ -90,7 +91,7 @@ class SeenlyBottomNav extends StatelessWidget {
                             icon: i == 1
                                 ? LogThemeCopy.navIcon(logTheme, active: i == currentIndex)
                                 : (i == currentIndex ? _items[i].activeIcon : _items[i].icon),
-                            label: _items[i].label,
+                            label: _items[i].label.tr,
                             active: i == currentIndex,
                             onTap: () => onTap(i),
                           ),

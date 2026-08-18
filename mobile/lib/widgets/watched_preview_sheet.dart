@@ -473,7 +473,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                       children: [
                         const Icon(Icons.favorite, size: 11, color: SeenlyPalette.accent),
                         const SizedBox(width: 4),
-                        Text('watched with ${data.watchedWithUsername}',
+                        Text('${'watched with'.tr} ${data.watchedWithUsername}',
                             style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
                       ],
                     ),

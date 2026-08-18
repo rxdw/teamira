@@ -9,6 +9,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// Edits the one part of the profile that isn't derived from watch
 /// history — name, avatar, status line. Reads its starting values from
@@ -82,7 +83,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _uploadingPhoto = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Не получилось загрузить фото: $e'.tr)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(LocaleService.appIsRussian ? 'Не получилось загрузить фото: $e' : "Couldn't upload photo: $e")));
     }
   }
 
@@ -109,7 +111,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = 'Не получилось сохранить: $e'.tr;
+        _error = LocaleService.appIsRussian ? 'Не получилось сохранить: $e' : "Couldn't save: $e";
       });
     }
   }

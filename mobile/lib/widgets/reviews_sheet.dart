@@ -180,7 +180,7 @@ class _ReviewCardState extends State<_ReviewCard> {
           const SizedBox(height: 8),
           SpoilerVeil(
             active: context.watch<SpoilerPrefsService>().blurReviews,
-            label: 'this review might spoil it',
+            label: 'this review might spoil it'.tr,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -203,7 +203,7 @@ class _ReviewCardState extends State<_ReviewCard> {
             const SizedBox(height: 4),
             GestureDetector(
               onTap: () => launchUrl(Uri.parse(r.url), mode: LaunchMode.externalApplication),
-              child: Text('open on ${r.source == 'trakt' ? 'Trakt' : 'TMDB'}',
+              child: Text('${'open on'.tr} ${r.source == 'trakt' ? 'Trakt' : 'TMDB'}',
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ),
           ],

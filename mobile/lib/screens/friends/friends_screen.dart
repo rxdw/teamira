@@ -149,7 +149,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: SeenlyPalette.paper,
-        title: Text('remove $username?', style: SeenlyText.serif(size: 16)),
+        title: Text('${'remove'.tr} $username?', style: SeenlyText.serif(size: 16)),
         content: Text(
           "you'll stop seeing each other's activity — either of you can send a new request later.".tr,
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
@@ -324,7 +324,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 fallbackLetter: r.username.isNotEmpty ? r.username[0].toUpperCase() : '?',
                 index: i,
                 title: r.nameForDisplay,
-                subtitle: 'wants to be friends',
+                subtitle: 'wants to be friends'.tr,
                 cardWidth: cardWidth,
                 corner: _cornerStamp(
                   onTap: () => _accept(r.id),
@@ -352,7 +352,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 fallbackLetter: r.username.isNotEmpty ? r.username[0].toUpperCase() : '?',
                 index: i,
                 title: r.nameForDisplay,
-                subtitle: 'request sent',
+                subtitle: 'request sent'.tr,
                 cardWidth: cardWidth,
                 corner: _cornerStamp(
                   onTap: () => _cancel(r.id),
@@ -365,7 +365,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         }).toList()),
         const SizedBox(height: 8),
       ],
-      Text('friends · ${friends.length}',
+      Text('${'friends'.tr} · ${friends.length}',
           style: SeenlyText.serif(size: 16, weight: FontWeight.w700)),
       const SizedBox(height: 12),
       if (friends.isEmpty)

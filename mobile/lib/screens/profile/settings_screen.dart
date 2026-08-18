@@ -122,21 +122,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 18),
             _ThemeChoiceRow(
               icon: Icons.local_activity_outlined,
-              label: 'a ticket, torn open',
+              label: 'a ticket, torn open'.tr,
               selected: current == LogTheme.ticket,
               onTap: () => Navigator.of(context).pop(LogTheme.ticket),
             ),
             const SizedBox(height: 10),
             _ThemeChoiceRow(
               icon: Icons.train,
-              label: 'an evening route, by train',
+              label: 'an evening route, by train'.tr,
               selected: current == LogTheme.coach,
               onTap: () => Navigator.of(context).pop(LogTheme.coach),
             ),
             const SizedBox(height: 10),
             _ThemeChoiceRow(
               icon: Icons.local_florist_outlined,
-              label: 'a window garden, in bloom',
+              label: 'a window garden, in bloom'.tr,
               selected: current == LogTheme.garden,
               onTap: () => Navigator.of(context).pop(LogTheme.garden),
             ),
@@ -252,8 +252,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             _SettingsTile(
               icon: Icons.sync_outlined,
-              label: 'auto-tracking',
-              subtitle: 'Plex, Jellyfin, Kodi, browser extension',
+              label: 'auto-tracking'.tr,
+              subtitle: 'Plex, Jellyfin, Kodi, browser extension'.tr,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const IntegrationsScreen()),
               ),
@@ -261,8 +261,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
             _SettingsTile(
               icon: Icons.move_to_inbox_outlined,
-              label: 'import your history',
-              subtitle: 'bring over a list from Letterboxd or elsewhere',
+              label: 'import your history'.tr,
+              subtitle: 'bring over a list from Letterboxd or elsewhere'.tr,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ImportScreen()),
               ),
@@ -634,13 +634,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Builder(builder: (context) {
               final logTheme = context.watch<LogThemeService>().theme;
               final (icon, subtitle) = switch (logTheme) {
-                LogTheme.coach => (Icons.train, 'an evening route, boarded and torn at the gate'),
-                LogTheme.ticket => (Icons.local_activity_outlined, 'a little cinema, ticket torn for each evening'),
-                LogTheme.garden => (Icons.local_florist_outlined, 'a window garden, a flower grown for each evening'),
+                LogTheme.coach => (Icons.train, 'an evening route, boarded and torn at the gate'.tr),
+                LogTheme.ticket => (Icons.local_activity_outlined, 'a little cinema, ticket torn for each evening'.tr),
+                LogTheme.garden => (Icons.local_florist_outlined, 'a window garden, a flower grown for each evening'.tr),
               };
               return _SettingsTile(
                 icon: icon,
-                label: 'logging ritual',
+                label: 'logging ritual'.tr,
                 subtitle: subtitle,
                 onTap: () => _chooseLogTheme(context, logTheme),
               );
@@ -1050,7 +1050,7 @@ class _MapStyleSwatchButton extends StatelessWidget {
                   : null,
             ),
             const SizedBox(height: 4),
-            Text(info.label,
+            Text(info.label.tr,
                 style: SeenlyText.mono(
                     size: 9,
                     color: selected ? SeenlyPalette.ink : SeenlyPalette.inkMuted,
@@ -1148,7 +1148,7 @@ class _PrivacySettingsCardState extends State<_PrivacySettingsCard> {
                 ),
                 const SizedBox(height: 12),
                 _PrivacyRow(
-                  label: 'watched',
+                  label: 'watched'.tr,
                   icon: Icons.check_circle_outline,
                   value: PrivacyLevelWire.fromWire(me.privacyWatched),
                   saving: _saving == PrivacyShelf.watched,
@@ -1158,7 +1158,7 @@ class _PrivacySettingsCardState extends State<_PrivacySettingsCard> {
                 Container(height: 1, color: SeenlyPalette.border),
                 const SizedBox(height: 12),
                 _PrivacyRow(
-                  label: 'watching now',
+                  label: 'watching now'.tr,
                   icon: Icons.play_circle_outline,
                   value: PrivacyLevelWire.fromWire(me.privacyWatching),
                   saving: _saving == PrivacyShelf.watching,
@@ -1168,7 +1168,7 @@ class _PrivacySettingsCardState extends State<_PrivacySettingsCard> {
                 Container(height: 1, color: SeenlyPalette.border),
                 const SizedBox(height: 12),
                 _PrivacyRow(
-                  label: 'plan to watch',
+                  label: 'plan to watch'.tr,
                   icon: Icons.bookmark_border,
                   value: PrivacyLevelWire.fromWire(me.privacyPlanned),
                   saving: _saving == PrivacyShelf.planned,
@@ -1178,7 +1178,7 @@ class _PrivacySettingsCardState extends State<_PrivacySettingsCard> {
                 Container(height: 1, color: SeenlyPalette.border),
                 const SizedBox(height: 12),
                 _PrivacyRow(
-                  label: 'favorite films',
+                  label: 'favorite films'.tr,
                   icon: Icons.favorite_border,
                   value: PrivacyLevelWire.fromWire(me.privacyFavorites),
                   saving: _saving == PrivacyShelf.favorites,

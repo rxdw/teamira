@@ -60,7 +60,7 @@ class DecideMethodScreen extends StatelessWidget {
                         Text('how should we decide?'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                         const SizedBox(height: 2),
                         Text(
-                          '${filters.summary} · ${pool.length} to pick from',
+                          '${filters.summary} · ${pool.length} ${'to pick from'.tr}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
@@ -93,8 +93,8 @@ class DecideMethodScreen extends StatelessWidget {
                               child: _MethodTile(
                                 icon: Icons.auto_awesome_outlined,
                                 color: SeenlyPalette.periwinkle,
-                                title: 'ask teamira',
-                                blurb: 'tell it what kind of evening you\'re after',
+                                title: 'ask teamira'.tr,
+                                blurb: 'tell it what kind of evening you\'re after'.tr,
                                 live: _LiveDetail.shimmer,
                                 onTap: () => Navigator.of(context).push(
                                   MaterialPageRoute(builder: (_) => DecideAskTeamiraScreen(filters: filters)),
@@ -110,8 +110,8 @@ class DecideMethodScreen extends StatelessWidget {
                               child: _MethodTile(
                                 icon: Icons.casino_outlined,
                                 color: SeenlyPalette.coral,
-                                title: 'random pick',
-                                blurb: 'one title, pulled from the pool above',
+                                title: 'random pick'.tr,
+                                blurb: 'one title, pulled from the pool above'.tr,
                                 live: _LiveDetail.breathe,
                                 onTap: pool.isEmpty
                                     ? null
@@ -135,8 +135,8 @@ class DecideMethodScreen extends StatelessWidget {
                               child: _MethodTile(
                                 icon: Icons.rotate_right_rounded,
                                 color: SeenlyPalette.mustard,
-                                title: 'spin the reel',
-                                blurb: 'watch it roll and land on something',
+                                title: 'spin the reel'.tr,
+                                blurb: 'watch it roll and land on something'.tr,
                                 live: _LiveDetail.spin,
                                 onTap: pool.isEmpty
                                     ? null
@@ -154,8 +154,8 @@ class DecideMethodScreen extends StatelessWidget {
                               child: _MethodTile(
                                 icon: Icons.swipe_outlined,
                                 color: SeenlyPalette.sage,
-                                title: 'swipe through',
-                                blurb: 'left to skip, right for plan to watch',
+                                title: 'swipe through'.tr,
+                                blurb: 'left to skip, right for plan to watch'.tr,
                                 live: _LiveDetail.sway,
                                 onTap: pool.isEmpty
                                     ? null

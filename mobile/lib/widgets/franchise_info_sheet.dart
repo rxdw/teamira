@@ -7,6 +7,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../screens/trailers/trailer_reels_screen.dart';
 import '../services/app_translations.dart';
+import '../services/locale_service.dart';
 
 /// "about this franchise / how it was made" — opened from a small pill on
 /// [CollectionFullScreen] for franchise shelves only.
@@ -123,7 +124,9 @@ class _FranchiseInfoSheet extends StatelessWidget {
                           child: Text(
                             trailerCount == 1
                                 ? 'смотреть трейлер'.tr
-                                : 'смотреть трейлеры ($trailerCount)'.tr,
+                                : (LocaleService.appIsRussian
+                                    ? 'смотреть трейлеры ($trailerCount)'
+                                    : 'watch trailers ($trailerCount)'),
                             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent),
                           ),
                         ),

@@ -157,7 +157,7 @@ class _ReviewComposerScreenState extends State<_ReviewComposerScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      '$_wordCount word${_wordCount == 1 ? '' : 's'}',
+                      ruCount(_wordCount, one: 'слово', few: 'слова', many: 'слов', englishOne: 'word', englishOther: 'words'),
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                   ),

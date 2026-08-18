@@ -107,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   delay: const Duration(milliseconds: 250),
                   riseBy: 16,
                   child: PrimaryButton(
-                    label: 'sign in',
+                    label: 'sign in'.tr,
                     loading: _loading,
                     onTap: _submit,
                   ),

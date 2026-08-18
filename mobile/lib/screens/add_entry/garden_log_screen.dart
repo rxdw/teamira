@@ -24,6 +24,7 @@ import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 // This bed's own verdict words — same shape VerdictRating expects from
 // the cinema flow (10 entries, low to high), spoken the way you'd
@@ -359,13 +360,13 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
       children: [
         LogFlowTopBar(
           onBack: _confirmLeaveSpotStep,
-          trailingLabel: 'skip',
+          trailingLabel: 'skip'.tr,
           onTrailing: _skipToConfirm,
         ),
         CollapsingAnnouncement(
           preshow: _preshow,
           breathe: _sway,
-          text: 'the birds have gone quiet for the night',
+          text: 'the birds have gone quiet for the night'.tr,
           glow: SeenlyPalette.sage,
         ),
         const SizedBox(height: 6),
@@ -422,7 +423,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
     return Column(
       key: const ValueKey('details-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.spot), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.spot), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
           child: SeatPill(label: _spotLabel),
@@ -488,7 +489,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                     Text('together'.tr, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent)),
                     const SizedBox(height: 10),
                     PillChip(
-                      label: 'watched with $_partnerUsername',
+                      label: "${'watched with'.tr} $_partnerUsername",
                       active: _watchedWithPartner,
                       onTap: () => setState(() => _watchedWithPartner = !_watchedWithPartner),
                     ),
@@ -522,7 +523,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'continue',
+            label: 'continue'.tr,
             onTap: () => _goTo(_Step.vibe),
           ),
         ),
@@ -552,7 +553,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
     return Column(
       key: const ValueKey('vibe-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.details), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.details), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
           child: SeatPill(label: _spotLabel),
@@ -626,7 +627,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'continue',
+            label: 'continue'.tr,
             onTap: () => _goTo(_cast.isNotEmpty ? _Step.castPick : _Step.confirm),
           ),
         ),
@@ -644,7 +645,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
     return Column(
       key: const ValueKey('cast-pick-step'),
       children: [
-        LogFlowTopBar(onBack: () => _goTo(_Step.vibe), trailingLabel: 'skip', onTrailing: () => _goTo(_Step.confirm)),
+        LogFlowTopBar(onBack: () => _goTo(_Step.vibe), trailingLabel: 'skip'.tr, onTrailing: () => _goTo(_Step.confirm)),
         Padding(
           padding: const EdgeInsets.only(top: 4, bottom: 14),
           child: SeatPill(label: _spotLabel),
@@ -691,7 +692,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(label: 'continue', onTap: () => _goTo(_Step.confirm)),
+          child: PrimaryButton(label: 'continue'.tr, onTap: () => _goTo(_Step.confirm)),
         ),
       ],
     );
@@ -749,11 +750,11 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                     ],
                   ),
                   const Divider(height: 28, color: SeenlyPalette.border),
-                  ConfirmRow(label: 'when', value: _friendlyDate(_resolvedDate)),
+                  ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
-                    label: 'rating',
-                    value: _rating > 0 ? '$_rating/10 · ${_verdictFor(_rating)}' : 'not rated',
+                    label: 'rating'.tr,
+                    value: _rating > 0 ? '$_rating/10 · ${_verdictFor(_rating)}' : 'not rated'.tr,
                     valueColor: _rating > 0 ? SeenlyPalette.ratingColor(_rating) : SeenlyPalette.inkFaint,
                   ),
                   if (_moodTags.isNotEmpty) ...[
@@ -797,7 +798,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                   ],
                   if (_watchedWithPartner && _partnerUsername != null) ...[
                     const SizedBox(height: 12),
-                    ConfirmRow(label: 'together', value: 'with $_partnerUsername'),
+                    ConfirmRow(label: 'together'.tr, value: "${'with'.tr} $_partnerUsername"),
                   ],
                 ],
               ),
@@ -833,7 +834,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: GardenSubmitButton(label: 'confirm planting', loading: _saving, onTap: _saving ? null : _confirmAndSave),
+          child: GardenSubmitButton(label: 'confirm planting'.tr, loading: _saving, onTap: _saving ? null : _confirmAndSave),
         ),
       ],
     );
@@ -882,7 +883,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
-            label: 'leave it growing',
+            label: 'leave it growing'.tr,
             onTap: () => Navigator.of(context).pop(true),
           ),
         ),
@@ -1281,7 +1282,7 @@ class _BedStrip extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Text('$spotLabel, tucked in among the rest · tonight', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.45))),
+          Text('$spotLabel${', tucked in among the rest · tonight'.tr}', style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.paper.withOpacity(0.45))),
         ],
       ),
     );
@@ -1543,6 +1544,12 @@ class _BloomRevealState extends State<_BloomReveal> with SingleTickerProviderSta
   static const _months = [
     'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
   ];
+  // Short Russian month abbreviations for the same date line — not a 
+  // literal word-for-word .tr swap (that table has no per-word case 
+  // handling), just a parallel three-letter list in the same slot order.
+  static const _monthsRu = [
+    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+  ];
 
   @override
   void initState() {
@@ -1604,7 +1611,7 @@ class _BloomRevealState extends State<_BloomReveal> with SingleTickerProviderSta
                       Text(widget.title, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
                           style: SeenlyText.serif(italic: true, size: 15.5, weight: FontWeight.w600)),
                       const SizedBox(height: 5),
-                      Text('${widget.watchedAt.day} ${_months[widget.watchedAt.month - 1]} · bloomed in the bed',
+                      Text('${widget.watchedAt.day} ${(LocaleService.appIsRussian ? _monthsRu : _months)[widget.watchedAt.month - 1]} ${'· bloomed in the bed'.tr}',
                           style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                     ],
                   ),

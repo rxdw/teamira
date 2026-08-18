@@ -30,8 +30,8 @@ class DecideFilters {
 
   String get summary {
     final parts = <String>[
-      if (types.length == 1) types.first else '${types.length} types',
-      if (genres.isNotEmpty) (genres.length == 1 ? genres.first.toLowerCase() : '${genres.length} genres'),
+      if (types.length == 1) types.first else ruCount(types.length, one: 'тип', few: 'типа', many: 'типов', englishOne: 'type', englishOther: 'types'),
+      if (genres.isNotEmpty) (genres.length == 1 ? genres.first.toLowerCase() : ruCount(genres.length, one: 'жанр', few: 'жанра', many: 'жанров', englishOne: 'genre', englishOther: 'genres')),
       if (decade != null) decadeLabel(decade!),
     ];
     return parts.isEmpty ? 'anything, any year' : parts.join(' · ');
@@ -422,7 +422,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 6),
-        _DoesntMatterLink(label: 'doesn\'t matter — any type', onTap: _skipType),
+        _DoesntMatterLink(label: 'doesn\'t matter — any type'.tr, onTap: _skipType),
       ],
     );
   }
@@ -452,7 +452,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-          child: _DoesntMatterLink(label: 'doesn\'t matter — any genre', onTap: _skipGenre),
+          child: _DoesntMatterLink(label: 'doesn\'t matter — any genre'.tr, onTap: _skipGenre),
         ),
       ],
     );
@@ -483,7 +483,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-          child: _DoesntMatterLink(label: 'doesn\'t matter — any year', onTap: _skipYear),
+          child: _DoesntMatterLink(label: 'doesn\'t matter — any year'.tr, onTap: _skipYear),
         ),
       ],
     );
@@ -498,8 +498,8 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
         children: [
           Text(
             pool.isEmpty
-                ? 'nothing matches that combination'
-                : '${pool.length} ${pool.length == 1 ? 'title' : 'titles'} to choose from',
+                ? 'nothing matches that combination'.tr
+                : '${ruCount(pool.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles')} ${'to choose from'.tr}',
             style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
           ),
           const SizedBox(height: 10),
@@ -520,24 +520,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
     );
   }
 
-  String _typeLabel(String type) {
-    switch (type) {
-      case 'movie':
-        return 'movies';
-      case 'series':
-        return 'series';
-      case 'anime':
-        return 'anime';
-      case 'book':
-        return 'books';
-      case 'manga':
-        return 'manga';
-      case 'game':
-        return 'games';
-      default:
-        return type;
-    }
-  }
+  String _typeLabel(String type) => mediaTypeLabelPlural(type);
 }
 
 /// One full-width row in the type-picking list — a soft tinted card with
@@ -1070,7 +1053,7 @@ class _EraRow extends StatelessWidget {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                (count == 1 ? 'title' : 'titles').toUpperCase(),
+                                ruPluralForm(count, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles').toUpperCase(),
                                 style: SeenlyText.mono(
                                   size: 15,
                                   weight: FontWeight.w600,
