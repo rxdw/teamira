@@ -110,7 +110,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                 children: [
                   PressScale(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     ),
@@ -696,17 +696,18 @@ class _SoftPill extends StatefulWidget {
   final IconData icon;
   final String label;
   final bool filled;
-  final Color tint;
+  Color get tint => _tint ?? SeenlyPalette.accent;
+  final Color? _tint;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
-  const _SoftPill({
+  _SoftPill({
     required this.icon,
     required this.label,
     required this.filled,
     required this.onTap,
-    this.tint = SeenlyPalette.accent,
+    Color? tint,
     this.onLongPress,
-  });
+  }) : _tint = tint;
 
   @override
   State<_SoftPill> createState() => _SoftPillState();
@@ -766,7 +767,7 @@ class _PillSpinner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 16),
       decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
-      child: const SizedBox(
+      child: SizedBox(
         width: 13,
         height: 13,
         child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
@@ -864,11 +865,17 @@ class _ActivitySection extends StatelessWidget {
     final parsed = DateTime.tryParse(iso);
     if (parsed == null) return '';
     final diff = DateTime.now().difference(parsed);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inMinutes < 1) return 'just now'.tr;
+    if (diff.inMinutes < 60) {
+      return '${ruCount(diff.inMinutes, one: 'минуту', few: 'минуты', many: 'минут', englishOne: 'minute', englishOther: 'minutes')} ${'ago'.tr}';
+    }
+    if (diff.inHours < 24) {
+      return '${ruCount(diff.inHours, one: 'час', few: 'часа', many: 'часов', englishOne: 'hour', englishOther: 'hours')} ${'ago'.tr}';
+    }
+    if (diff.inDays < 7) {
+      return '${ruCount(diff.inDays, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'ago'.tr}';
+    }
+    return '${ruCount((diff.inDays / 7).floor(), one: 'неделю', few: 'недели', many: 'недель', englishOne: 'week', englishOther: 'weeks')} ${'ago'.tr}';
   }
 
   @override

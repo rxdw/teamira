@@ -109,8 +109,8 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                      child: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -156,7 +156,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                   if (snapshot.hasError) {
                     final message = snapshot.error is ApiException
                         ? (snapshot.error as ApiException).message
-                        : "couldn't reach teamira's catalog just now";
+                        : "couldn't reach teamira's catalog just now".tr;
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -164,7 +164,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.auto_awesome_outlined, size: 26, color: SeenlyPalette.placeholder),
+                              Icon(Icons.auto_awesome_outlined, size: 26, color: SeenlyPalette.placeholder),
                               const SizedBox(height: 10),
                               Text(
                                 message,
@@ -298,7 +298,7 @@ class _MatchRow extends StatelessWidget {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 child: busy
-                    ? const SizedBox(
+                    ? SizedBox(
                         key: ValueKey('busy'),
                         width: 12,
                         height: 12,

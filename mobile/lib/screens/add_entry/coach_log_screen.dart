@@ -21,9 +21,9 @@ import '../../widgets/review_composer.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../services/log_theme_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
+import '../../widgets/level_up_celebration.dart';
 import '../../widgets/favorite_toggle.dart';
-import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
@@ -499,7 +499,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           child: Opacity(
             opacity: _selectedSeat == null ? 0.45 : 1.0,
             child: PrimaryButton(
-              label: _selectedSeat == null ? 'pick a seat' : 'confirm seat $_seatLabel',
+              label: _selectedSeat == null ? 'pick a seat'.tr : '${'confirm seat'.tr} $_seatLabel',
               onTap: _selectedSeat == null ? null : () => _goTo(_Step.details),
             ),
           ),
@@ -569,7 +569,9 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                       const SizedBox(width: 8),
                       Expanded(
                         child: PillChip(
-                          label: _when == _When.custom && _customDate != null ? '${_customDate!.month}/${_customDate!.day}' : 'pick date',
+                          label: _when == _When.custom && _customDate != null
+                              ? '${_customDate!.month}/${_customDate!.day}'
+                              : 'pick date'.tr,
                           active: _when == _When.custom,
                           dashed: true,
                           fullWidth: true,
@@ -706,8 +708,8 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                           child: Container(
                             width: 34,
                             height: 34,
-                            decoration: const BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                            child: const Icon(Icons.add, size: 17, color: SeenlyPalette.accentOnAccent),
+                            decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                            child: Icon(Icons.add, size: 17, color: SeenlyPalette.accentOnAccent),
                           ),
                         ),
                       ],
@@ -843,7 +845,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                       ),
                     ],
                   ),
-                  const Divider(height: 28, color: SeenlyPalette.border),
+                  Divider(height: 28, color: SeenlyPalette.border),
                   ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
@@ -972,7 +974,20 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
             label: 'check in'.tr,
-            onTap: () => Navigator.of(context).pop(true),
+            onTap: () async {
+              // Right as the person is about to leave the boarding
+              // ritual behind — one more beat (or two), if this save
+              // leveled them up and/or a badge just came with it,
+              // before actually stepping away.
+              final leveledUp = context.read<AppState>().consumePendingLevelUp();
+              if (leveledUp != null && context.mounted) {
+                await showLevelUpCelebration(context, leveledUp);
+              }
+              if (context.mounted) {
+                await checkAndCelebrateNewAchievements(context);
+              }
+              if (context.mounted) Navigator.of(context).pop(true);
+            },
           ),
         ),
       ],
@@ -1072,7 +1087,7 @@ class _CoachCastPickTile extends StatelessWidget {
                             color: SeenlyPalette.accent,
                             border: Border.all(color: SeenlyPalette.paper, width: 2),
                           ),
-                          child: const Icon(Icons.favorite, size: 10, color: SeenlyPalette.accentOnAccent),
+                          child: Icon(Icons.favorite, size: 10, color: SeenlyPalette.accentOnAccent),
                         ),
                       ),
                   ],
@@ -1538,14 +1553,11 @@ class _PassRevealState extends State<_PassReveal> with SingleTickerProviderState
 }
 
 /// A quiet little "thank you" that settles in just under the pass once
-/// it's landed — the same ordinary rabbit companion used everywhere
-/// else in the app, already holding its own little ticket, giving one
-/// happy hop before easing to a stop.
+/// it's landed, giving the pass a beat to breathe before the screen's
+/// primary action appears.
 ///
 /// Held back a beat behind [_PassReveal] so it plays like a reaction to
-/// the pass arriving rather than two things happening at once, and
-/// left out entirely (no gap in the layout) when the rabbit companion
-/// is turned off in Settings.
+/// the pass arriving rather than two things happening at once.
 class _PassStepMascot extends StatefulWidget {
   const _PassStepMascot();
 
@@ -1575,9 +1587,6 @@ class _PassStepMascotState extends State<_PassStepMascot> with SingleTickerProvi
 
   @override
   Widget build(BuildContext context) {
-    if (!context.watch<RabbitMascotPrefsService>().enabled) {
-      return const SizedBox(height: 4);
-    }
     return AnimatedBuilder(
       animation: _c,
       builder: (_, __) {
@@ -1594,8 +1603,6 @@ class _PassStepMascotState extends State<_PassStepMascot> with SingleTickerProvi
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const RabbitMascot(mood: RabbitMood.celebrating, size: 88),
-                    const SizedBox(height: 8),
                     Text(
                       'thank you for tonight'.tr,
                       style: SeenlyText.serif(

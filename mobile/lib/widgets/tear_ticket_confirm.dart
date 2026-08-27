@@ -127,18 +127,19 @@ class _TicketHalfShadow extends CustomPainter {
 class TearTicketConfirm extends StatefulWidget {
   final String label;
   final String confirmedLabel;
-  final Color accent;
+  Color get accent => _accent ?? SeenlyPalette.coral;
+  final Color? _accent;
   final VoidCallback onConfirmed;
   final double height;
 
-  const TearTicketConfirm({
+  TearTicketConfirm({
     super.key,
     required this.label,
     required this.onConfirmed,
     this.confirmedLabel = 'torn',
-    this.accent = SeenlyPalette.coral,
+    Color? accent,
     this.height = 96,
-  });
+  }) : _accent = accent;
 
   @override
   State<TearTicketConfirm> createState() => _TearTicketConfirmState();

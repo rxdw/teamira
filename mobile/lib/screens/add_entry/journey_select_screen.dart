@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/cinema_showtimes.dart';
 import '../../data/coach_routes.dart';
 import '../../data/garden_tasks.dart';
+import '../../data/launch_sites.dart';
 import '../../data/world_cities.dart';
 import '../../models/media_item.dart';
 import '../../services/geo_city_service.dart';
@@ -271,37 +272,55 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
                   destLng: o.cinema.lng,
                 ))
             .toList();
+      case LogTheme.shuttle:
+        return closestLaunchSites(runtimeMinutes: widget.item.runtimeMinutes, mediaType: widget.item.mediaType)
+            .map((s) => _JourneyOption(
+                  title: s.name,
+                  detail: '${_fmtDuration(s.minutes)} to the pad · ${s.city}, ${s.country}',
+                  minutes: s.minutes,
+                  matchKey: s.name,
+                  originLat: s.gateLat,
+                  originLng: s.gateLng,
+                  destLat: s.padLat,
+                  destLng: s.padLng,
+                ))
+            .toList();
     }
   }
 
   String get _headline => switch (widget.theme) {
-        LogTheme.coach => 'choose your route',
-        LogTheme.garden => 'choose your garden',
-        LogTheme.ticket => 'choose your cinema',
+        LogTheme.coach => 'choose your route'.tr,
+        LogTheme.garden => 'choose your garden'.tr,
+        LogTheme.ticket => 'choose your cinema'.tr,
+        LogTheme.shuttle => 'choose your launch site'.tr,
       };
 
   String get _departLabel => switch (widget.theme) {
-        LogTheme.coach => 'depart',
-        LogTheme.garden => 'through the gate',
-        LogTheme.ticket => 'board the flight',
+        LogTheme.coach => 'depart'.tr,
+        LogTheme.garden => 'through the gate'.tr,
+        LogTheme.ticket => 'board the flight'.tr,
+        LogTheme.shuttle => 'clear for launch'.tr,
       };
 
   Color get _accent => switch (widget.theme) {
         LogTheme.coach => SeenlyPalette.periwinkle,
         LogTheme.garden => SeenlyPalette.sage,
         LogTheme.ticket => SeenlyPalette.coral,
+        LogTheme.shuttle => SeenlyPalette.periwinkle,
       };
 
   IconData get _markerIcon => switch (widget.theme) {
         LogTheme.coach => Icons.train,
         LogTheme.garden => Icons.directions_walk,
         LogTheme.ticket => Icons.flight,
+        LogTheme.shuttle => Icons.rocket_launch,
       };
 
   JourneyVehicle get _vehicle => switch (widget.theme) {
         LogTheme.coach => JourneyVehicle.train,
         LogTheme.garden => JourneyVehicle.walk,
         LogTheme.ticket => JourneyVehicle.plane,
+        LogTheme.shuttle => JourneyVehicle.rocket,
       };
 
   double? get _mapOriginLat => _usesChangeableOrigin ? _origin.lat : _current?.originLat;
@@ -355,7 +374,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const Spacer(),
@@ -534,7 +553,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.search, size: 14, color: SeenlyPalette.inkFaint),
+                Icon(Icons.search, size: 14, color: SeenlyPalette.inkFaint),
                 const SizedBox(width: 8),
                 Expanded(
                   child: TextField(
@@ -551,7 +570,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
                   ),
                 ),
                 if (_searching)
-                  const SizedBox(
+                  SizedBox(
                     width: 12,
                     height: 12,
                     child: CircularProgressIndicator(strokeWidth: 2, color: SeenlyPalette.inkFaint),
@@ -691,7 +710,7 @@ class _PanelRow extends StatelessWidget {
                 child: AnimatedRotation(
                   turns: expanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.keyboard_arrow_down, size: 16, color: SeenlyPalette.inkFaint),
+                  child: Icon(Icons.keyboard_arrow_down, size: 16, color: SeenlyPalette.inkFaint),
                 ),
               ),
             ],
@@ -722,7 +741,7 @@ class _GardenOriginRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.eco, size: 12, color: SeenlyPalette.sage)),
+          Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.eco, size: 12, color: SeenlyPalette.sage)),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: SeenlyText.serif(size: 13, italic: true))),
         ],

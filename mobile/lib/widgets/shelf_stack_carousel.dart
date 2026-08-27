@@ -188,7 +188,7 @@ class _ShelfStackCarouselState extends State<ShelfStackCarousel> {
                   const SizedBox(width: 8),
                 ],
                 if (active.rating != null) ...[
-                  const Icon(Icons.star_rounded, size: 12, color: SeenlyPalette.mustard),
+                  Icon(Icons.star_rounded, size: 12, color: SeenlyPalette.mustard),
                   const SizedBox(width: 2),
                   Text(active.rating!.toStringAsFixed(1),
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),

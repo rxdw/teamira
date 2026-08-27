@@ -13,6 +13,7 @@ import 'coach_log_screen.dart';
 import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
 import 'journey_select_screen.dart';
+import 'shuttle_log_screen.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 import '../../services/app_translations.dart';
 
@@ -43,6 +44,7 @@ class WatchingChoiceScreen extends StatelessWidget {
         LogTheme.coach => CoachLogScreen(item: item, season: season, episode: episode),
         LogTheme.ticket => CinemaLogScreen(item: item, season: season, episode: episode),
         LogTheme.garden => GardenLogScreen(item: item, season: season, episode: episode),
+        LogTheme.shuttle => ShuttleLogScreen(item: item, season: season, episode: episode),
       };
 
   /// The whole ritual, skipped — no seat/venue pick, no journey, no
@@ -149,12 +151,14 @@ class WatchingChoiceScreen extends StatelessWidget {
         LogTheme.coach => 'a route, chosen and boarded now',
         LogTheme.ticket => 'a cinema, flown to and playing now',
         LogTheme.garden => 'a garden, walked right now',
+        LogTheme.shuttle => 'a launch site, cleared and lifting off now',
       };
 
   IconData _watchingNowIcon(LogTheme theme) => switch (theme) {
         LogTheme.coach => Icons.train,
         LogTheme.ticket => Icons.flight,
         LogTheme.garden => Icons.directions_walk,
+        LogTheme.shuttle => Icons.rocket_launch,
       };
 
   @override
@@ -185,7 +189,7 @@ class WatchingChoiceScreen extends StatelessWidget {
                   icon: _watchingNowIcon(theme),
                   iconColor: SeenlyPalette.periwinkle,
                   title: 'watching now'.tr,
-                  subtitle: _watchingNowSubtitle(theme),
+                  subtitle: _watchingNowSubtitle(theme).tr,
                   background: SeenlyPalette.periwinkle.withOpacity(0.08),
                   contentAlignment: const Alignment(0, -0.35),
                   entranceDelay: const Duration(milliseconds: 90),
@@ -404,7 +408,7 @@ class _RoundBackButton extends StatelessWidget {
           boxShadow: [BoxShadow(color: SeenlyPalette.ink.withOpacity(0.12), blurRadius: 8, offset: const Offset(0, 2))],
         ),
         alignment: Alignment.center,
-        child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+        child: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
       ),
     );
   }
@@ -459,7 +463,7 @@ class _QuickLogBanner extends StatelessWidget {
           ),
           PressScale(
             onTap: onDismiss,
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(6),
               child: Icon(Icons.close, size: 16, color: SeenlyPalette.inkFaint),
             ),

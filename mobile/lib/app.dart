@@ -12,7 +12,7 @@ import 'services/locale_service.dart';
 import 'services/log_theme_service.dart';
 import 'services/map_style_service.dart';
 import 'services/on_this_day_prefs_service.dart';
-import 'services/rabbit_mascot_prefs_service.dart';
+import 'services/premium_service.dart';
 import 'services/ritual_prefs_service.dart';
 import 'services/sources_display_prefs_service.dart';
 import 'services/spoiler_prefs_service.dart';
@@ -114,16 +114,10 @@ class SeenlyApp extends StatelessWidget {
         // independent of auth. See widgets/spoiler_veil.dart and the
         // "spoilers" row in Settings.
         ChangeNotifierProvider(create: (_) => SpoilerPrefsService()..load()),
-        // Whether the rabbit mascot appears around the app (onboarding,
-        // empty states, loading, achievements) — same device-only
-        // loading, independent of auth, off by default. See
-        // widgets/rabbit_mascot.dart and the "rabbit companion" row in
-        // Settings.
-        ChangeNotifierProvider(create: (_) => RabbitMascotPrefsService()..load()),
         // System / light / dark. Device-only, same loading pattern as
-        // everything else above. Only the rabbit mascot actually reacts
-        // to this today (see theme/app_theme.dart for why) — the rest
-        // of the app's dark palette is coming later.
+        // everything else above. Drives SeenlyPalette's real dark
+        // ("evening lamp") colors app-wide — see theme/palette.dart and
+        // theme/seenly_brightness.dart.
         ChangeNotifierProvider(create: (_) => ThemePrefsService()..load()),
         // Home's "today's pick" card: whether it's on at all (Settings)
         // and which day's pick has already been dismissed — same
@@ -137,9 +131,29 @@ class SeenlyApp extends StatelessWidget {
         // come from one account's own diary. See home_screen.dart's
         // _OnThisDaySection and services/on_this_day_prefs_service.dart.
         ChangeNotifierProvider(create: (_) => OnThisDayPrefsService()..load()),
+        // Premium subscription state — local-only stand-in for a real
+        // billing backend (see services/premium_service.dart's own
+        // docstring), same device-only loading as everything above.
+        // Independent of auth since it's read from Settings, Profile,
+        // and every free-tier upsell sheet before/without navigating
+        // anywhere account-specific.
+        ChangeNotifierProvider(create: (_) => PremiumService()..load()),
       ],
       child: Consumer<ThemePrefsService>(
         builder: (context, themePrefs, _) => MaterialApp(
+          // Most of the app reads its colors from SeenlyPalette's static
+          // getters rather than through Theme.of(context) (see
+          // theme/palette.dart), so a screen that's already on the
+          // Navigator stack won't spontaneously repaint itself just
+          // because ThemePrefsService changed — nothing told it to
+          // rebuild. Keying the whole app on the mode forces Flutter to
+          // tear down and rebuild everything below here fresh whenever
+          // it changes, so every screen picks up the new palette
+          // immediately. The cost is that toggling appearance in
+          // Settings drops back to the home route rather than staying
+          // put — an acceptable trade for a diary app, and simpler than
+          // threading Theme.of(context) through ~150 files.
+          key: ValueKey(themePrefs.mode),
           title: 'teamira',
           debugShowCheckedModeBanner: false,
           theme: SeenlyAppTheme.light,
@@ -294,7 +308,7 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.nights_stay_outlined,
+            Icon(Icons.nights_stay_outlined,
                 size: 30, color: SeenlyPalette.accent),
             const SizedBox(height: 10),
             Text('teamira'.tr, style: SeenlyText.serif(size: 22, weight: FontWeight.w600)),

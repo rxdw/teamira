@@ -7,21 +7,25 @@ import 'boarding_drop_overlay.dart';
 import 'coach_seat_overlay.dart';
 import 'coach_submit_button.dart';
 import 'evening_road.dart';
+import 'flight_log_board.dart';
 import 'garden_bed.dart';
 import 'garden_drop_overlay.dart';
 import 'garden_seed_overlay.dart';
 import 'garden_submit_button.dart';
+import 'launch_drop_overlay.dart';
 import 'seat_picker_overlay.dart';
+import 'shuttle_berth_overlay.dart';
+import 'shuttle_submit_button.dart';
 import 'ticket_drop_overlay.dart';
 import 'ticket_jar.dart';
 import 'ticket_submit_button.dart';
 
-/// The one place that knows all three themes exist. Every screen that
+/// The one place that knows all four themes exist. Every screen that
 /// used to call the ticket widgets directly calls these instead, so
-/// picking a theme in Settings changes the seat/coach-seat/planting
-/// ritual, the tear/stamp/bloom moment, the jar/board/garden, and the
-/// submit button everywhere at once — nothing left half-dressed in an
-/// old theme.
+/// picking a theme in Settings changes the seat/coach-seat/planting/
+/// berth ritual, the tear/stamp/bloom/ignition moment, the
+/// jar/board/garden/sky, and the submit button everywhere at once —
+/// nothing left half-dressed in an old theme.
 
 /// Pre-log ritual: the cinema's seat, or the coach's seat, depending
 /// on the current [LogTheme]. [runtimeMinutes] only matters for the
@@ -38,6 +42,7 @@ Future<void> showPreLogRitual(
       showCoachSeat(context, title: title, mediaType: mediaType, runtimeMinutes: runtimeMinutes),
     LogTheme.ticket => showSeatPicker(context, title: title, mediaType: mediaType),
     LogTheme.garden => showGardenPlant(context, title: title, mediaType: mediaType),
+    LogTheme.shuttle => showShuttleBerth(context, title: title, mediaType: mediaType),
   };
 }
 
@@ -59,6 +64,8 @@ Future<void> showLogDrop(
       showTicketDrop(context, title: title, mediaType: mediaType, rating: rating, watchedAt: watchedAt),
     LogTheme.garden => showBloomDrop(context,
         title: title, mediaType: mediaType, rating: rating, watchedAt: watchedAt, runtimeMinutes: runtimeMinutes),
+    LogTheme.shuttle => showLaunchDrop(context,
+        title: title, mediaType: mediaType, rating: rating, watchedAt: watchedAt, runtimeMinutes: runtimeMinutes),
   };
 }
 
@@ -74,6 +81,7 @@ class DiaryCenterpiece extends StatelessWidget {
       LogTheme.coach => RouteBoard(entries: entries),
       LogTheme.ticket => TicketJar(entries: entries),
       LogTheme.garden => GardenBox(entries: entries),
+      LogTheme.shuttle => FlightLogBoard(entries: entries),
     };
   }
 }
@@ -94,6 +102,7 @@ class LogSubmitButton extends StatelessWidget {
       LogTheme.coach => CoachSubmitButton(label: label, onTap: onTap, loading: loading),
       LogTheme.ticket => TicketSubmitButton(label: label, onTap: onTap, loading: loading),
       LogTheme.garden => GardenSubmitButton(label: label, onTap: onTap, loading: loading),
+      LogTheme.shuttle => ShuttleSubmitButton(label: label, onTap: onTap, loading: loading),
     };
   }
 }

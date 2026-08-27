@@ -7,6 +7,7 @@ import '../../widgets/wow_motion.dart';
 import '../home/ask_teamira_results_screen.dart';
 import 'decide_filters_screen.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// "Ask teamira" as one of the four decision methods — same free-text
 /// search as Home's own card ([AskTeamiraResultsScreen]), just opened
@@ -47,7 +48,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
   }
 
   static String _typeWord(DecideFilters filters) {
-    return filters.types.length == 1 ? _singular(filters.types.first) : 'something';
+    return filters.types.length == 1 ? _singular(filters.types.first) : 'something'.tr;
   }
 
   static String _suggestedQuery(DecideFilters filters) {
@@ -55,23 +56,24 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
     if (filters.decade != null) bits.add(decadeLabel(filters.decade!));
     if (filters.genres.isNotEmpty) bits.add(filters.genres.map((g) => g.toLowerCase()).join('/'));
     bits.add(_typeWord(filters));
-    return 'a ${bits.join(' ')} for tonight';
+    final noun = bits.join(' ');
+    return LocaleService.appIsRussian ? '$noun ${'for tonight'.tr}' : 'a $noun for tonight';
   }
 
   static String _singular(String type) {
     switch (type) {
       case 'movie':
-        return 'movie';
+        return 'movie'.tr;
       case 'series':
-        return 'series';
+        return 'series'.tr;
       case 'anime':
-        return 'anime';
+        return 'anime'.tr;
       case 'book':
-        return 'book';
+        return 'book'.tr;
       case 'manga':
-        return 'manga';
+        return 'manga'.tr;
       case 'game':
-        return 'game';
+        return 'game'.tr;
       default:
         return type;
     }
@@ -88,18 +90,19 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
     final examples = <String>[];
     if (filters.genres.isNotEmpty) {
       final genre = filters.genres.first.toLowerCase();
-      examples.add('a $genre $typeWord that doesn\'t take itself too seriously');
+      final phrase = '$genre $typeWord ${'that doesn\'t take itself too seriously'.tr}';
+      examples.add(LocaleService.appIsRussian ? phrase : 'a $phrase');
     }
     if (filters.decade != null) {
-      examples.add('${decadeLabel(filters.decade!)} comfort watch, nothing heavy');
+      examples.add('${decadeLabel(filters.decade!)} ${'comfort watch, nothing heavy'.tr}');
     }
     examples.addAll([
-      'something to make me cry',
-      'fast-paced, keeps me hooked',
-      'like [a title I loved]',
-      'weird and mind-bending',
-      'easy background while I cook',
-      'short, I only have an hour',
+      'something to make me cry'.tr,
+      'fast-paced, keeps me hooked'.tr,
+      'like [a title I loved]'.tr,
+      'weird and mind-bending'.tr,
+      'easy background while I cook'.tr,
+      'short, I only have an hour'.tr,
     ]);
     return examples;
   }
@@ -158,10 +161,10 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -293,14 +296,14 @@ class _ExampleRow extends StatelessWidget {
                   color: SeenlyPalette.periwinkle.withOpacity(0.14),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.auto_awesome_outlined, size: 12, color: SeenlyPalette.periwinkle),
+                child: Icon(Icons.auto_awesome_outlined, size: 12, color: SeenlyPalette.periwinkle),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(text, style: SeenlyText.serif(size: 13.5, color: SeenlyPalette.ink)),
               ),
               const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+              Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
             ],
           ),
         ),
@@ -346,7 +349,7 @@ class _ShimmerHero extends StatelessWidget {
               highlightColor: SeenlyPalette.paper,
             ),
           ),
-          const Icon(Icons.auto_awesome_outlined, size: 34, color: SeenlyPalette.periwinkle),
+          Icon(Icons.auto_awesome_outlined, size: 34, color: SeenlyPalette.periwinkle),
         ],
       ),
     );

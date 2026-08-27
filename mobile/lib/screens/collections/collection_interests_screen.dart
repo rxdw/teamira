@@ -60,7 +60,7 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.inkFaint),
+                    Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 6),
                     Text('back to collections'.tr,
                         style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
@@ -98,9 +98,9 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
           ],
           const SizedBox(height: 12),
           PrimaryButton(
-            label: widget.isFirstRun
+            label: (widget.isFirstRun
                 ? (_selected.isEmpty ? 'show me everything' : 'take me to my shelf')
-                : 'save',
+                : 'save').tr,
             onTap: _save,
           ),
           if (widget.isFirstRun) ...[

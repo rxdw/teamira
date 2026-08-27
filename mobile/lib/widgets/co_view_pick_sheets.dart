@@ -116,7 +116,7 @@ class _RandomPickSheetState extends State<_RandomPickSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.casino_outlined, size: 16, color: SeenlyPalette.accent),
+              Icon(Icons.casino_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 6),
               Text('pick for us'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const Spacer(),
@@ -124,7 +124,7 @@ class _RandomPickSheetState extends State<_RandomPickSheet> {
                 GestureDetector(
                   onTap: _reroll,
                   behavior: HitTestBehavior.opaque,
-                  child: const Icon(Icons.refresh, size: 17, color: SeenlyPalette.inkMuted),
+                  child: Icon(Icons.refresh, size: 17, color: SeenlyPalette.inkMuted),
                 ),
             ],
           ),
@@ -132,7 +132,7 @@ class _RandomPickSheetState extends State<_RandomPickSheet> {
           PoolSourcePicker(value: _source, onChanged: _changeSource),
           const SizedBox(height: 18),
           if (_loading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
             )
@@ -304,7 +304,7 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.rotate_right_rounded, size: 16, color: SeenlyPalette.accent),
+              Icon(Icons.rotate_right_rounded, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 6),
               Text('spin the reel'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const Spacer(),
@@ -312,7 +312,7 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
                 GestureDetector(
                   onTap: _spin,
                   behavior: HitTestBehavior.opaque,
-                  child: const Icon(Icons.refresh, size: 17, color: SeenlyPalette.inkMuted),
+                  child: Icon(Icons.refresh, size: 17, color: SeenlyPalette.inkMuted),
                 ),
             ],
           ),
@@ -320,7 +320,7 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
           PoolSourcePicker(value: _source, onChanged: _changeSource),
           const SizedBox(height: 18),
           if (_loading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 30),
               child: Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
             )
@@ -373,7 +373,7 @@ class _ReelPickSheetState extends State<_ReelPickSheet> {
             ),
             const SizedBox(height: 22),
             PrimaryButton(
-              label: _spinning ? 'spinning…' : 'propose it to the circle',
+              label: (_spinning ? 'spinning…' : 'propose it to the circle').tr,
               onTap: _spinning ? null : _choose,
             ),
           ],

@@ -1147,7 +1147,7 @@ class _GardenDuskSceneState extends State<GardenDuskScene>
                             child: Container(
                               width: 2.8,
                               height: 2.8,
-                              decoration: const BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.paper),
+                              decoration: BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.paper),
                             ),
                           ),
                         ),
@@ -1327,11 +1327,434 @@ class _MoonGlyph extends StatelessWidget {
             child: Container(
               width: 42,
               height: 42,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.ink),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.ink),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+/// Shuttle theme: a gantry tower's beacon blinking overhead, its arm
+/// swinging clear the instant the engines catch, a billowing ground
+/// cloud spreading along the pad, and the capsule itself — drawn as
+/// its own nose-cone-and-fins silhouette, not a stock icon — climbing
+/// up past a twinkling star field and a distant planet. This theme's
+/// answer to [TrainDepartureScene] and [ScreenIgniteScene]: its own
+/// full set piece rather than a starfield with a bobbing glyph on it.
+class RocketLaunchScene extends StatefulWidget {
+  final String routeLabel;
+  const RocketLaunchScene({super.key, required this.routeLabel});
+
+  @override
+  State<RocketLaunchScene> createState() => _RocketLaunchSceneState();
+}
+
+class _RocketLaunchSceneState extends State<RocketLaunchScene>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  late final List<Offset> _stars;
+  late final List<double> _twinklePhase;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1900))
+      ..forward();
+    final r = math.Random(widget.routeLabel.hashCode ^ 0x726F636B); // 'rock'
+    _stars = List.generate(26, (_) => Offset(r.nextDouble(), r.nextDouble() * 0.62));
+    _twinklePhase = List.generate(26, (_) => r.nextDouble() * math.pi * 2);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = _c.value;
+        // 0.00–0.20 sealed on the pad, arm still attached · 0.20–0.82
+        // climbing clear of the tower · the shared cinematicSnap glow
+        // takes over from there.
+        final liftT = Curves.easeInOutCubic.transform(((t - 0.20) / 0.62).clamp(0.0, 1.0).toDouble());
+        final armT = Curves.easeOutCubic.transform(((t - 0.10) / 0.28).clamp(0.0, 1.0).toDouble());
+        final igniteFlash = flashOpacity(t, riseEnd: 0.24);
+        final smokeT = Curves.easeOut.transform(((t - 0.12) / 0.5).clamp(0.0, 1.0).toDouble());
+        final smokeFade = 1 - Curves.easeIn.transform(((t - 0.55) / 0.4).clamp(0.0, 1.0).toDouble());
+        final sceneFade = 1 - Curves.easeIn.transform(((t - 0.80) / 0.20).clamp(0.0, 1.0).toDouble());
+        final capT = Curves.easeOut.transform((t / 0.28).clamp(0.0, 1.0).toDouble());
+        final capFade = 1 - Curves.easeIn.transform(((t - 0.74) / 0.26).clamp(0.0, 1.0).toDouble());
+        final captionOpacity = (capT * capFade).clamp(0.0, 1.0).toDouble();
+        return cinematicSnap(
+          t,
+          SizedBox.expand(
+          child: Column(
+            key: const ValueKey('rocket-launch-scene'),
+            children: [
+              const SizedBox(height: 22),
+              Opacity(
+                opacity: captionOpacity,
+                child: Text('clearing the tower'.tr,
+                    style: SeenlyText.serif(italic: true, size: 21, color: SeenlyPalette.paper)),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: LayoutBuilder(builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  final h = constraints.maxHeight;
+                  final scale = (w / 300).clamp(1.0, 2.0).toDouble();
+                  final padX = w * 0.5;
+                  final padY = h * 0.80;
+                  final riseY = liftT * h * 0.60;
+                  return ClipRect(
+                    child: Opacity(
+                      opacity: sceneFade.clamp(0.0, 1.0).toDouble(),
+                      child: SizedBox.expand(
+                        child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Night sky, full-bleed, lifting a touch
+                          // brighter right at ignition.
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  const Color(0xFF171A2E).withOpacity(0.0),
+                                  SeenlyPalette.periwinkle.withOpacity((0.12 + 0.10 * igniteFlash).clamp(0.0, 1.0).toDouble()),
+                                ],
+                              ),
+                            ),
+                          ),
+                          // A distant planet for depth, low and quiet
+                          // in one corner.
+                          Positioned(
+                            right: w * 0.10,
+                            top: h * 0.08,
+                            child: Opacity(
+                              opacity: 0.55,
+                              child: Container(
+                                width: 30 * scale,
+                                height: 30 * scale,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: RadialGradient(
+                                    center: const Alignment(-0.3, -0.3),
+                                    colors: [
+                                      SeenlyPalette.mustard.withOpacity(0.55),
+                                      SeenlyPalette.mustard.withOpacity(0.12),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // A twinkling star field, each on its own phase.
+                          for (int i = 0; i < _stars.length; i++)
+                            Positioned(
+                              left: _stars[i].dx * w,
+                              top: _stars[i].dy * h,
+                              child: Opacity(
+                                opacity: ((0.35 + 0.65 * ((i % 3) / 2)) *
+                                        (0.55 + 0.45 * math.sin(t * math.pi * 3 + _twinklePhase[i])))
+                                    .clamp(0.0, 1.0)
+                                    .toDouble(),
+                                child: Container(
+                                  width: 2.4,
+                                  height: 2.4,
+                                  decoration: BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.paper),
+                                ),
+                              ),
+                            ),
+                          // Ground floodlight, brightening as the
+                          // engines catch.
+                          Positioned(
+                            left: padX - 130 * scale,
+                            top: padY - 40,
+                            child: Container(
+                              width: 260 * scale,
+                              height: 140,
+                              decoration: BoxDecoration(
+                                gradient: RadialGradient(
+                                  colors: [
+                                    SeenlyPalette.periwinkle.withOpacity((0.20 + 0.18 * igniteFlash).clamp(0.0, 1.0).toDouble()),
+                                    SeenlyPalette.periwinkle.withOpacity(0.0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          // The gantry tower beside the pad — a beacon
+                          // blinking at the top, its service arm
+                          // swinging clear once ignition catches.
+                          Positioned(
+                            left: padX - 58 * scale,
+                            top: padY - 170 * scale,
+                            child: CustomPaint(
+                              size: Size(46 * scale, 170 * scale),
+                              painter: _GantryPainter(
+                                beacon: (0.5 + 0.5 * math.sin(t * math.pi * 6)).clamp(0.0, 1.0).toDouble(),
+                                armT: armT,
+                              ),
+                            ),
+                          ),
+                          // The pad platform itself.
+                          Positioned(
+                            left: padX - 60 * scale,
+                            top: padY,
+                            child: Container(
+                              width: 120 * scale,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: SeenlyPalette.inkFaint.withOpacity(0.55),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                          ),
+                          // Billowing exhaust, spreading along the
+                          // ground once the engines light.
+                          if (smokeT > 0)
+                            Positioned(
+                              left: padX - 110 * scale,
+                              top: padY - 18,
+                              child: Opacity(
+                                opacity: (smokeT * smokeFade).clamp(0.0, 1.0).toDouble(),
+                                child: CustomPaint(
+                                  size: Size(220 * scale, 60),
+                                  painter: _ExhaustCloudPainter(seed: widget.routeLabel, t: smokeT),
+                                ),
+                              ),
+                            ),
+                          // Faint speed streaks trailing the capsule
+                          // once it's actually under way.
+                          if (liftT > 0.05)
+                            for (int i = 1; i <= 4; i++)
+                              Positioned(
+                                left: padX - 1.2 + (i.isEven ? 9.0 : -9.0) * scale,
+                                top: padY - riseY + i * 16 * scale,
+                                child: Opacity(
+                                  opacity: (liftT * (0.22 - i * 0.04)).clamp(0.0, 1.0).toDouble(),
+                                  child: Container(
+                                    width: 2.4,
+                                    height: 14 * scale,
+                                    decoration: BoxDecoration(
+                                      color: SeenlyPalette.paper.withOpacity(0.5),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          // The capsule — its own nose-cone-and-fins
+                          // silhouette, climbing clear of the pad.
+                          Positioned(
+                            left: padX - 24 * scale,
+                            top: padY - 96 * scale - riseY,
+                            child: Transform.translate(
+                              offset: Offset(
+                                math.sin(t * math.pi * 22) * 1.1 * (1 - liftT).clamp(0.0, 1.0).toDouble(),
+                                0,
+                              ),
+                              child: CustomPaint(
+                                size: Size(48 * scale, 100 * scale),
+                                painter: _RocketBodyPainter(
+                                  flame: (igniteFlash * 0.6 + liftT * 0.7).clamp(0.0, 1.0).toDouble(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// The service tower beside the pad — two rails, a zigzag of cross
+/// braces, a blinking beacon at the top, and a service arm that
+/// pivots clear of the capsule once [armT] moves past 0.
+class _GantryPainter extends CustomPainter {
+  final double beacon; // 0..1, a slow blink
+  final double armT; // 0 attached .. 1 swung clear
+  const _GantryPainter({required this.beacon, required this.armT});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final railPaint = Paint()
+      ..color = SeenlyPalette.inkFaint.withOpacity(0.75)
+      ..strokeWidth = math.max(1.4, size.width * 0.05)
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(size.width * 0.18, size.height * 0.06), Offset(size.width * 0.18, size.height), railPaint);
+    canvas.drawLine(Offset(size.width * 0.82, size.height * 0.06), Offset(size.width * 0.82, size.height), railPaint);
+
+    final bracePaint = Paint()
+      ..color = SeenlyPalette.inkFaint.withOpacity(0.45)
+      ..strokeWidth = math.max(1.0, size.width * 0.032)
+      ..strokeCap = StrokeCap.round;
+    for (int i = 0; i < 5; i++) {
+      final y0 = size.height * (0.12 + i * 0.19);
+      final y1 = size.height * (0.12 + (i + 1) * 0.19).clamp(0.0, 1.0);
+      canvas.drawLine(Offset(size.width * 0.18, y0), Offset(size.width * 0.82, y1), bracePaint);
+      canvas.drawLine(Offset(size.width * 0.82, y0), Offset(size.width * 0.18, y1), bracePaint);
+    }
+
+    canvas.drawCircle(
+      Offset(size.width * 0.5, size.height * 0.04),
+      3.4,
+      Paint()..color = SeenlyPalette.accent.withOpacity((0.4 + 0.5 * beacon).clamp(0.0, 1.0).toDouble()),
+    );
+
+    // The service arm, pivoting away from the right rail as ignition
+    // catches — attached and level at armT 0, swung clear by armT 1.
+    final pivot = Offset(size.width * 0.82, size.height * 0.42);
+    final angle = -armT * math.pi * 0.30;
+    canvas.save();
+    canvas.translate(pivot.dx, pivot.dy);
+    canvas.rotate(angle);
+    canvas.drawLine(
+      Offset.zero,
+      Offset(-size.width * 0.62, 0),
+      Paint()
+        ..color = SeenlyPalette.inkFaint.withOpacity(0.7)
+        ..strokeWidth = math.max(1.2, size.width * 0.045)
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _GantryPainter oldDelegate) =>
+      oldDelegate.beacon != beacon || oldDelegate.armT != armT;
+}
+
+/// A billow of ground exhaust, spreading sideways from the pad —
+/// deterministically seeded per paint call so it doesn't reshuffle
+/// frame to frame.
+class _ExhaustCloudPainter extends CustomPainter {
+  final String seed;
+  final double t; // 0..1, growth
+  const _ExhaustCloudPainter({required this.seed, required this.t});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = math.Random(seed.hashCode ^ 0x736D6F6B); // 'smok'
+    const puffs = 9;
+    final grow = Curves.easeOut.transform(t.clamp(0.0, 1.0).toDouble());
+    for (int i = 0; i < puffs; i++) {
+      final side = (i / (puffs - 1)) * 2 - 1; // -1..1
+      final spread = grow * size.width * 0.42;
+      final cx = size.width * 0.5 + side * spread * (0.4 + r.nextDouble() * 0.6);
+      final cy = size.height * (0.55 + r.nextDouble() * 0.4) * (0.5 + 0.5 * grow);
+      final radius = (10 + r.nextDouble() * 16) * (0.4 + 0.6 * grow);
+      canvas.drawCircle(
+        Offset(cx, cy),
+        radius,
+        Paint()
+          ..color = SeenlyPalette.paper.withOpacity((0.10 + 0.10 * (1 - grow)).clamp(0.0, 1.0).toDouble())
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ExhaustCloudPainter oldDelegate) => oldDelegate.t != t;
+}
+
+/// The capsule itself — a nose cone easing into a cylindrical body,
+/// a window, flared fins at the base, and an engine flame whose
+/// length rides on [flame]. This theme's own hand-drawn silhouette,
+/// the shuttle answer to [_TrainGlyph]'s locomotive and the cinema's
+/// curtained screen, rather than a stock rocket glyph standing in
+/// for it.
+class _RocketBodyPainter extends CustomPainter {
+  final double flame; // 0..1
+  const _RocketBodyPainter({required this.flame});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+
+    final body = Path()
+      ..moveTo(w * 0.5, 0)
+      ..quadraticBezierTo(w * 0.86, h * 0.22, w * 0.72, h * 0.60)
+      ..lineTo(w * 0.72, h * 0.82)
+      ..lineTo(w * 0.28, h * 0.82)
+      ..lineTo(w * 0.28, h * 0.60)
+      ..quadraticBezierTo(w * 0.14, h * 0.22, w * 0.5, 0)
+      ..close();
+    canvas.drawPath(body, Paint()..color = SeenlyPalette.periwinkle);
+
+    canvas.drawLine(
+      Offset(w * 0.5, h * 0.06),
+      Offset(w * 0.5, h * 0.58),
+      Paint()
+        ..color = Colors.white.withOpacity(0.18)
+        ..strokeWidth = math.max(1.0, w * 0.03),
+    );
+
+    final finPaint = Paint()..color = SeenlyPalette.periwinkle.withOpacity(0.75);
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.28, h * 0.58)
+        ..lineTo(w * 0.06, h * 0.86)
+        ..lineTo(w * 0.28, h * 0.80)
+        ..close(),
+      finPaint,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.72, h * 0.58)
+        ..lineTo(w * 0.94, h * 0.86)
+        ..lineTo(w * 0.72, h * 0.80)
+        ..close(),
+      finPaint,
+    );
+
+    canvas.drawCircle(Offset(w * 0.5, h * 0.30), w * 0.12, Paint()..color = Colors.white.withOpacity(0.9));
+    canvas.drawCircle(
+      Offset(w * 0.5, h * 0.30),
+      w * 0.12,
+      Paint()
+        ..color = SeenlyPalette.ink.withOpacity(0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
+
+    if (flame > 0.02) {
+      final flameLen = h * (0.10 + 0.42 * flame);
+      canvas.drawPath(
+        Path()
+          ..moveTo(w * 0.36, h * 0.82)
+          ..quadraticBezierTo(w * 0.5, h * 0.82 + flameLen, w * 0.64, h * 0.82)
+          ..close(),
+        Paint()..color = SeenlyPalette.mustard.withOpacity((0.55 + 0.35 * flame).clamp(0.0, 1.0).toDouble()),
+      );
+      canvas.drawPath(
+        Path()
+          ..moveTo(w * 0.43, h * 0.82)
+          ..quadraticBezierTo(w * 0.5, h * 0.82 + flameLen * 0.55, w * 0.57, h * 0.82)
+          ..close(),
+        Paint()..color = Colors.white.withOpacity((0.7 * flame).clamp(0.0, 1.0).toDouble()),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RocketBodyPainter oldDelegate) => oldDelegate.flame != flame;
 }

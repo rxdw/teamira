@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/app_translations.dart';
 import '../services/log_theme_service.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
@@ -20,9 +21,10 @@ class FavoriteToggle extends StatelessWidget {
   });
 
   String get _label => switch (theme) {
-        LogTheme.garden => 'keep this one in the garden',
-        LogTheme.coach => 'keep this one for the road',
-        LogTheme.ticket => 'keep this stub in your favorites',
+        LogTheme.garden => 'keep this one in the garden'.tr,
+        LogTheme.coach => 'keep this one for the road'.tr,
+        LogTheme.ticket => 'keep this stub in your favorites'.tr,
+        LogTheme.shuttle => 'keep this one in the log'.tr,
       };
 
   @override
@@ -56,7 +58,7 @@ class FavoriteToggle extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                _label,
+                _label.tr,
                 style: SeenlyText.serif(
                   italic: true,
                   size: 12.5,

@@ -388,7 +388,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                             height: 26,
                             margin: const EdgeInsets.only(right: 8),
                             decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                            child: const Icon(Icons.edit_outlined, size: 13, color: SeenlyPalette.inkMuted),
+                            child: Icon(Icons.edit_outlined, size: 13, color: SeenlyPalette.inkMuted),
                           ),
                         ),
                       ],
@@ -398,7 +398,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                           width: 26,
                           height: 26,
                           decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
+                          child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
                         ),
                       ),
                     ],
@@ -423,7 +423,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                                 : Container(
                                     color: SeenlyPalette.mediaColor(data.mediaType),
                                     alignment: Alignment.center,
-                                    child: const Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 28),
+                                    child: Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 28),
                                   ),
                           ),
                         ),
@@ -471,7 +471,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.favorite, size: 11, color: SeenlyPalette.accent),
+                        Icon(Icons.favorite, size: 11, color: SeenlyPalette.accent),
                         const SizedBox(width: 4),
                         Text('${'watched with'.tr} ${data.watchedWithUsername}',
                             style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
@@ -483,7 +483,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.visibility_outlined, size: 11, color: SeenlyPalette.inkFaint),
+                        Icon(Icons.visibility_outlined, size: 11, color: SeenlyPalette.inkFaint),
                         const SizedBox(width: 4),
                         Text(data.friendLabel!,
                             style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
@@ -606,12 +606,12 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                           shareText: data.shareText,
                         );
                       },
-                      icon: const Icon(Icons.ios_share, size: 15, color: SeenlyPalette.accent),
+                      icon: Icon(Icons.ios_share, size: 15, color: SeenlyPalette.accent),
                       label: Text('share this evening'.tr,
                           style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accent)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: const BorderSide(color: SeenlyPalette.border),
+                        side: BorderSide(color: SeenlyPalette.border),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),

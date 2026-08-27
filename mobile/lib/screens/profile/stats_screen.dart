@@ -74,7 +74,7 @@ class _StatsScreenState extends State<StatsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 2),
@@ -313,8 +313,9 @@ class _CardTitle extends StatelessWidget {
 /// wrapped_screen.dart.
 class _Eyebrow extends StatelessWidget {
   final String text;
-  final Color color;
-  const _Eyebrow(this.text, {this.color = SeenlyPalette.inkFaint});
+  Color get color => _color ?? SeenlyPalette.inkFaint;
+  final Color? _color;
+  _Eyebrow(this.text, {Color? color}) : _color = color;
 
   @override
   Widget build(BuildContext context) => Text(
@@ -560,7 +561,7 @@ class _ActivityCard extends StatelessWidget {
                       margin: const EdgeInsets.only(top: 2),
                       width: 6,
                       height: 6,
-                      decoration: const BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
                     ),
                   ),
                 Positioned.fill(
@@ -714,7 +715,7 @@ class _RhythmCard extends StatelessWidget {
                               size: const Size(72, 72),
                               painter: _ArcPainter(
                                 values: [summary.peakHourPercent / 100],
-                                colors: const [SeenlyPalette.accent],
+                                colors: [SeenlyPalette.accent],
                                 backgroundColor: SeenlyPalette.cork,
                                 strokeWidth: 9,
                               ),
@@ -987,7 +988,7 @@ class _EraShelfRow extends StatelessWidget {
                   width: 8,
                   height: 8,
                   margin: const EdgeInsets.only(top: 6),
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.accent),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.accent),
                 ),
                 if (!isLast)
                   Expanded(child: Container(width: 1.5, color: SeenlyPalette.dashedBorder)),
@@ -1210,7 +1211,7 @@ class _RatingsCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.star, size: 12, color: SeenlyPalette.mustard),
+                Icon(Icons.star, size: 12, color: SeenlyPalette.mustard),
                 const SizedBox(width: 6),
                 Text(
                     LocaleService.appIsRussian
@@ -1322,7 +1323,7 @@ class _TopListCard extends StatelessWidget {
                               value: maxCount == 0 ? 0 : items[i].$2 / maxCount,
                               minHeight: 5,
                               backgroundColor: SeenlyPalette.background,
-                              valueColor: const AlwaysStoppedAnimation(SeenlyPalette.accent),
+                              valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
                             ),
                           ),
                         ],
@@ -1420,7 +1421,7 @@ class _BookendsCard extends StatelessWidget {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.east, size: 16, color: SeenlyPalette.accent),
+                  Icon(Icons.east, size: 16, color: SeenlyPalette.accent),
                   if (summary.daysSpan > 0) ...[
                     const SizedBox(height: 6),
                     Text('${summary.daysSpan}',
@@ -1467,7 +1468,7 @@ class _Bookend extends StatelessWidget {
               )
             : Container(
                 color: SeenlyPalette.cork,
-                child: const Icon(Icons.local_movies_outlined, size: 16, color: SeenlyPalette.inkFaint),
+                child: Icon(Icons.local_movies_outlined, size: 16, color: SeenlyPalette.inkFaint),
               ),
       ),
     );
@@ -1498,17 +1499,18 @@ class _Bookend extends StatelessWidget {
 class _ArcPainter extends CustomPainter {
   final List<double> values;
   final List<Color> colors;
-  final Color backgroundColor;
+  Color get backgroundColor => _backgroundColor ?? SeenlyPalette.background;
+  final Color? _backgroundColor;
   final double strokeWidth;
   final double gapDegrees;
 
-  const _ArcPainter({
+  _ArcPainter({
     required this.values,
     required this.colors,
-    this.backgroundColor = SeenlyPalette.background,
+    Color? backgroundColor,
     this.strokeWidth = 12,
     this.gapDegrees = 0,
-  });
+  }) : _backgroundColor = backgroundColor;
 
   @override
   void paint(Canvas canvas, Size size) {

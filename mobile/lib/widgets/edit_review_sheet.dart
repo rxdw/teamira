@@ -162,7 +162,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
           ),
@@ -243,7 +243,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
           TextButton(
             onPressed: (_saving || _deleting) ? null : _save,
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
@@ -354,12 +354,12 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                 child: TextButton.icon(
                   onPressed: (_saving || _deleting) ? null : _confirmDelete,
                   icon: _deleting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 14,
                           height: 14,
                           child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.coral),
                         )
-                      : const Icon(Icons.delete_outline, size: 15, color: SeenlyPalette.coral),
+                      : Icon(Icons.delete_outline, size: 15, color: SeenlyPalette.coral),
                   label: Text('delete this evening'.tr,
                       style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
                 ),
@@ -455,7 +455,7 @@ class _EditCastPickTile extends StatelessWidget {
                             color: SeenlyPalette.accent,
                             border: Border.all(color: SeenlyPalette.paper, width: 2),
                           ),
-                          child: const Icon(Icons.favorite, size: 11, color: SeenlyPalette.accentOnAccent),
+                          child: Icon(Icons.favorite, size: 11, color: SeenlyPalette.accentOnAccent),
                         ),
                       ),
                   ],

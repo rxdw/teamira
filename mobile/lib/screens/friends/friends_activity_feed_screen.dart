@@ -55,11 +55,17 @@ class _FriendsActivityFeedScreenState extends State<FriendsActivityFeedScreen> {
     final parsed = DateTime.tryParse(iso);
     if (parsed == null) return '';
     final diff = DateTime.now().difference(parsed);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inMinutes < 1) return 'just now'.tr;
+    if (diff.inMinutes < 60) {
+      return '${ruCount(diff.inMinutes, one: 'минуту', few: 'минуты', many: 'минут', englishOne: 'minute', englishOther: 'minutes')} ${'ago'.tr}';
+    }
+    if (diff.inHours < 24) {
+      return '${ruCount(diff.inHours, one: 'час', few: 'часа', many: 'часов', englishOne: 'hour', englishOther: 'hours')} ${'ago'.tr}';
+    }
+    if (diff.inDays < 7) {
+      return '${ruCount(diff.inDays, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'ago'.tr}';
+    }
+    return '${ruCount((diff.inDays / 7).floor(), one: 'неделю', few: 'недели', many: 'недель', englishOne: 'week', englishOther: 'weeks')} ${'ago'.tr}';
   }
 
   void _openItem(ActivityItem item) {
@@ -80,7 +86,7 @@ class _FriendsActivityFeedScreenState extends State<FriendsActivityFeedScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),

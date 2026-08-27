@@ -94,7 +94,7 @@ class TrailerPreviewCard extends StatelessWidget {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.play_arrow_rounded,
+                          child: Icon(Icons.play_arrow_rounded,
                               size: 22, color: SeenlyPalette.accent),
                         ),
                       ),

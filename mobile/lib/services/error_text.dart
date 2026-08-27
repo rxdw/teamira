@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'api_client.dart';
+import 'app_translations.dart';
 
 /// Turns whatever a service call threw into a message worth showing someone.
 /// Deliberately does NOT guess a cause that isn't actually known — e.g. a
@@ -15,7 +16,7 @@ String describeError(Object error) {
     return error.message;
   }
   if (error is SocketException || error is TimeoutException) {
-    return "couldn't reach the server — check it's running and reachable";
+    return "couldn't reach the server — check it's running and reachable".tr;
   }
-  return "something went wrong — please try again";
+  return "something went wrong — please try again".tr;
 }

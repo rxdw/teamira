@@ -8,6 +8,9 @@ import '../../services/log_theme_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
+import '../../widgets/level_up_celebration.dart';
+import '../../widgets/watch_complete_celebration.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../../services/app_translations.dart';
 
@@ -112,6 +115,14 @@ Future<void> maybeLogCompletedSeason({
       episodeCount: thisSeason.episodes.length,
       rating: avgRating,
     );
+    // A save here is exactly the same kind of moment the themed log
+    // screens refresh level after — this path just never called it, so
+    // a season/series finish never nudged the cached level even when
+    // it should have. Awaited (not fire-and-forget like the themed
+    // screens' own call) since there's no ticket-drop animation here to
+    // protect from a blocking network hop, and the level-up check right
+    // below needs the result to actually be there.
+    await app.refreshLevel();
 
     final all = [for (final s in seriesEpisodes.seasons) ...s.episodes];
     final seriesComplete =
@@ -122,6 +133,27 @@ Future<void> maybeLogCompletedSeason({
       } catch (_) {
         // Best-effort — the season tracker will still show every episode
         // ticked even if the shelf promotion didn't make it through.
+      }
+    }
+
+    // The moment itself: finishing a season (or, bigger, the whole
+    // series) previously happened with zero visual acknowledgement —
+    // this was the one save-completing flow in the app that skipped
+    // both the level check every themed log screen already does and
+    // any celebration of its own. Level-up first (if this happened to
+    // cross one), then the season/series moment, then any badge that
+    // came with it — same ordering as the themed ritual screens' own
+    // "keep the stub" handler.
+    if (context.mounted) {
+      final leveledUp = app.consumePendingLevelUp();
+      if (leveledUp != null && context.mounted) {
+        await showLevelUpCelebration(context, leveledUp);
+      }
+      if (context.mounted) {
+        await showWatchCompleteCelebration(context, wholeSeries: seriesComplete);
+      }
+      if (context.mounted) {
+        await checkAndCelebrateNewAchievements(context);
       }
     }
   } catch (_) {
@@ -176,6 +208,7 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
     LogTheme.coach => SeenlyPalette.periwinkle,
     LogTheme.garden => SeenlyPalette.sage,
     LogTheme.ticket => SeenlyPalette.coral,
+    LogTheme.shuttle => SeenlyPalette.periwinkle,
   };
   final result = await showModalBottomSheet<bool>(
     context: context,
@@ -184,7 +217,7 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),

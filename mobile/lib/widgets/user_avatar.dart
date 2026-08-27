@@ -17,16 +17,17 @@ class UserAvatar extends StatelessWidget {
   final String? avatarPreset;
   final String fallbackLetter;
   final double size;
-  final Color borderColor;
+  Color get borderColor => _borderColor ?? SeenlyPalette.accent;
+  final Color? _borderColor;
 
-  const UserAvatar({
+  UserAvatar({
     super.key,
     required this.avatarUrl,
     required this.avatarPreset,
     required this.fallbackLetter,
     this.size = 56,
-    this.borderColor = SeenlyPalette.accent,
-  });
+    Color? borderColor,
+  }) : _borderColor = borderColor;
 
   @override
   Widget build(BuildContext context) {

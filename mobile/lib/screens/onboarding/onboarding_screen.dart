@@ -606,7 +606,7 @@ class _AuroraBackdrop extends StatefulWidget {
 class _AuroraBackdropState extends State<_AuroraBackdrop> with SingleTickerProviderStateMixin {
   late final _controller = AnimationController(vsync: this, duration: const Duration(seconds: 22))..repeat();
 
-  static const _blobColors = [
+  static final _blobColors = [
     SeenlyPalette.coral,
     SeenlyPalette.periwinkle,
     SeenlyPalette.mustard,
@@ -996,7 +996,7 @@ class _StarfieldPainter extends CustomPainter {
     // Most stars stay plain white; a handful pick up a warm palette tint
     // instead, so the sky itself carries a little of the same colour as
     // the aurora behind it rather than reading as pure monochrome.
-    const tints = [SeenlyPalette.mustard, SeenlyPalette.coral, SeenlyPalette.periwinkle, SeenlyPalette.pink];
+    final tints = [SeenlyPalette.mustard, SeenlyPalette.coral, SeenlyPalette.periwinkle, SeenlyPalette.pink];
     for (int i = 0; i < 58; i++) {
       final dx = rnd.nextDouble() * size.width;
       final dy = rnd.nextDouble() * size.height;
@@ -1278,14 +1278,14 @@ class _DraggableOrbitHeroState extends State<_DraggableOrbitHero> with TickerPro
             return Stack(
               alignment: Alignment.center,
               children: [
-                const _OrbitRing(radius: _radius, color: SeenlyPalette.paper),
+                _OrbitRing(radius: _radius, color: SeenlyPalette.paper),
                 Transform.translate(
                   offset: const Offset(-22, 0),
-                  child: const _GlowOrb(size: 84, color: SeenlyPalette.coral, duration: Duration(seconds: 4)),
+                  child: _GlowOrb(size: 84, color: SeenlyPalette.coral, duration: Duration(seconds: 4)),
                 ),
                 Transform.translate(
                   offset: const Offset(20, 6),
-                  child: const _GlowOrb(size: 64, color: SeenlyPalette.mustard, duration: Duration(seconds: 5)),
+                  child: _GlowOrb(size: 64, color: SeenlyPalette.mustard, duration: Duration(seconds: 5)),
                 ),
                 Transform.translate(
                   offset: pos,
@@ -1645,7 +1645,7 @@ class _FeatureCard {
   });
 }
 
-const _kFeatures = [
+final _kFeatures = [
   _FeatureCard(
     tag: 'collections',
     title: 'shelves built around you',
@@ -2025,7 +2025,7 @@ class _FeaturesTourStepState extends State<_FeaturesTourStep> {
           _InnerDots(count: _kFeatures.length, index: _index),
           const SizedBox(height: 14),
           PrimaryButton(
-            label: isLast ? 'continue' : 'next feature',
+            label: (isLast ? 'continue' : 'next feature').tr,
             onTap: isLast ? widget.onNext : () => _go(1),
           ),
         ],
@@ -2146,7 +2146,7 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
       case 'diary': // a single glow with one spark circling it
         return [
           _GlowOrb(size: 98, color: card.color),
-          const _OrbitSpark(radius: 62, color: SeenlyPalette.paper, duration: Duration(seconds: 5)),
+          _OrbitSpark(radius: 62, color: SeenlyPalette.paper, duration: Duration(seconds: 5)),
         ];
       case 'collections': // a gentle arc of spines, each one quietly
         // bobbing and breathing on its own stagger, like a tiny shelf
@@ -3348,7 +3348,7 @@ class _ChoiceCard extends StatelessWidget {
 // pick (through the same LogThemeService Settings uses) and advances.
 // ---------------------------------------------------------------------
 
-enum _RitualBadgeType { ticket, train, garden }
+enum _RitualBadgeType { ticket, train, garden, shuttle }
 
 class _RitualWorld {
   final _RitualBadgeType type;
@@ -3367,7 +3367,7 @@ class _RitualWorld {
   });
 }
 
-const _kWorlds = [
+final _kWorlds = [
   _RitualWorld(
     type: _RitualBadgeType.ticket,
     theme: LogTheme.ticket,
@@ -3391,6 +3391,14 @@ const _kWorlds = [
     diary: 'your diary becomes a garden, filling in over time',
     color: SeenlyPalette.sage,
     bg: Color(0xFF1E2620),
+  ),
+  _RitualWorld(
+    type: _RitualBadgeType.shuttle,
+    theme: LogTheme.shuttle,
+    label: 'a shuttle, cleared for launch',
+    diary: 'your diary becomes a night sky, filling in with stars',
+    color: SeenlyPalette.periwinkle,
+    bg: Color(0xFF171A2E),
   ),
 ];
 
@@ -3575,6 +3583,9 @@ class _RitualAmbiencePainter extends CustomPainter {
       case _RitualBadgeType.garden:
         _paintFireflies(canvas, size);
         break;
+      case _RitualBadgeType.shuttle:
+        _paintFireflies(canvas, size); // same drifting-motes feel, tinted per-color by the caller
+        break;
     }
   }
 
@@ -3699,6 +3710,8 @@ class _RitualWorldView extends StatelessWidget {
         return _TrainMotif(color: world.color);
       case _RitualBadgeType.garden:
         return _GardenMotif(color: world.color);
+      case _RitualBadgeType.shuttle:
+        return _ShuttleMotif(color: world.color);
     }
   }
 }
@@ -3897,6 +3910,89 @@ class _GardenMotifState extends State<_GardenMotif> with SingleTickerProviderSta
   }
 }
 
+class _ShuttleMotif extends StatefulWidget {
+  final Color color;
+  const _ShuttleMotif({required this.color});
+
+  @override
+  State<_ShuttleMotif> createState() => _ShuttleMotifState();
+}
+
+/// Same shape as [_GardenMotifState] — a fixed silhouette (a rocket
+/// instead of a sprout) with a handful of small motes (stars lifting
+/// past it instead of drifting pollen).
+class _ShuttleMotifState extends State<_ShuttleMotif> with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 120,
+      height: 140,
+      child: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          CustomPaint(size: const Size(120, 140), painter: _RocketSilhouettePainter(color: widget.color)),
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) => Stack(children: [_star(0.0, -14), _star(0.4, 12), _star(0.7, -4)]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _star(double delay, double dx) {
+    final t = (_controller.value + delay) % 1.0;
+    return Positioned(
+      left: 58 + dx,
+      bottom: 30 + t * 100,
+      child: Opacity(
+        opacity: (t < 0.2 ? t / 0.2 : (1 - t) / 0.8).clamp(0.0, 1.0),
+        child: Container(
+          width: 4,
+          height: 4,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.paper.withOpacity(0.9)),
+        ),
+      ),
+    );
+  }
+}
+
+class _RocketSilhouettePainter extends CustomPainter {
+  final Color color;
+  const _RocketSilhouettePainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final baseY = size.height - 18;
+    final bodyPaint = Paint()..color = color;
+    final body = Path()
+      ..moveTo(cx, baseY - 88)
+      ..quadraticBezierTo(cx + 20, baseY - 30, cx + 15, baseY)
+      ..lineTo(cx - 15, baseY)
+      ..quadraticBezierTo(cx - 20, baseY - 30, cx, baseY - 88)
+      ..close();
+    canvas.drawPath(body, bodyPaint);
+
+    final finPaint = Paint()..color = color.withOpacity(0.7);
+    canvas.drawPath(Path()..moveTo(cx - 15, baseY - 16)..lineTo(cx - 30, baseY)..lineTo(cx - 13, baseY - 6)..close(), finPaint);
+    canvas.drawPath(Path()..moveTo(cx + 15, baseY - 16)..lineTo(cx + 30, baseY)..lineTo(cx + 13, baseY - 6)..close(), finPaint);
+
+    canvas.drawCircle(Offset(cx, baseY - 62), 6, Paint()..color = SeenlyPalette.paper.withOpacity(0.9));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RocketSilhouettePainter oldDelegate) => oldDelegate.color != color;
+}
+
 class _SproutPainter extends CustomPainter {
   final Color color;
   const _SproutPainter({required this.color});
@@ -4051,7 +4147,7 @@ class _InterestsStepState extends State<_InterestsStep> {
           ),
           const SizedBox(height: 14),
           PrimaryButton(
-            label: _selected.isEmpty ? 'show me everything' : 'continue',
+            label: (_selected.isEmpty ? 'show me everything' : 'continue').tr,
             onTap: _continue,
           ),
           if (_selected.isEmpty) ...[
@@ -4372,7 +4468,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
           Expanded(child: _buildResults()),
           const SizedBox(height: 14),
           PrimaryButton(
-            label: _picked.isEmpty ? 'skip for now' : 'continue',
+            label: (_picked.isEmpty ? 'skip for now' : 'continue').tr,
             onTap: widget.onNext,
           ),
           if (_picked.isEmpty) ...[
@@ -4453,8 +4549,8 @@ class _FavoritesStepState extends State<_FavoritesStep> {
           badge: picked
               ? Container(
                   padding: const EdgeInsets.all(3),
-                  decoration: const BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                  child: const Icon(Icons.check, size: 10, color: SeenlyPalette.accentOnAccent),
+                  decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                  child: Icon(Icons.check, size: 10, color: SeenlyPalette.accentOnAccent),
                 )
               : null,
         );
@@ -4490,8 +4586,8 @@ class _PickedStrip extends StatelessWidget {
               onTap: () => onRemove(item),
               badge: Container(
                 padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                child: const Icon(Icons.close, size: 9, color: SeenlyPalette.accentOnAccent),
+                decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                child: Icon(Icons.close, size: 9, color: SeenlyPalette.accentOnAccent),
               ),
             ),
           );
@@ -4541,7 +4637,7 @@ class _MotivationStepState extends State<_MotivationStep> with SingleTickerProvi
                 offset: Offset(0, -lift),
                 child: CustomPaint(
                   size: const Size(240, 70),
-                  painter: const _CalmWavePainter(color: SeenlyPalette.mustard),
+                  painter: _CalmWavePainter(color: SeenlyPalette.mustard),
                 ),
               );
             },
@@ -5221,12 +5317,12 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
       _world = world;
       _preferRussian = preferRussian;
       _spans = [
-        const _PlanSpan("so — you're here mostly for "),
+        _PlanSpan("${'so — you\'re here mostly for'.tr} "),
         _PlanSpan(interestsPhrase, SeenlyPalette.mustard),
         const _PlanSpan(". "),
         _PlanSpan(diaryCapitalized, world.color),
-        const _PlanSpan(
-          " — logged whenever you actually have an evening, nothing to keep up with in between.",
+        _PlanSpan(
+          ' ${'— logged whenever you actually have an evening, nothing to keep up with in between.'.tr}',
         ),
       ];
       _flatChars = [
@@ -5238,10 +5334,10 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
   }
 
   String _joinNaturally(List<String> labels) {
-    if (labels.isEmpty) return 'whatever you end up watching';
+    if (labels.isEmpty) return 'whatever you end up watching'.tr;
     if (labels.length == 1) return labels.first;
-    if (labels.length == 2) return '${labels[0]} and ${labels[1]}';
-    return '${labels.sublist(0, labels.length - 1).join(', ')}, and ${labels.last}';
+    if (labels.length == 2) return '${labels[0]} ${'and'.tr} ${labels[1]}';
+    return '${labels.sublist(0, labels.length - 1).join(', ')}, ${'and'.tr} ${labels.last}';
   }
 
   void _startTyping() {
@@ -5789,7 +5885,7 @@ class _ConfettiOverlay extends StatefulWidget {
 
 class _ConfettiOverlayState extends State<_ConfettiOverlay> with SingleTickerProviderStateMixin {
   static const _duration = Duration(milliseconds: 1500);
-  static const _colors = [
+  static final _colors = [
     SeenlyPalette.coral,
     SeenlyPalette.mustard,
     SeenlyPalette.sage,

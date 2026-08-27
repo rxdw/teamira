@@ -117,7 +117,7 @@ class _RegionPickerSheet extends StatelessWidget {
                       child: Row(
                         children: [
                           Expanded(
-                            child: Text(option.label,
+                            child: Text(option.label.tr,
                                 style: SeenlyText.serif(
                                   size: 13.5,
                                   color: selected ? SeenlyPalette.ink : SeenlyPalette.inkMuted,
@@ -125,7 +125,7 @@ class _RegionPickerSheet extends StatelessWidget {
                                 )),
                           ),
                           if (selected)
-                            const Icon(Icons.check_circle, size: 17, color: SeenlyPalette.accent),
+                            Icon(Icons.check_circle, size: 17, color: SeenlyPalette.accent),
                         ],
                       ),
                     ),

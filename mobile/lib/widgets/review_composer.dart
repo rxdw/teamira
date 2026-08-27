@@ -102,7 +102,7 @@ class _ReviewComposerScreenState extends State<_ReviewComposerScreen> {
           scrolledUnderElevation: 0,
           surfaceTintColor: Colors.transparent,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: SeenlyPalette.ink),
+            icon: Icon(Icons.arrow_back, color: SeenlyPalette.ink),
             onPressed: _close,
           ),
           title: Text(
@@ -191,7 +191,7 @@ class ExpandReviewLink extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.open_in_full, size: 11, color: SeenlyPalette.accent),
+            Icon(Icons.open_in_full, size: 11, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
             Text('write more, full page'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),

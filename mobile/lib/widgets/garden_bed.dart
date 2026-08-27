@@ -141,7 +141,7 @@ class _WindowBox extends StatelessWidget {
   final int bloomCount;
   const _WindowBox({required this.swayDeg, required this.bloomCount});
 
-  static const List<Color> _bloomColors = [
+  static final List<Color> _bloomColors = [
     SeenlyPalette.accent,
     SeenlyPalette.coral,
     SeenlyPalette.mustard,
@@ -240,7 +240,7 @@ class _Bud extends StatelessWidget {
     return Container(
       width: 9,
       height: 13,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: SeenlyPalette.sage,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(9),
@@ -263,7 +263,7 @@ class _Planter extends StatelessWidget {
       height: 34,
       margin: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [SeenlyPalette.mustard, Color(0xFFB9863C)],
@@ -309,7 +309,7 @@ class GardenBedScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: SeenlyPalette.background,
       body: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -344,7 +344,7 @@ class GardenBedScreen extends StatelessWidget {
                         height: 32,
                         decoration: BoxDecoration(
                             color: SeenlyPalette.paper, shape: BoxShape.circle, boxShadow: SeenlyPalette.softShadow),
-                        child: const Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
+                        child: Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
                       ),
                     ),
                   ],

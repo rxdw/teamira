@@ -5,12 +5,10 @@ import 'package:provider/provider.dart';
 
 import '../../models/diary_entry.dart';
 import '../../services/log_theme_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/log_theme_copy.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
-import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 import '../../services/app_translations.dart';
 
@@ -73,10 +71,21 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
       LogTheme.coach => SeenlyPalette.periwinkle,
       LogTheme.garden => SeenlyPalette.sage,
       LogTheme.ticket => SeenlyPalette.coral,
+      LogTheme.shuttle => SeenlyPalette.periwinkle,
     };
 
     return Scaffold(
-      backgroundColor: SeenlyPalette.ink,
+      // Deliberately the fixed dark tone (SeenlyPalette.darkColors,
+      // not the theme-adaptive SeenlyPalette.ink) for the same reason
+      // as achievement_unlock_overlay.dart's backdrop: this screen
+      // hardcodes Colors.white for its title/greeting/quick-jump text
+      // and darkens the poster down toward this color specifically so
+      // white text stays legible over it. SeenlyPalette.ink flips to
+      // a light cream in dark mode (correct for its actual job, body
+      // text), which left this whole screen going pale-on-pale —
+      // washed out background, invisible quick-jump buttons — in dark
+      // mode specifically.
+      backgroundColor: SeenlyPalette.darkColors.background,
       body: FutureBuilder<DiaryEntry?>(
         future: _future,
         builder: (context, snapshot) {
@@ -112,7 +121,7 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                             url: last!.posterUrl!,
                             fit: BoxFit.cover,
                             duration: const Duration(milliseconds: 420),
-                            placeholder: Container(color: SeenlyPalette.ink),
+                            placeholder: Container(color: SeenlyPalette.darkColors.background),
                           ),
                         ),
                         Container(
@@ -122,10 +131,10 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                               end: Alignment.bottomCenter,
                               stops: const [0.0, 0.45, 0.85, 1.0],
                               colors: [
-                                SeenlyPalette.ink.withOpacity(0.35),
-                                SeenlyPalette.ink.withOpacity(0.45),
-                                SeenlyPalette.ink.withOpacity(0.8),
-                                SeenlyPalette.ink,
+                                SeenlyPalette.darkColors.background.withOpacity(0.35),
+                                SeenlyPalette.darkColors.background.withOpacity(0.45),
+                                SeenlyPalette.darkColors.background.withOpacity(0.8),
+                                SeenlyPalette.darkColors.background,
                               ],
                             ),
                           ),
@@ -140,17 +149,6 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (context.watch<RabbitMascotPrefsService>().enabled)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: Entrance(
-                              riseBy: 16,
-                              child: RabbitMascot(mood: RabbitMood.content, size: 52),
-                            ),
-                          ),
-                        ),
                       Entrance(
                         delay: const Duration(milliseconds: 70),
                         child: Row(
@@ -160,7 +158,9 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                             const SizedBox(width: 7),
                             Expanded(
                               child: Text(
-                                hasTitle ? '${_greeting()}, you\'re still on' : _greeting(),
+                                hasTitle
+                                    ? '${_greeting().tr}, ${"you're still on".tr}'
+                                    : _greeting().tr,
                                 style: SeenlyText.serif(
                                     italic: true, size: 14, color: Colors.white70),
                               ),

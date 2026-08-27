@@ -77,14 +77,14 @@ class _SourcesScreenState extends State<SourcesScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
                   Text('your sources'.tr, style: SeenlyText.screenTitle),
                   const Spacer(),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, size: 20, color: SeenlyPalette.accent),
+                    icon: Icon(Icons.add_circle_outline, size: 20, color: SeenlyPalette.accent),
                     onPressed: _addSource,
                   ),
                 ],
@@ -112,7 +112,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.dashboard_customize_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.dashboard_customize_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('mix these into your main list?'.tr,
@@ -144,7 +144,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                 future: _future,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData && !snapshot.hasError) {
-                    return const Center(
+                    return Center(
                       child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
                     );
                   }
@@ -187,7 +187,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 60),
                         children: [
-                          const Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.placeholder),
+                          Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.placeholder),
                           const SizedBox(height: 14),
                           Text(
                             'nothing here yet — paste a YouTube or Twitch link to bring something over'.tr,
@@ -209,7 +209,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                         SliverToBoxAdapter(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 22),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               border: Border(bottom: BorderSide(color: SeenlyPalette.border)),
                             ),
                             child: _SourcesTabBar(
@@ -472,7 +472,7 @@ class _SourcesTabBarState extends State<_SourcesTabBar> with SingleTickerProvide
               bottom: 0,
               width: right - left,
               height: 2,
-              child: const DecoratedBox(
+              child: DecoratedBox(
                 decoration: BoxDecoration(color: SeenlyPalette.accent),
               ),
             );

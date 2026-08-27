@@ -13,21 +13,22 @@ class PolaroidCard extends StatelessWidget {
   final String? posterUrl;
   final String caption;
   final Color fallbackColor;
-  final Color tapeColor;
+  Color get tapeColor => _tapeColor ?? SeenlyPalette.tapeRose;
+  final Color? _tapeColor;
   final double rotationTurns;
   final double size;
   final VoidCallback? onTap;
 
-  const PolaroidCard({
+  PolaroidCard({
     super.key,
     required this.caption,
     this.posterUrl,
     required this.fallbackColor,
-    this.tapeColor = SeenlyPalette.tapeRose,
+    Color? tapeColor,
     this.rotationTurns = -0.02,
     this.size = 70,
     this.onTap,
-  });
+  }) : _tapeColor = tapeColor;
 
   @override
   Widget build(BuildContext context) {

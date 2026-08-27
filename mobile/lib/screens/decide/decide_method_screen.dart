@@ -45,10 +45,10 @@ class DecideMethodScreen extends StatelessWidget {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),

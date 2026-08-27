@@ -102,7 +102,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                        icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 4),
@@ -160,7 +160,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                             value: level.progress.clamp(0.0, 1.0),
                             minHeight: 8,
                             backgroundColor: SeenlyPalette.border,
-                            valueColor: const AlwaysStoppedAnimation(SeenlyPalette.accent),
+                            valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
                           ),
                         ),
                         const SizedBox(height: 28),
@@ -174,7 +174,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.local_fire_department_outlined,
+                              Icon(Icons.local_fire_department_outlined,
                                   size: 15, color: SeenlyPalette.accent),
                               const SizedBox(width: 10),
                               Expanded(
@@ -239,7 +239,7 @@ class _LevelDetailScreenState extends State<LevelDetailScreen> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
+                              Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
                               const SizedBox(width: 10),
                               Expanded(
                                 child: Text(
@@ -332,7 +332,7 @@ class _AvatarBackdrop extends StatelessWidget {
             // over a wide band that finishes right as the nickname starts —
             // so the fade is long and soft rather than a hard cropped edge,
             // and the name/status below always land on solid background.
-            const DecoratedBox(
+            DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -576,7 +576,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
                           style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.edit_outlined, size: 13, color: SeenlyPalette.inkFaint),
+                    Icon(Icons.edit_outlined, size: 13, color: SeenlyPalette.inkFaint),
                   ],
                 ),
               ),
@@ -633,7 +633,7 @@ class _ProfileIdentitySectionState extends State<_ProfileIdentitySection> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.edit_outlined, size: 11, color: SeenlyPalette.inkFaint),
+                    Icon(Icons.edit_outlined, size: 11, color: SeenlyPalette.inkFaint),
                   ],
                 ),
               ),
@@ -781,7 +781,7 @@ class _AvatarSheet extends StatelessWidget {
                               width: 24,
                               height: 24,
                               decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                              child: const Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
+                              child: Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
                             ),
                           ),
                         ],
@@ -859,7 +859,7 @@ class _BreakdownRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 11),
       decoration: BoxDecoration(
-        border: isLast ? null : const Border(bottom: BorderSide(color: SeenlyPalette.border, width: 1)),
+        border: isLast ? null : Border(bottom: BorderSide(color: SeenlyPalette.border, width: 1)),
       ),
       child: Row(
         children: [

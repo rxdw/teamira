@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// The co-viewing pair's own mascot art — two bunnies together, distinct
-/// from the single companion mascot (see widgets/rabbit_mascot.dart).
-/// Purely decorative: sits in a corner of a co-viewing surface (the Home
+/// The co-viewing pair's own mascot art — two bunnies together. Purely
+/// decorative: sits in a corner of a co-viewing surface (the Home
 /// card, the co-viewing screen's own header) with no animation and no
 /// tap target of its own, so it never competes with the real content or
 /// the card's own tap handler.
 ///
-/// Like [RabbitMascot], this swaps in the dark-mode artwork
+/// Swaps in the dark-mode artwork
 /// (assets/mascot/bunnies_coViewing_dark.png) whenever the app's theme
 /// is dark, rather than always drawing the light pair.
 ///

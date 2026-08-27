@@ -236,7 +236,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
                 children: [
                   PressScale(
                     onTap: () => _endAndClose(),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     ),
@@ -273,7 +273,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(22, 10, 22, 24),
           children: [
-            const Entrance(child: Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent)),
+            Entrance(child: Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent)),
             const SizedBox(height: 14),
             Entrance(
               delay: const Duration(milliseconds: 60),
@@ -309,7 +309,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
           ],
         );
       case _Phase.starting:
-        return const Center(
+        return Center(
           child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
         );
       case _Phase.error:
@@ -367,7 +367,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         return ListView(
           padding: const EdgeInsets.fromLTRB(22, 30, 22, 24),
           children: [
-            const Entrance(child: Icon(Icons.check_circle_outline, size: 30, color: SeenlyPalette.accent)),
+            Entrance(child: Icon(Icons.check_circle_outline, size: 30, color: SeenlyPalette.accent)),
             const SizedBox(height: 14),
             Entrance(
               delay: const Duration(milliseconds: 60),
@@ -449,11 +449,11 @@ class _PollCard extends StatelessWidget {
 
   String _deadlineLabel() {
     final left = session.timeLeft;
-    if (left == Duration.zero) return 'wrapping up…';
+    if (left == Duration.zero) return 'wrapping up…'.tr;
     final local = session.deadline.toLocal();
     final hh = local.hour.toString().padLeft(2, '0');
     final mm = local.minute.toString().padLeft(2, '0');
-    return 'voting until $hh:$mm';
+    return '${'voting until'.tr} $hh:$mm';
   }
 
   @override

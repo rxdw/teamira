@@ -254,7 +254,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                             width: 26,
                             height: 26,
                             decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
+                            child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
                           ),
                         ),
                       ],
@@ -279,7 +279,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                                   : Container(
                                       color: SeenlyPalette.mediaColor(data.mediaType),
                                       alignment: Alignment.center,
-                                      child: const Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 28),
+                                      child: Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 28),
                                     ),
                             ),
                           ),
@@ -329,7 +329,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.event, size: 14, color: SeenlyPalette.accent),
+                            Icon(Icons.event, size: 14, color: SeenlyPalette.accent),
                             const SizedBox(width: 6),
                             Text(
                               data.scheduledLabel!,
@@ -369,12 +369,12 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                       child: ElevatedButton.icon(
                         onPressed: _marking ? null : () => _markWatched(context),
                         icon: _marking
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 14,
                                 height: 14,
                                 child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                               )
-                            : const Icon(Icons.check_circle_outline, size: 16, color: SeenlyPalette.accentOnAccent),
+                            : Icon(Icons.check_circle_outline, size: 16, color: SeenlyPalette.accentOnAccent),
                         label: Text(widget.actionLabel,
                             style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent)),
                         style: ElevatedButton.styleFrom(

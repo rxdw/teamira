@@ -38,7 +38,7 @@ class DecideFilters {
   }
 }
 
-String decadeLabel(int decade) => decade < 1980 ? 'before 1980' : '${decade}s';
+String decadeLabel(int decade) => decade < 1980 ? 'before 1980'.tr : '${decade}s';
 
 /// Every content type the flow can draw from.
 const kDecidePickableTypes = {'movie', 'series', 'anime', 'book', 'manga', 'game'};
@@ -504,7 +504,7 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
           ),
           const SizedBox(height: 10),
           PrimaryButton(
-            label: isLastStep ? 'continue' : 'next',
+            label: (isLastStep ? 'continue' : 'next').tr,
             onTap: pool.isEmpty
                 ? null
                 : () {
@@ -1147,10 +1147,10 @@ class _BackCircle extends StatelessWidget {
     return Container(
       width: 32,
       height: 32,
-      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+      decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
       child: IconButton(
         padding: EdgeInsets.zero,
-        icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+        icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
         onPressed: onTap,
       ),
     );

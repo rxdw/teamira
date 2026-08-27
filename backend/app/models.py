@@ -83,12 +83,12 @@ class User(Base):
     display_name = Column(String, nullable=True)
 
     # One of two ways to have an avatar (see routers/profile.py):
-    # avatar_preset is a bundled-in-app asset id (e.g. "bunny_1", picked
-    # for free with no upload), avatar_url is a photo the person uploaded
-    # (served from /static/avatars — see main.py's StaticFiles mount).
-    # Mutually exclusive in practice — setting one clears the other — but
-    # both columns exist so the client always knows which kind it's
-    # rendering without guessing from the string shape.
+    # avatar_preset is a bundled-in-app asset id (e.g. "bunnies_coviewing",
+    # picked for free with no upload), avatar_url is a photo the person
+    # uploaded (served from /static/avatars — see main.py's StaticFiles
+    # mount). Mutually exclusive in practice — setting one clears the
+    # other — but both columns exist so the client always knows which
+    # kind it's rendering without guessing from the string shape.
     avatar_preset = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
 
@@ -145,8 +145,7 @@ class User(Base):
     # table since it's always read/written as one small ordered set, never
     # queried by individual id. NULL/empty means nothing pinned yet — the
     # profile header simply shows no showcase row. Visible on the friend
-    # profile screen too (routers/friends.py::get_friend_profile), same as
-    # a friend's current-level bunny already is.
+    # profile screen too (routers/friends.py::get_friend_profile).
     pinned_achievement_ids = Column(String, nullable=True)
 
     watchlist = relationship("WatchlistEntry", back_populates="user", cascade="all, delete-orphan")

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,7 +8,9 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../services/log_theme_service.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
 import '../../widgets/heart_rating.dart';
+import '../../widgets/level_up_celebration.dart';
 import '../../widgets/log_ritual.dart';
 import '../../widgets/mood_tag_picker.dart';
 import '../../widgets/small_pieces.dart';
@@ -94,6 +98,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             watchedAt: _resolvedDate,
             watchedWithPartner: _watchedWithPartner,
           );
+      // A save is exactly the moment a level-up (and possibly a new
+      // badge unlocking) could just have happened — refresh the cached
+      // level so it's ready to check below, same as the themed ritual
+      // screens do right after their own save. Best-effort, never blocks.
+      unawaited(context.read<AppState>().refreshLevel());
       if (mounted) {
         // The seat/page-picking and the ticket/stamp itself are the
         // confirmation — no snackbar needed on top of either. Which one
@@ -115,6 +124,18 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             watchedAt: _resolvedDate,
             runtimeMinutes: widget.item.runtimeMinutes,
           );
+        }
+        if (mounted) {
+          // Right as the log drop finishes and before actually closing
+          // out — the same beat the themed ritual screens give this
+          // check right before their own final "keep the stub" tap.
+          final leveledUp = context.read<AppState>().consumePendingLevelUp();
+          if (leveledUp != null && mounted) {
+            await showLevelUpCelebration(context, leveledUp);
+          }
+          if (mounted) {
+            await checkAndCelebrateNewAchievements(context);
+          }
         }
         if (mounted) Navigator.of(context).pop(true);
       }
@@ -339,9 +360,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               padding: const EdgeInsets.fromLTRB(24, 10, 24, 20),
               child: LogSubmitButton(
                 label: switch (context.watch<LogThemeService>().theme) {
-                  LogTheme.coach => 'tear off tonight\'s pass',
-                  LogTheme.ticket => 'tuck tonight\'s ticket away',
-                  LogTheme.garden => 'plant tonight in the bed',
+                  LogTheme.coach => 'tear off tonight\'s pass'.tr,
+                  LogTheme.ticket => 'tuck tonight\'s ticket away'.tr,
+                  LogTheme.garden => 'plant tonight in the bed'.tr,
+                  LogTheme.shuttle => 'launch tonight into orbit'.tr,
                 },
                 loading: _saving,
                 onTap: _save,

@@ -256,6 +256,7 @@ class _PullMotif extends StatelessWidget {
       LogTheme.garden => SproutMotionPainter(t: t),
       LogTheme.coach => CoachWindowMotionPainter(t: t),
       LogTheme.ticket => TicketPrintMotionPainter(t: t),
+      LogTheme.shuttle => ShuttlePulseMotionPainter(t: t),
     };
     return Container(
       width: size,
@@ -285,6 +286,7 @@ class _PullMotif extends StatelessWidget {
       LogTheme.garden => dragT * 0.5, // 0..0.5 is the sprout's full growth
       LogTheme.ticket => dragT * 0.6, // 0..0.6 is the ticket's slide-out
       LogTheme.coach => 0, // the window only starts moving once refreshing
+      LogTheme.shuttle => dragT * 0.5, // 0..0.5 is the flame's full pulse
     };
   }
 }

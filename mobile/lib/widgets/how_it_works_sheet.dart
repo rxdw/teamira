@@ -87,7 +87,7 @@ class HowItWorksSheet extends StatelessWidget {
                               width: 24,
                               height: 24,
                               decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                              child: const Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
+                              child: Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
                             ),
                           ),
                         ],
@@ -189,7 +189,7 @@ class _HowItWorksStep extends StatelessWidget {
             width: 18,
             height: 18,
             margin: const EdgeInsets.only(top: 1),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: SeenlyPalette.accent,
               shape: BoxShape.circle,
             ),

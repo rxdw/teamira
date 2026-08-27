@@ -42,8 +42,8 @@ class PairingQrCode extends StatelessWidget {
         size: size,
         gapless: false,
         backgroundColor: SeenlyPalette.paper,
-        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: SeenlyPalette.ink),
-        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: SeenlyPalette.ink),
+        eyeStyle: QrEyeStyle(eyeShape: QrEyeShape.square, color: SeenlyPalette.ink),
+        dataModuleStyle: QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: SeenlyPalette.ink),
       ),
     );
   }

@@ -120,14 +120,15 @@ class _RoadPainter extends CustomPainter {
   final List<Offset> points;
   final double roadWidth;
   final Color roadColor;
-  final Color lineColor;
+  Color get lineColor => _lineColor ?? SeenlyPalette.paper;
+  final Color? _lineColor;
 
-  const _RoadPainter({
+  _RoadPainter({
     required this.points,
     this.roadWidth = 15,
     this.roadColor = const Color(0xFFDCCFB2),
-    this.lineColor = SeenlyPalette.paper,
-  });
+    Color? lineColor,
+  }) : _lineColor = lineColor;
 
   Path _buildPath(Size size) {
     final abs = points.map((p) => Offset(p.dx * size.width, p.dy * size.height)).toList();
@@ -223,8 +224,8 @@ class EveningRoadScreen extends StatelessWidget {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                      child: const Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
+                      decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                      child: Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                 ],

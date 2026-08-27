@@ -95,7 +95,7 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
                     boxShadow: SeenlyPalette.softShadow,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                  child: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                 ),
               ),
             ),
@@ -426,7 +426,7 @@ class _ShuffleButton extends StatelessWidget {
       child: Container(
         width: 32,
         height: 32,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           shape: BoxShape.circle,
         ),
@@ -471,7 +471,7 @@ class _AboutFranchisePill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.auto_stories, size: 12, color: SeenlyPalette.accent),
+            Icon(Icons.auto_stories, size: 12, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
             Text('о франшизе'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),

@@ -73,7 +73,7 @@ class _CoachSubmitButtonState extends State<CoachSubmitButton> with TickerProvid
                   padding: EdgeInsets.only(right: _stubWidth, left: 24),
                   child: Center(
                     child: widget.loading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),

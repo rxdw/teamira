@@ -20,9 +20,9 @@ import '../../widgets/ticket_drop_overlay.dart';
 import '../../widgets/ticket_submit_button.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../services/log_theme_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
+import '../../widgets/level_up_celebration.dart';
 import '../../widgets/favorite_toggle.dart';
-import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
@@ -502,7 +502,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
           child: Opacity(
             opacity: _selectedSeat == null ? 0.45 : 1.0,
             child: PrimaryButton(
-              label: _selectedSeat == null ? 'pick a seat' : 'confirm seat $_seatLabel',
+              label: _selectedSeat == null ? 'pick a seat'.tr : '${'confirm seat'.tr} $_seatLabel',
               onTap: _selectedSeat == null ? null : () => _goTo(_Step.details),
             ),
           ),
@@ -529,7 +529,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
             child: _FilmReelCard(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                decoration: const BoxDecoration(color: SeenlyPalette.paper),
+                decoration: BoxDecoration(color: SeenlyPalette.paper),
                 child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -564,7 +564,9 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                       const SizedBox(width: 8),
                       Expanded(
                         child: PillChip(
-                          label: _when == _When.custom && _customDate != null ? '${_customDate!.month}/${_customDate!.day}' : 'pick date',
+                          label: _when == _When.custom && _customDate != null
+                              ? '${_customDate!.month}/${_customDate!.day}'
+                              : 'pick date'.tr,
                           active: _when == _When.custom,
                           dashed: true,
                           fullWidth: true,
@@ -654,7 +656,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
             child: _FilmReelCard(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                decoration: const BoxDecoration(color: SeenlyPalette.paper),
+                decoration: BoxDecoration(color: SeenlyPalette.paper),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -698,8 +700,8 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                           child: Container(
                             width: 34,
                             height: 34,
-                            decoration: const BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                            child: const Icon(Icons.add, size: 17, color: SeenlyPalette.accentOnAccent),
+                            decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                            child: Icon(Icons.add, size: 17, color: SeenlyPalette.accentOnAccent),
                           ),
                         ),
                       ],
@@ -745,7 +747,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
             child: _FilmReelCard(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
-                decoration: const BoxDecoration(color: SeenlyPalette.paper),
+                decoration: BoxDecoration(color: SeenlyPalette.paper),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -838,7 +840,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                       ),
                     ],
                   ),
-                  const Divider(height: 28, color: SeenlyPalette.border),
+                  Divider(height: 28, color: SeenlyPalette.border),
                   ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
@@ -972,7 +974,19 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
             label: 'keep the stub'.tr,
-            onTap: () => Navigator.of(context).pop(true),
+            onTap: () async {
+              // Right as the person is about to leave the ritual behind —
+              // one more beat (or two) first, if this save leveled them up
+              // and/or unlocked a badge, before actually stepping away.
+              final leveledUp = context.read<AppState>().consumePendingLevelUp();
+              if (leveledUp != null && context.mounted) {
+                await showLevelUpCelebration(context, leveledUp);
+              }
+              if (context.mounted) {
+                await checkAndCelebrateNewAchievements(context);
+              }
+              if (context.mounted) Navigator.of(context).pop(true);
+            },
           ),
         ),
       ],
@@ -1146,7 +1160,7 @@ class _CastPickTile extends StatelessWidget {
                             color: SeenlyPalette.accent,
                             border: Border.all(color: SeenlyPalette.paper, width: 2),
                           ),
-                          child: const Icon(Icons.favorite, size: 10, color: SeenlyPalette.accentOnAccent),
+                          child: Icon(Icons.favorite, size: 10, color: SeenlyPalette.accentOnAccent),
                         ),
                       ),
                   ],
@@ -1656,15 +1670,11 @@ class _TicketRevealState extends State<_TicketReveal> with SingleTickerProviderS
 }
 
 /// A quiet little "thank you" that settles in just under the stub once
-/// it's landed — the same ordinary rabbit companion used everywhere
-/// else in the app, already holding its own little ticket, giving one
-/// happy hop before easing to a stop. Reads as the room itself
-/// noticing tonight went well, not a separate congratulations screen.
+/// it's landed. Reads as the room itself noticing tonight went well,
+/// not a separate congratulations screen.
 ///
 /// Held back a beat behind [_TicketReveal] so it plays like a reaction
-/// to the stub arriving rather than two things happening at once, and
-/// left out entirely (no gap in the layout) when the rabbit companion
-/// is turned off in Settings.
+/// to the stub arriving rather than two things happening at once.
 class _PassStepMascot extends StatefulWidget {
   const _PassStepMascot();
 
@@ -1694,9 +1704,6 @@ class _PassStepMascotState extends State<_PassStepMascot> with SingleTickerProvi
 
   @override
   Widget build(BuildContext context) {
-    if (!context.watch<RabbitMascotPrefsService>().enabled) {
-      return const SizedBox(height: 4);
-    }
     return AnimatedBuilder(
       animation: _c,
       builder: (_, __) {
@@ -1713,8 +1720,6 @@ class _PassStepMascotState extends State<_PassStepMascot> with SingleTickerProvi
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const RabbitMascot(mood: RabbitMood.celebrating, size: 88),
-                    const SizedBox(height: 8),
                     Text(
                       'thank you for tonight'.tr,
                       style: SeenlyText.serif(

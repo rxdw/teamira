@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../models/profile_stats.dart';
+import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
@@ -105,7 +107,7 @@ class _WrappedScreenState extends State<WrappedScreen> {
           if (snapshot.hasError) {
             return SafeArea(
               child: _MessageScreen(
-                text: "не получилось загрузить эту сводку",
+                text: "не получилось загрузить эту сводку".tr,
                 onClose: () => Navigator.of(context).pop(),
               ),
             );
@@ -114,7 +116,9 @@ class _WrappedScreenState extends State<WrappedScreen> {
           if (summary.totalLogged == 0) {
             return SafeArea(
               child: _MessageScreen(
-                text: "за ${summary.periodLabel} в дневнике пока пусто —\nвозвращайся, когда появятся записи",
+                text: LocaleService.appIsRussian
+                    ? "за ${summary.periodLabel} в дневнике пока пусто —\nвозвращайся, когда появятся записи"
+                    : "the diary is still empty for ${summary.periodLabel} —\ncome back once you've logged something",
                 onClose: () => Navigator.of(context).pop(),
                 onPickPeriod: () => _openPicker(summary),
               ),
@@ -160,6 +164,13 @@ class _PeriodPickerSheet extends StatelessWidget {
     '', 'январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
     'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь',
   ];
+  // English counterpart for the same picker — kept as its own array
+  // rather than routed through the generic .tr word table, matching the
+  // month-name pattern used in plan_evening_sheet.dart's mini calendar.
+  static const _monthNamesEn = [
+    '', 'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -188,20 +199,20 @@ class _PeriodPickerSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            Text('выбрать период', style: SeenlyText.sectionTitle),
+            Text('выбрать период'.tr, style: SeenlyText.sectionTitle),
             const SizedBox(height: 12),
             _PeriodTile(
-              label: 'этот месяц',
+              label: 'этот месяц'.tr,
               active: isCurrentMonth,
               onTap: () => onSelect('month', now.year, now.month),
             ),
             _PeriodTile(
-              label: 'этот год',
+              label: 'этот год'.tr,
               active: isCurrentYear,
               onTap: () => onSelect('year', now.year, null),
             ),
             _PeriodTile(
-              label: 'за всё время',
+              label: 'за всё время'.tr,
               active: isAll,
               onTap: () => onSelect('all', null, null),
             ),
@@ -211,7 +222,7 @@ class _PeriodPickerSheet extends StatelessWidget {
               const SizedBox(height: 10),
             ],
             if (otherYears.isNotEmpty) ...[
-              Text('годы', style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
+              Text('годы'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
               const SizedBox(height: 4),
               for (final y in otherYears)
                 _PeriodTile(
@@ -222,7 +233,7 @@ class _PeriodPickerSheet extends StatelessWidget {
             ],
             if (otherMonths.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text('месяцы', style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
+              Text('месяцы'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
               const SizedBox(height: 4),
               SizedBox(
                 height: 220,
@@ -232,7 +243,7 @@ class _PeriodPickerSheet extends StatelessWidget {
                   itemBuilder: (context, i) {
                     final p = otherMonths[i];
                     return _PeriodTile(
-                      label: '${_monthNames[p.month]} ${p.year}',
+                      label: '${(LocaleService.appIsRussian ? _monthNames : _monthNamesEn)[p.month]} ${p.year}',
                       active: currentScope == 'month' && currentYear == p.year && currentMonth == p.month,
                       onTap: () => onSelect('month', p.year, p.month),
                     );
@@ -267,7 +278,7 @@ class _PeriodTile extends StatelessWidget {
                   style: SeenlyText.serif(size: 14, color: active ? SeenlyPalette.accent : SeenlyPalette.ink,
                       weight: active ? FontWeight.w600 : FontWeight.w400)),
             ),
-            if (active) const Icon(Icons.check, size: 16, color: SeenlyPalette.accent),
+            if (active) Icon(Icons.check, size: 16, color: SeenlyPalette.accent),
           ],
         ),
       ),
@@ -288,7 +299,7 @@ class _MessageScreen extends StatelessWidget {
         Align(
           alignment: Alignment.topLeft,
           child: IconButton(
-            icon: const Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
+            icon: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
             onPressed: onClose,
           ),
         ),
@@ -308,7 +319,7 @@ class _MessageScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     GestureDetector(
                       onTap: onPickPeriod,
-                      child: Text('выбрать другой период',
+                      child: Text('выбрать другой период'.tr,
                           style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent, weight: FontWeight.w600)),
                     ),
                   ],
@@ -338,7 +349,7 @@ class _EnvelopeScreen extends StatelessWidget {
         Align(
           alignment: Alignment.topLeft,
           child: IconButton(
-            icon: const Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
+            icon: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
             onPressed: onClose,
           ),
         ),
@@ -356,7 +367,7 @@ class _EnvelopeScreen extends StatelessWidget {
                     child: CustomPaint(painter: _EnvelopePainter()),
                   ),
                   const SizedBox(height: 28),
-                  Text('запечатано · тапни, чтобы открыть',
+                  Text('запечатано · тапни, чтобы открыть'.tr,
                       style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
                 ],
               ),
@@ -557,9 +568,9 @@ class _WrappedCarouselContent extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                 child: IconButton(
-                  icon: const Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
+                  icon: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
                   onPressed: onClose,
                 ),
               ),
@@ -578,7 +589,7 @@ class _WrappedCarouselContent extends StatelessWidget {
                       Text(periodLabel,
                           style: SeenlyText.mono(size: 12, color: SeenlyPalette.ink, weight: FontWeight.w600)),
                       const SizedBox(width: 3),
-                      const Icon(Icons.expand_more, size: 13, color: SeenlyPalette.inkFaint),
+                      Icon(Icons.expand_more, size: 13, color: SeenlyPalette.inkFaint),
                     ],
                   ),
                 ),
@@ -608,7 +619,7 @@ class _WrappedCarouselContent extends StatelessWidget {
                   // Centering a content-sized card here means every
                   // screen is exactly as tall as what it's showing.
                   padding: const EdgeInsets.fromLTRB(10, 4, 10, 4),
-                  child: Center(child: _CardSwipeMotion(controller: controller, index: i, fallbackPage: page, child: pages[i])),
+                  child: Center(child: _CardPageTurn(controller: controller, index: i, fallbackPage: page, child: pages[i])),
                 ),
               ),
               if (page > 0)
@@ -649,26 +660,29 @@ class _NavChevron extends StatelessWidget {
       child: Container(
         width: 26,
         height: 26,
-        decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
         child: Icon(icon, size: 16, color: SeenlyPalette.inkMuted),
       ),
     );
   }
 }
 
-/// Wraps one card so it responds to the live scroll position rather than
-/// only snapping between two fixed states — as the person drags between
-/// screens, the outgoing card softly sinks, fades, and shrinks a touch
-/// while the incoming one rises and grows into place, all in the same
-/// motion as the finger. This one widget is what makes every screen in
-/// the deck animate, rather than hand-animating each of the fourteen
-/// cards separately.
-class _CardSwipeMotion extends StatelessWidget {
+/// Wraps one card so it turns like an actual page around its trailing
+/// edge as the person drags between screens, instead of just fading
+/// and shrinking in place — a real 3D hinge (perspective [Transform] +
+/// [Matrix4.rotateY]), not a 2D skew standing in for depth. A page
+/// already viewed (to the left of the current one) folds back over its
+/// own right edge as it goes, the way an earlier page in a book settles
+/// face-down once you've turned past it; a page not yet reached folds
+/// away on its left, not open to you yet. Both ease back flat the
+/// moment the drag settles on them, in lockstep with the finger rather
+/// than a separate animation layered on top of the swipe.
+class _CardPageTurn extends StatelessWidget {
   final PageController controller;
   final int index;
   final int fallbackPage;
   final Widget child;
-  const _CardSwipeMotion({
+  const _CardPageTurn({
     required this.controller,
     required this.index,
     required this.fallbackPage,
@@ -689,16 +703,25 @@ class _CardSwipeMotion extends StatelessWidget {
           } catch (_) {}
         }
         final delta = (page - index).clamp(-1.0, 1.0);
-        final settle = delta.abs();
-        return Opacity(
-          opacity: 1 - settle * 0.55,
-          child: Transform.translate(
-            offset: Offset(0, settle * 22),
-            child: Transform.scale(
-              scale: 1 - settle * 0.08,
-              child: child,
-            ),
-          ),
+        final turn = delta.abs();
+
+        // Which edge this card hinges on depends on which way it's
+        // turning away — see the class doc above. At delta == 0 either
+        // side is equivalent anyway since angle is 0 there.
+        final alignment = delta >= 0 ? Alignment.centerRight : Alignment.centerLeft;
+        final angle = delta * math.pi * 0.5; // up to a full quarter-turn at the edges
+
+        return Transform(
+          alignment: alignment,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.0022) // perspective: how sharply the far edge recedes
+            ..rotateY(angle),
+          // A turning page also loses a little presence rather than
+          // staying fully bright right up until it's edge-on and
+          // vanishingly thin — same dimming instinct the old flat
+          // fade used, just driven by the fold angle now instead of a
+          // straight translate/scale.
+          child: Opacity(opacity: 1 - turn * 0.5, child: child),
         );
       },
     );
@@ -838,8 +861,8 @@ class _PaperGrainPainter extends CustomPainter {
 /// instead of) the app's own Unbounded/Comfortaa pairing, for the one or
 /// two lines per screen that read like something the person themselves
 /// jotted down rather than a stat the app is reporting.
-TextStyle _handwriting({double size = 19, Color color = SeenlyPalette.ink, FontWeight weight = FontWeight.w700}) {
-  return GoogleFonts.caveat(fontSize: size, color: color, fontWeight: weight, height: 1.15);
+TextStyle _handwriting({double size = 19, Color? color, FontWeight weight = FontWeight.w700}) {
+  return GoogleFonts.caveat(fontSize: size, color: color ?? SeenlyPalette.ink, fontWeight: weight, height: 1.15);
 }
 
 /// A small photo, white-bordered like a Polaroid, held down by two
@@ -926,7 +949,11 @@ class _CardShell extends StatelessWidget {
   // screen, so unlike the rest of the app (deliberately a muted paper
   // diary — see the note at the top of palette.dart) each chapter here
   // gets its own full color identity, the way the reference decks did.
-  final Color background;
+  // Nullable rather than defaulted to `SeenlyPalette.accent` directly —
+  // SeenlyPalette's colors are runtime getters (they switch on the
+  // active brightness), so they can't sit in a const default-parameter
+  // position; see [_resolvedBackground] for the actual fallback.
+  final Color? background;
   // Whether `background` reads dark enough that content needs the paper
   // foreground instead of ink. Set per card below by eye, not computed
   // from luminance — mustard and the receipt's own paper both count as
@@ -939,9 +966,11 @@ class _CardShell extends StatelessWidget {
     this.onNext,
     this.compact = false,
     this.shareButton,
-    this.background = SeenlyPalette.accent,
+    this.background,
     this.light = true,
   });
+
+  Color get _resolvedBackground => background ?? SeenlyPalette.accent;
 
   Color get _fg => light ? SeenlyPalette.paper : SeenlyPalette.ink;
   Color get _chipBg => light ? Colors.white.withOpacity(0.16) : SeenlyPalette.ink.withOpacity(0.10);
@@ -955,9 +984,9 @@ class _CardShell extends StatelessWidget {
         center: const Alignment(-0.4, -0.9),
         radius: 1.3,
         colors: [
-          Color.lerp(background, Colors.white, 0.16)!,
-          background,
-          Color.lerp(background, Colors.black, 0.14)!,
+          Color.lerp(_resolvedBackground, Colors.white, 0.16)!,
+          _resolvedBackground,
+          Color.lerp(_resolvedBackground, Colors.black, 0.14)!,
         ],
         stops: const [0.0, 0.55, 1.0],
       );
@@ -1091,7 +1120,7 @@ class _CardTone extends InheritedWidget {
     // the receipt card paints its own paper container directly rather
     // than going through _CardShell, so shared tone-aware widgets like
     // _ShareButton still need a sane default there.
-    return found ?? const _CardTone(fg: SeenlyPalette.ink, chipBg: SeenlyPalette.cork, child: SizedBox.shrink());
+    return found ?? _CardTone(fg: SeenlyPalette.ink, chipBg: SeenlyPalette.cork, child: const SizedBox.shrink());
   }
 
   Color get fgMuted => fg.withOpacity(0.72);
@@ -1188,7 +1217,7 @@ class _AuroraBackdrop extends StatefulWidget {
 class _AuroraBackdropState extends State<_AuroraBackdrop> with SingleTickerProviderStateMixin {
   late final _controller = AnimationController(vsync: this, duration: const Duration(seconds: 22))..repeat();
 
-  static const _blobColors = [
+  static final _blobColors = [
     SeenlyPalette.coral,
     SeenlyPalette.periwinkle,
     SeenlyPalette.mustard,
@@ -1537,7 +1566,7 @@ class _StarfieldPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rnd = math.Random(11);
     final paint = Paint()..style = PaintingStyle.fill;
-    const tints = [SeenlyPalette.mustard, SeenlyPalette.coral, SeenlyPalette.periwinkle, SeenlyPalette.pink];
+    final tints = [SeenlyPalette.mustard, SeenlyPalette.coral, SeenlyPalette.periwinkle, SeenlyPalette.pink];
     for (int i = 0; i < 58; i++) {
       final dx = rnd.nextDouble() * size.width;
       final dy = rnd.nextDouble() * size.height;
@@ -1615,14 +1644,14 @@ class _PosterThumb extends StatelessWidget {
         child: (url == null || url!.isEmpty)
             ? Container(
                 color: SeenlyPalette.cork,
-                child: const Icon(Icons.local_movies_outlined, size: 18, color: SeenlyPalette.inkFaint),
+                child: Icon(Icons.local_movies_outlined, size: 18, color: SeenlyPalette.inkFaint),
               )
             : Image.network(
                 url!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: SeenlyPalette.cork,
-                  child: const Icon(Icons.local_movies_outlined, size: 18, color: SeenlyPalette.inkFaint),
+                  child: Icon(Icons.local_movies_outlined, size: 18, color: SeenlyPalette.inkFaint),
                 ),
                 loadingBuilder: (context, child, progress) =>
                     progress == null ? child : Container(color: SeenlyPalette.cork),
@@ -2290,7 +2319,7 @@ class _OverviewSessionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CardShell(
-      bonusLabel: 'экран 1 из 3',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 1 из 3' : 'screen 1 of 3',
       onNext: onNext,
       background: SeenlyPalette.accent,
       child: Builder(builder: (context) {
@@ -2304,7 +2333,9 @@ class _OverviewSessionsCard extends StatelessWidget {
               placeholderColor: SeenlyPalette.coral,
             ),
             const SizedBox(height: 14),
-            _Eyebrow(summary.scope == 'all' ? 'твоё кино за всё время' : 'твой ${summary.periodLabel} в кино'),
+            _Eyebrow(LocaleService.appIsRussian
+                ? (summary.scope == 'all' ? 'твоё кино за всё время' : 'твой ${summary.periodLabel} в кино')
+                : (summary.scope == 'all' ? 'your movies, all time' : 'your ${summary.periodLabel} in movies')),
             const SizedBox(height: 6),
             _CountUp(value: summary.totalLogged, style: SeenlyText.serif(size: 64, weight: FontWeight.w700, color: fg)),
             Text(
@@ -2317,7 +2348,7 @@ class _OverviewSessionsCard extends StatelessWidget {
             const _TicketDash(),
             const SizedBox(height: 14),
             Text(
-              'это ${_hoursLabel(summary.totalHours)} за экраном — примерно каждый ${_roughlyEveryNth(summary)}-й вечер ${_periodPossessive(summary)} начинался с тебя и экрана',
+              _overviewHoursSentence(summary),
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8)),
             ),
@@ -2327,8 +2358,12 @@ class _OverviewSessionsCard extends StatelessWidget {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                _equivChip('≈ ${(summary.totalHours / 24).round()} суток', fg),
-                _equivChip('≈ ${_workDaysEquivalent(summary.totalHours)} раб. дней', fg),
+                _equivChip(LocaleService.appIsRussian
+                    ? '≈ ${(summary.totalHours / 24).round()} суток'
+                    : '≈ ${(summary.totalHours / 24).round()} days', fg),
+                _equivChip(LocaleService.appIsRussian
+                    ? '≈ ${_workDaysEquivalent(summary.totalHours)} раб. дней'
+                    : '≈ ${_workDaysEquivalent(summary.totalHours)} workdays', fg),
               ],
             ),
           ],
@@ -2373,6 +2408,39 @@ String _periodPossessive(WrappedSummary s) {
   }
 }
 
+// English needs a different sentence shape than the Russian genitive
+// phrase above ("evening of this month" vs. Russian's "вечер этого
+// месяца"), so this is its own function rather than a parallel word
+// list — see _overviewHoursSentence, the one call site that uses it.
+String _periodPossessiveEn(WrappedSummary s) {
+  switch (s.scope) {
+    case 'month':
+      return 'this month';
+    case 'all':
+      return 'in all this time';
+    default:
+      return 'this year';
+  }
+}
+
+// English ordinal suffix (1st, 2nd, 3rd, 4th, 11th...) — the exception
+// band for 11-13 mirrors the Russian 11-14 "always many" rule in
+// _pluralRu below, just for a different grammatical reason.
+String _ordinalEn(int n) {
+  final mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return '${n}th';
+  switch (n % 10) {
+    case 1:
+      return '${n}st';
+    case 2:
+      return '${n}nd';
+    case 3:
+      return '${n}rd';
+    default:
+      return '${n}th';
+  }
+}
+
 int _roughlyEveryNth(WrappedSummary s) {
   if (s.totalLogged == 0) return 365;
   final periodDays = _periodDaysFor(s);
@@ -2390,11 +2458,28 @@ int _periodDaysFor(WrappedSummary s) {
   return 365;
 }
 
+// The one sentence combining totalHours + roughlyEveryNth + the period
+// phrase — kept as one function (rather than composed from smaller
+// pieces at the call site) because the phrase order differs enough
+// between the two languages that composing it piecemeal would fight the
+// grammar of one of them.
+String _overviewHoursSentence(WrappedSummary s) {
+  final hours = _hoursLabel(s.totalHours);
+  final nth = _roughlyEveryNth(s);
+  if (LocaleService.appIsRussian) {
+    return 'это $hours за экраном — примерно каждый $nth-й вечер ${_periodPossessive(s)} начинался с тебя и экрана';
+  }
+  return "that's $hours behind the screen — roughly every ${_ordinalEn(nth)} evening ${_periodPossessiveEn(s)} started with you and the screen";
+}
+
 String _hoursLabel(double totalHours) {
   final totalMinutes = (totalHours * 60).round();
   final h = totalMinutes ~/ 60;
   final m = totalMinutes % 60;
-  return '$h ч ${m.toString().padLeft(2, '0')} мин';
+  if (LocaleService.appIsRussian) {
+    return '$h ч ${m.toString().padLeft(2, '0')} мин';
+  }
+  return '${h}h ${m.toString().padLeft(2, '0')}m';
 }
 
 /// Russian plural form picker (1 день / 2 дня / 5 дней, etc.) — Russian
@@ -2415,11 +2500,28 @@ String _pluralRu(int n, String one, String few, String many) {
   }
 }
 
-String _daysLabel(int n) => '$n ${_pluralRu(n, 'день', 'дня', 'дней')}';
-String _sessionsWord(int n) => _pluralRu(n, 'сеанс', 'сеанса', 'сеансов');
+String _daysLabel(int n) {
+  if (LocaleService.appIsRussian) return '$n ${_pluralRu(n, 'день', 'дня', 'дней')}';
+  return '$n ${n == 1 ? 'day' : 'days'}';
+}
+
+String _sessionsWord(int n) {
+  if (LocaleService.appIsRussian) return _pluralRu(n, 'сеанс', 'сеанса', 'сеансов');
+  return n == 1 ? 'session' : 'sessions';
+}
 
 String _overviewSubtitle(WrappedSummary s) {
   final word = _sessionsWord(s.totalLogged);
+  if (!LocaleService.appIsRussian) {
+    switch (s.scope) {
+      case 'month':
+        return '$word this month';
+      case 'all':
+        return '$word all time';
+      default:
+        return '$word this year';
+    }
+  }
   switch (s.scope) {
     case 'month':
       return '$word за месяц';
@@ -2439,7 +2541,7 @@ class _ClockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hour = summary.peakHour;
     return _CardShell(
-      bonusLabel: 'экран 2 из 3',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 2 из 3' : 'screen 2 of 3',
       onNext: onNext,
       background: SeenlyPalette.mustard,
       light: false,
@@ -2449,9 +2551,9 @@ class _ClockCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('когда ты смотришь'),
+            _Eyebrow('когда ты смотришь'.tr),
             const SizedBox(height: 6),
-            Text('твой киночас', style: _handwriting(size: 24, color: fg)),
+            Text('твой киночас'.tr, style: _handwriting(size: 24, color: fg)),
             const SizedBox(height: 22),
             _DigitalClock(time: hour != null ? '${hour.toString().padLeft(2, '0')}:00' : '--:--'),
             const SizedBox(height: 20),
@@ -2464,8 +2566,10 @@ class _ClockCard extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               hour != null
-                  ? 'около ${summary.peakHourPercent.round()}% фильмов начаты в пределах часа от ${hour.toString().padLeft(2, '0')}:00'
-                  : 'пока недостаточно данных о времени просмотра',
+                  ? (LocaleService.appIsRussian
+                      ? 'около ${summary.peakHourPercent.round()}% фильмов начаты в пределах часа от ${hour.toString().padLeft(2, '0')}:00'
+                      : 'about ${summary.peakHourPercent.round()}% of movies started within an hour of ${hour.toString().padLeft(2, '0')}:00')
+                  : 'пока недостаточно данных о времени просмотра'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.78)),
             ),
@@ -2477,11 +2581,18 @@ class _ClockCard extends StatelessWidget {
 }
 
 String _dayPartLabel(int hour) {
-  if (hour >= 0 && hour < 6) return 'глубокая ночь';
-  if (hour < 12) return 'утро';
-  if (hour < 18) return 'день';
-  if (hour < 23) return 'вечер';
-  return 'поздний вечер';
+  if (LocaleService.appIsRussian) {
+    if (hour >= 0 && hour < 6) return 'глубокая ночь';
+    if (hour < 12) return 'утро';
+    if (hour < 18) return 'день';
+    if (hour < 23) return 'вечер';
+    return 'поздний вечер';
+  }
+  if (hour >= 0 && hour < 6) return 'the dead of night';
+  if (hour < 12) return 'morning';
+  if (hour < 18) return 'afternoon';
+  if (hour < 23) return 'evening';
+  return 'late evening';
 }
 
 class _GenreStripCard extends StatelessWidget {
@@ -2493,7 +2604,7 @@ class _GenreStripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final mix = summary.genreMix;
     return _CardShell(
-      bonusLabel: 'экран 3 из 3',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 3 из 3' : 'screen 3 of 3',
       onNext: onNext,
       background: SeenlyPalette.coral,
       child: Builder(builder: (context) {
@@ -2502,9 +2613,9 @@ class _GenreStripCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('из чего состоял год'),
+            _Eyebrow('из чего состоял год'.tr),
             const SizedBox(height: 6),
-            Text('твоя плёнка', style: _handwriting(size: 27, color: fg)),
+            Text('твоя плёнка'.tr, style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 22),
             if (mix.isNotEmpty) ...[
               SizedBox(
@@ -2531,7 +2642,7 @@ class _GenreStripCard extends StatelessWidget {
                   ),
                 ),
             ] else
-              Text('пока недостаточно жанров для картины',
+              Text('пока недостаточно жанров для картины'.tr,
                   textAlign: TextAlign.center, style: SeenlyText.serif(color: fg.withOpacity(0.8))),
           ],
         );
@@ -2556,7 +2667,7 @@ class _FirstLastCard extends StatelessWidget {
     final first = summary.first;
     final last = summary.last;
     return _CardShell(
-      bonusLabel: 'экран 1 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 1 из 8' : 'screen 1 of 8',
       onNext: onNext,
       background: SeenlyPalette.sage,
       light: false,
@@ -2566,9 +2677,9 @@ class _FirstLastCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('старт и финиш'),
+            _Eyebrow('старт и финиш'.tr),
             const SizedBox(height: 6),
-            Text('первый и последний', style: _handwriting(size: 22, color: fg)),
+            Text('первый и последний'.tr, style: _handwriting(size: 22, color: fg)),
             const SizedBox(height: 8),
             SizedBox(
               height: 60,
@@ -2584,7 +2695,7 @@ class _FirstLastCard extends StatelessWidget {
             const SizedBox(height: 22),
             const _TicketDash(),
             const SizedBox(height: 14),
-            Text('${_daysLabel(summary.daysSpan)} между первым и последним кадром',
+            Text('${_daysLabel(summary.daysSpan)} ${'between the first and last frame'.tr}',
                 textAlign: TextAlign.center,
                 style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8))),
           ],
@@ -2620,7 +2731,7 @@ class _DirectorsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final directors = summary.topDirectors;
     return _CardShell(
-      bonusLabel: 'экран 2 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 2 из 8' : 'screen 2 of 8',
       onNext: onNext,
       background: SeenlyPalette.clay,
       child: Builder(builder: (context) {
@@ -2629,12 +2740,12 @@ class _DirectorsCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('режиссёры года'),
+            _Eyebrow('режиссёры года'.tr),
             const SizedBox(height: 6),
-            Text('твой топ-${directors.length.clamp(1, 4)}', style: _handwriting(size: 26, color: fg)),
+            Text('${'your top'.tr}-${directors.length.clamp(1, 4)}', style: _handwriting(size: 26, color: fg)),
             const SizedBox(height: 24),
             if (directors.isEmpty)
-              Text('пока не хватает данных', style: SeenlyText.mono(size: 12, color: fg.withOpacity(0.6)))
+              Text('пока не хватает данных'.tr, style: SeenlyText.mono(size: 12, color: fg.withOpacity(0.6)))
             else
               SizedBox(
                 width: 230,
@@ -2676,7 +2787,12 @@ class _DirectorsCard extends StatelessWidget {
             const SizedBox(height: 8),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('режиссёры, к которым ты возвращалась чаще всего', textAlign: TextAlign.center, style: _handwriting(size: 16, color: fg)),
+            Text(
+                LocaleService.appIsRussian
+                    ? 'режиссёры, к которым ты возвращалась чаще всего'
+                    : "the directors you came back to the most",
+                textAlign: TextAlign.center,
+                style: _handwriting(size: 16, color: fg)),
           ],
         );
       }),
@@ -2690,14 +2806,16 @@ class _DecadeCard extends StatelessWidget {
   const _DecadeCard({required this.summary, required this.onNext});
 
   static const _labelRu = {'2020s': '2020-е', '2010s': '2010-е', 'older': 'до 2010-х'};
+  static const _labelEn = {'2020s': '2020s', '2010s': '2010s', 'older': 'before 2010'};
 
   @override
   Widget build(BuildContext context) {
     final decades = summary.decades;
-    final topLabel = decades.isNotEmpty ? _labelRu[decades.first.label] ?? decades.first.label : null;
+    final labelMap = LocaleService.appIsRussian ? _labelRu : _labelEn;
+    final topLabel = decades.isNotEmpty ? labelMap[decades.first.label] ?? decades.first.label : null;
     final maxPercent = decades.isEmpty ? 1.0 : decades.map((d) => d.percent).reduce(math.max);
     return _CardShell(
-      bonusLabel: 'экран 3 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 3 из 8' : 'screen 3 of 8',
       onNext: onNext,
       background: SeenlyPalette.pink,
       child: Builder(builder: (context) {
@@ -2706,9 +2824,9 @@ class _DecadeCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('из какого времени твои фильмы'),
+            _Eyebrow('из какого времени твои фильмы'.tr),
             const SizedBox(height: 6),
-            Text(topLabel != null ? 'в основном $topLabel' : '—', style: _handwriting(size: 27, color: fg)),
+            Text(topLabel != null ? '${'mostly'.tr} $topLabel' : '—', style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 26),
             if (decades.isNotEmpty) ...[
               SizedBox(
@@ -2743,7 +2861,7 @@ class _DecadeCard extends StatelessWidget {
                       child: SizedBox(
                         width: 26,
                         child: Text(
-                          _labelRu[decades[i].label] ?? decades[i].label,
+                          labelMap[decades[i].label] ?? decades[i].label,
                           textAlign: TextAlign.center,
                           style: SeenlyText.mono(size: 8, color: fg.withOpacity(i == 0 ? 1 : 0.65), weight: i == 0 ? FontWeight.w700 : FontWeight.w400),
                         ),
@@ -2754,7 +2872,7 @@ class _DecadeCard extends StatelessWidget {
               const SizedBox(height: 22),
               const _TicketDash(),
               const SizedBox(height: 12),
-              Text('${decades.first.percent.round()}% фильмов из этого времени',
+              Text('${decades.first.percent.round()}% ${'of movies from this era'.tr}',
                   textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
             ],
           ],
@@ -2772,32 +2890,37 @@ class _NewVsRewatchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CardShell(
-      bonusLabel: 'экран 4 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 4 из 8' : 'screen 4 of 8',
       onNext: onNext,
       background: SeenlyPalette.cork,
       light: false,
       child: Builder(builder: (context) {
         final fg = _CardTone.of(context).fg;
-        final more = summary.newCount >= summary.rewatchCount ? 'открытий' : 'пересмотров';
+        final more = LocaleService.appIsRussian
+            ? (summary.newCount >= summary.rewatchCount ? 'открытий' : 'пересмотров')
+            : (summary.newCount >= summary.rewatchCount ? 'discoveries' : 'rewatches');
         return Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('новое или знакомое'),
+            _Eyebrow('новое или знакомое'.tr),
             const SizedBox(height: 6),
-            Text('баланс года', style: _handwriting(size: 26, color: fg)),
+            Text('баланс года'.tr, style: _handwriting(size: 26, color: fg)),
             const SizedBox(height: 6),
             _BalanceScale(
               leftValue: summary.newCount,
               rightValue: summary.rewatchCount,
-              leftLabel: 'новых',
-              rightLabel: 'пересмотров',
+              leftLabel: 'новых'.tr,
+              rightLabel: 'пересмотров'.tr,
               color: fg,
             ),
             const SizedBox(height: 10),
             const _TicketDash(),
             const SizedBox(height: 14),
-            Text('чуть больше половины года — $more',
+            Text(
+                LocaleService.appIsRussian
+                    ? 'чуть больше половины года — $more'
+                    : 'a bit over half the year was $more',
                 textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
@@ -2817,7 +2940,7 @@ class _TimelineCard extends StatelessWidget {
     final maxCount = buckets.isEmpty ? 0 : buckets.map((b) => b.count).reduce(math.max);
     final isMonth = summary.scope == 'month';
     return _CardShell(
-      bonusLabel: 'экран 5 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 5 из 8' : 'screen 5 of 8',
       onNext: onNext,
       background: SeenlyPalette.periwinkle,
       child: Builder(builder: (context) {
@@ -2826,7 +2949,7 @@ class _TimelineCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow(isMonth ? 'самый плотный день' : 'месяц года'),
+            _Eyebrow((isMonth ? 'самый плотный день' : 'месяц года').tr),
             const SizedBox(height: 6),
             Text(summary.busiestTimelineLabel ?? '—', style: _handwriting(size: 26, color: fg)),
             const SizedBox(height: 22),
@@ -2881,7 +3004,10 @@ class _TimelineCard extends StatelessWidget {
             const SizedBox(height: 20),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('${_daysLabel(summary.longestStreakDays)} подряд — твой самый длинный стрик',
+            Text(
+                LocaleService.appIsRussian
+                    ? '${_daysLabel(summary.longestStreakDays)} подряд — твой самый длинный стрик'
+                    : '${_daysLabel(summary.longestStreakDays)} in a row — your longest streak',
                 textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
@@ -2896,13 +3022,14 @@ class _WeekdayCard extends StatelessWidget {
   const _WeekdayCard({required this.summary, required this.onNext});
 
   static const _labels = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+  static const _labelsEn = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'];
 
   @override
   Widget build(BuildContext context) {
     final weekdays = summary.weekdays;
     final maxCount = weekdays.isEmpty ? 0 : weekdays.map((d) => d.count).reduce(math.max);
     return _CardShell(
-      bonusLabel: 'экран 6 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 6 из 8' : 'screen 6 of 8',
       onNext: onNext,
       background: SeenlyPalette.mustard,
       light: false,
@@ -2912,9 +3039,9 @@ class _WeekdayCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('какой день — твой'),
+            _Eyebrow('какой день — твой'.tr),
             const SizedBox(height: 6),
-            Text('${summary.weekendPercent.round()}% на выходных',
+            Text('${summary.weekendPercent.round()}% ${'on weekends'.tr}',
                 textAlign: TextAlign.center, style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 22),
             SizedBox(
@@ -2943,7 +3070,7 @@ class _WeekdayCard extends StatelessWidget {
                 for (int i = 0; i < _labels.length; i++)
                   Expanded(
                     child: Center(
-                      child: Text(_labels[i],
+                      child: Text((LocaleService.appIsRussian ? _labels : _labelsEn)[i],
                           style: SeenlyText.mono(
                               size: 11,
                               color: (i == 5 || i == 6) ? fg : fg.withOpacity(0.55),
@@ -2955,7 +3082,10 @@ class _WeekdayCard extends StatelessWidget {
             const SizedBox(height: 20),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('суббота и воскресенье — твои главные киновечера',
+            Text(
+                LocaleService.appIsRussian
+                    ? 'суббота и воскресенье — твои главные киновечера'
+                    : 'Saturday and Sunday are your biggest movie nights',
                 textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
@@ -2972,7 +3102,7 @@ class _SoloCompanyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _CardShell(
-      bonusLabel: 'экран 7 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 7 из 8' : 'screen 7 of 8',
       onNext: onNext,
       background: SeenlyPalette.periwinkle,
       child: Builder(builder: (context) {
@@ -2981,9 +3111,9 @@ class _SoloCompanyCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('как ты смотрела'),
+            _Eyebrow((LocaleService.appIsRussian ? 'как ты смотрела' : 'how you watched')),
             const SizedBox(height: 6),
-            Text('соло или компания', style: _handwriting(size: 25, color: fg)),
+            Text('соло или компания'.tr, style: _handwriting(size: 25, color: fg)),
             const SizedBox(height: 20),
             SizedBox(
               width: 168,
@@ -3004,7 +3134,11 @@ class _SoloCompanyCard extends StatelessWidget {
                   children: [
                     _FigureIcon(duo: false, color: fg),
                     const SizedBox(height: 6),
-                    Text('${summary.soloCount} · одна', style: SeenlyText.mono(size: 11, color: fg)),
+                    Text(
+                        LocaleService.appIsRussian
+                            ? '${summary.soloCount} · одна'
+                            : '${summary.soloCount} · solo',
+                        style: SeenlyText.mono(size: 11, color: fg)),
                   ],
                 ),
                 const SizedBox(width: 24),
@@ -3012,7 +3146,7 @@ class _SoloCompanyCard extends StatelessWidget {
                   children: [
                     _FigureIcon(duo: true, color: fg, opacity: 0.65),
                     const SizedBox(height: 6),
-                    Text('${summary.companyCount} · с кем-то', style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.85))),
+                    Text('${summary.companyCount} · ${'with someone'.tr}', style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.85))),
                   ],
                 ),
               ],
@@ -3020,7 +3154,11 @@ class _SoloCompanyCard extends StatelessWidget {
             const SizedBox(height: 18),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('почти две трети сеансов — в одиночку', textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
+            Text(
+                LocaleService.appIsRussian
+                    ? 'почти две трети сеансов — в одиночку'
+                    : 'almost two-thirds of sessions were solo',
+                textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
       }),
@@ -3037,12 +3175,14 @@ class _ArchetypeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final peak = summary.peakHour;
     return _CardShell(
-      bonusLabel: 'экран 8 из 8',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 8 из 8' : 'screen 8 of 8',
       onNext: onNext,
       background: SeenlyPalette.accent,
       shareButton: _ShareButton(
-        label: 'поделиться типажом →',
-        shareText: 'мой типаж года в teamira: ${summary.archetypeLabel}',
+        label: 'поделиться типажом →'.tr,
+        shareText: LocaleService.appIsRussian
+            ? 'мой типаж года в teamira: ${summary.archetypeLabel}'
+            : 'my teamira archetype of the year: ${summary.archetypeLabel}',
       ),
       child: Builder(builder: (context) {
         final fg = _CardTone.of(context).fg;
@@ -3052,7 +3192,7 @@ class _ArchetypeCard extends StatelessWidget {
           children: [
             _BadgeIcon(color: fg),
             const SizedBox(height: 8),
-            _Eyebrow('твой типаж года'),
+            _Eyebrow('твой типаж года'.tr),
             const SizedBox(height: 6),
             Text(summary.archetypeLabel,
                 textAlign: TextAlign.center,
@@ -3060,7 +3200,9 @@ class _ArchetypeCard extends StatelessWidget {
                 maxLines: 3),
             const SizedBox(height: 6),
             Text(
-              'основано на ${summary.totalLogged} записях за ${summary.periodLabel}',
+              LocaleService.appIsRussian
+                  ? 'основано на ${summary.totalLogged} записях за ${summary.periodLabel}'
+                  : 'based on ${summary.totalLogged} entries for ${summary.periodLabel}',
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: fg.withOpacity(0.75)),
             ),
@@ -3072,10 +3214,24 @@ class _ArchetypeCard extends StatelessWidget {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                if (peak != null) _chip('пик в ${peak.toString().padLeft(2, '0')}:00', fg),
-                _chip(summary.soloPercent >= 50 ? 'чаще всего одна' : 'чаще всего с кем-то', fg),
-                if (summary.topGenre != null) _chip('любимый жанр — ${summary.topGenre}', fg),
-                _chip('стрик — ${summary.longestStreakDays} дней', fg),
+                if (peak != null)
+                  _chip(
+                      LocaleService.appIsRussian
+                          ? 'пик в ${peak.toString().padLeft(2, '0')}:00'
+                          : 'peak at ${peak.toString().padLeft(2, '0')}:00',
+                      fg),
+                _chip(
+                    LocaleService.appIsRussian
+                        ? (summary.soloPercent >= 50 ? 'чаще всего одна' : 'чаще всего с кем-то')
+                        : (summary.soloPercent >= 50 ? 'mostly solo' : 'mostly with someone'),
+                    fg),
+                if (summary.topGenre != null)
+                  _chip('${'top genre'.tr} — ${summary.topGenre}', fg),
+                _chip(
+                    LocaleService.appIsRussian
+                        ? 'стрик — ${summary.longestStreakDays} дней'
+                        : 'streak — ${summary.longestStreakDays} days',
+                    fg),
               ],
             ),
           ],
@@ -3132,7 +3288,7 @@ class _ReviewsOverviewCard extends StatelessWidget {
     final headerPoster = summary.favoriteReview?.posterUrl ??
         (summary.topReviews.isNotEmpty ? summary.topReviews.first.posterUrl : null);
     return _CardShell(
-      bonusLabel: 'экран 1 из $pagesInChapter',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 1 из $pagesInChapter' : 'screen 1 of $pagesInChapter',
       onNext: onNext,
       background: SeenlyPalette.coral,
       child: Builder(builder: (context) {
@@ -3143,12 +3299,14 @@ class _ReviewsOverviewCard extends StatelessWidget {
           children: [
             _TapedPolaroid(posterUrl: headerPoster, placeholderColor: SeenlyPalette.coral, width: 84, rotation: -0.07),
             const SizedBox(height: 12),
-            _Eyebrow('твои рецензии'),
+            _Eyebrow('твои рецензии'.tr),
             _CountUp(value: summary.reviewCount, style: SeenlyText.serif(size: 46, weight: FontWeight.w700, color: fg)),
-            Text('фильма получили оценку', style: _handwriting(size: 18, color: fg)),
+            Text((LocaleService.appIsRussian ? 'фильма получили оценку' : 'movies got a rating'), style: _handwriting(size: 18, color: fg)),
             const SizedBox(height: 10),
             Text(
-              'средняя оценка ${summary.averageRating.toStringAsFixed(1)} · ${summary.fullMarksCount} полных пятёрок',
+              LocaleService.appIsRussian
+                  ? 'средняя оценка ${summary.averageRating.toStringAsFixed(1)} · ${summary.fullMarksCount} полных пятёрок'
+                  : 'average rating ${summary.averageRating.toStringAsFixed(1)} · ${summary.fullMarksCount} perfect fives',
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: fg.withOpacity(0.78)),
             ),
@@ -3190,7 +3348,7 @@ class _FavoriteReviewCard extends StatelessWidget {
     final r = summary.favoriteReview!;
     final hasNote = r.note != null && r.note!.trim().isNotEmpty;
     return _CardShell(
-      bonusLabel: 'экран 2 из 2',
+      bonusLabel: LocaleService.appIsRussian ? 'экран 2 из 2' : 'screen 2 of 2',
       onNext: onNext,
       background: SeenlyPalette.pink,
       child: Builder(builder: (context) {
@@ -3201,7 +3359,7 @@ class _FavoriteReviewCard extends StatelessWidget {
           children: [
             _TapedPolaroid(posterUrl: r.posterUrl, placeholderColor: SeenlyPalette.pink, width: 128, rotation: -0.05),
             const SizedBox(height: 10),
-            _Eyebrow('рецензия · ${r.dateLabel ?? ''}'),
+            _Eyebrow('${'review'.tr} · ${r.dateLabel ?? ''}'),
             const SizedBox(height: 6),
             Text(r.title, style: SeenlyText.serif(size: 19, weight: FontWeight.w700, color: fg), textAlign: TextAlign.center),
             const SizedBox(height: 8),
@@ -3228,7 +3386,7 @@ class _FavoriteReviewCard extends StatelessWidget {
             const SizedBox(height: 16),
             const _TicketDash(),
             const SizedBox(height: 12),
-            Text('лучшая оценка периода',
+            Text('лучшая оценка периода'.tr,
                 style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.85), weight: FontWeight.w700)),
           ],
         );
@@ -3248,19 +3406,24 @@ class _LetterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final letterText =
-        'в дневнике за ${summary.periodLabel} появилось ${summary.totalLogged} записей, а на экране прошло '
-        '${_hoursLabel(summary.totalHours)} — это примерно ${(summary.totalHours / 24).round()} суток, отданных чужим историям.\n\n'
-        '${_genreShareSentence(summary)} '
-        '${summary.busiestTimelineLabel != null ? (summary.scope == 'month' ? 'самым плотным был ${summary.busiestTimelineLabel}' : 'самым насыщенным месяцем был ${summary.busiestTimelineLabel}') : ''}'
-        '${summary.longestStreakDays > 1 ? ', а самый длинный стрик — ${_daysLabel(summary.longestStreakDays)} подряд' : ''}.';
+    final letterText = LocaleService.appIsRussian
+        ? 'в дневнике за ${summary.periodLabel} появилось ${summary.totalLogged} записей, а на экране прошло '
+            '${_hoursLabel(summary.totalHours)} — это примерно ${(summary.totalHours / 24).round()} суток, отданных чужим историям.\n\n'
+            '${_genreShareSentence(summary)} '
+            '${summary.busiestTimelineLabel != null ? (summary.scope == 'month' ? 'самым плотным был ${summary.busiestTimelineLabel}' : 'самым насыщенным месяцем был ${summary.busiestTimelineLabel}') : ''}'
+            '${summary.longestStreakDays > 1 ? ', а самый длинный стрик — ${_daysLabel(summary.longestStreakDays)} подряд' : ''}.'
+        : 'your diary gained ${summary.totalLogged} entries for ${summary.periodLabel}, and '
+            "${_hoursLabel(summary.totalHours)} went to the screen — roughly ${(summary.totalHours / 24).round()} days given over to other people's stories.\n\n"
+            '${_genreShareSentenceEn(summary)} '
+            '${summary.busiestTimelineLabel != null ? (summary.scope == 'month' ? 'the busiest day was ${summary.busiestTimelineLabel}' : 'the busiest month was ${summary.busiestTimelineLabel}') : ''}'
+            '${summary.longestStreakDays > 1 ? ', and the longest streak was ${_daysLabel(summary.longestStreakDays)} in a row' : ''}.';
 
     return _CardShell(
-      bonusLabel: 'письмо',
+      bonusLabel: 'письмо'.tr,
       onNext: onNext,
       background: SeenlyPalette.accent,
       shareButton: _ShareButton(
-        label: 'поделиться письмом →',
+        label: 'поделиться письмом →'.tr,
         shareText: letterText,
       ),
       child: Builder(builder: (context) {
@@ -3272,7 +3435,9 @@ class _LetterCard extends StatelessWidget {
             const SizedBox(height: 14),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(summary.last?.dateLabel ?? '31 декабря, поздно вечером',
+              child: Text(
+                  summary.last?.dateLabel ??
+                      (LocaleService.appIsRussian ? '31 декабря, поздно вечером' : "December 31st, late in the evening"),
                   style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.7))),
             ),
             const SizedBox(height: 10),
@@ -3284,7 +3449,9 @@ class _LetterCard extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 12),
                 decoration: BoxDecoration(border: Border(left: BorderSide(color: fg, width: 2))),
                 child: Text(
-                  '«${summary.favoriteReview!.note}»\n— запись от ${summary.favoriteReview!.dateLabel ?? ''}',
+                  LocaleService.appIsRussian
+                      ? '«${summary.favoriteReview!.note}»\n— запись от ${summary.favoriteReview!.dateLabel ?? ''}'
+                      : '"${summary.favoriteReview!.note}"\n— an entry from ${summary.favoriteReview!.dateLabel ?? ''}',
                   style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.85)),
                 ),
               ),
@@ -3294,11 +3461,11 @@ class _LetterCard extends StatelessWidget {
             const SizedBox(height: 12),
             Align(alignment: Alignment.centerLeft, child: Text('P.S.', style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.6)))),
             const SizedBox(height: 6),
-            if (summary.topGenre != null) _LetterFactRow('жанр года', summary.topGenre!, fg),
-            if (summary.topDirectors.isNotEmpty) _LetterFactRow('режиссёр года', summary.topDirectors.first.name, fg),
-            _LetterFactRow('средняя оценка', summary.averageRating.toStringAsFixed(1), fg),
+            if (summary.topGenre != null) _LetterFactRow('жанр года'.tr, summary.topGenre!, fg),
+            if (summary.topDirectors.isNotEmpty) _LetterFactRow('режиссёр года'.tr, summary.topDirectors.first.name, fg),
+            _LetterFactRow('средняя оценка'.tr, summary.averageRating.toStringAsFixed(1), fg),
             if (summary.hoursPercentile != null)
-              _LetterFactRow('место в топ', '${100 - summary.hoursPercentile!}%', fg),
+              _LetterFactRow('место в топ'.tr, '${100 - summary.hoursPercentile!}%', fg),
           ],
         );
       }),
@@ -3310,6 +3477,12 @@ String _genreShareSentence(WrappedSummary s) {
   if (s.genreMix.isEmpty) return '';
   final top = s.genreMix.first;
   return '${top.genre[0].toUpperCase()}${top.genre.substring(1)} забрала ${top.percent.round()}% твоего года;';
+}
+
+String _genreShareSentenceEn(WrappedSummary s) {
+  if (s.genreMix.isEmpty) return '';
+  final top = s.genreMix.first;
+  return '${top.genre} took up ${top.percent.round()}% of your year;';
 }
 
 class _LetterFactRow extends StatelessWidget {
@@ -3372,14 +3545,14 @@ class _ReceiptCard extends StatelessWidget {
           Center(child: Text('TEAMIRA', style: SeenlyText.serif(size: 20, weight: FontWeight.w700, color: SeenlyPalette.ink))),
           const SizedBox(height: 4),
           Center(
-            child: Text('чек · ${summary.rangeLabel}',
+            child: Text('${'receipt'.tr} · ${summary.rangeLabel}',
                 style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint)),
           ),
           const SizedBox(height: 14),
           const _ReceiptDivider(),
           const SizedBox(height: 10),
           Center(
-            child: Text('${items.length} позиции'.toUpperCase(),
+            child: Text(ruCount(items.length, one: 'позиция', few: 'позиции', many: 'позиций', englishOne: 'item', englishOther: 'items').toUpperCase(),
                 style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint, weight: FontWeight.w700)),
           ),
           const SizedBox(height: 12),
@@ -3396,27 +3569,31 @@ class _ReceiptCard extends StatelessWidget {
               ),
             ),
           if (rest > 0)
-            Text('+ $rest других позиций', style: SeenlyText.serif(size: 13, color: SeenlyPalette.inkFaint)),
+            Text('+ $rest ${'more items'.tr}', style: SeenlyText.serif(size: 13, color: SeenlyPalette.inkFaint)),
           const SizedBox(height: 10),
           const _ReceiptDivider(),
           const SizedBox(height: 10),
           Center(
-            child: Text('скидки и бонусы'.toUpperCase(),
+            child: Text('скидки и бонусы'.tr.toUpperCase(),
                 style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint, weight: FontWeight.w700)),
           ),
           const SizedBox(height: 10),
-          _ReceiptRow('стрик ${_daysLabel(summary.longestStreakDays)}', '+1 значок'),
-          _ReceiptRow('пересмотр любимого', '×${summary.rewatchCount}'),
+          _ReceiptRow(
+              LocaleService.appIsRussian ? 'стрик ${_daysLabel(summary.longestStreakDays)}' : 'streak ${_daysLabel(summary.longestStreakDays)}',
+              LocaleService.appIsRussian ? '+1 значок' : '+1 badge'),
+          _ReceiptRow('пересмотр любимого'.tr, '×${summary.rewatchCount}'),
           const SizedBox(height: 8),
           const _ReceiptDivider(),
           const SizedBox(height: 10),
-          _ReceiptRow('итого времени', _hoursLabel(summary.totalHours)),
-          if (summary.topGenre != null) _ReceiptRow('любимый жанр', summary.topGenre!),
+          _ReceiptRow('итого времени'.tr, _hoursLabel(summary.totalHours)),
+          if (summary.topGenre != null) _ReceiptRow('top genre'.tr, summary.topGenre!),
           const SizedBox(height: 10),
           const _ReceiptDivider(),
           const SizedBox(height: 14),
           Center(child: Text(
-            summary.scope == 'month' ? 'спасибо за этот месяц ♥' : 'спасибо за этот год ♥',
+            LocaleService.appIsRussian
+                ? (summary.scope == 'month' ? 'спасибо за этот месяц ♥' : 'спасибо за этот год ♥')
+                : (summary.scope == 'month' ? 'thanks for this month ♥' : 'thanks for this year ♥'),
             style: SeenlyText.serif(size: 14, color: SeenlyPalette.accent),
           )),
           const SizedBox(height: 14),
@@ -3429,9 +3606,10 @@ class _ReceiptCard extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           _ShareButton(
-            label: 'поделиться чеком →',
-            shareText:
-                'мой год в teamira: ${summary.totalLogged} записей, ${_hoursLabel(summary.totalHours)} за экраном, любимый жанр — ${summary.topGenre ?? '—'}',
+            label: 'поделиться чеком →'.tr,
+            shareText: LocaleService.appIsRussian
+                ? 'мой год в teamira: ${summary.totalLogged} записей, ${_hoursLabel(summary.totalHours)} за экраном, любимый жанр — ${summary.topGenre ?? '—'}'
+                : 'my year in teamira: ${summary.totalLogged} entries, ${_hoursLabel(summary.totalHours)} behind the screen, top genre — ${summary.topGenre ?? '—'}',
           ),
         ],
               ),
@@ -3496,13 +3674,13 @@ class _BarcodePainter extends CustomPainter {
 class _ArcPainter extends CustomPainter {
   final List<double> values;
   final List<Color> colors;
-  final Color backgroundColor;
+  final Color? backgroundColor;
   final double strokeWidth;
 
   const _ArcPainter({
     required this.values,
     required this.colors,
-    this.backgroundColor = SeenlyPalette.background,
+    this.backgroundColor,
     this.strokeWidth = 12,
   });
 
@@ -3513,7 +3691,7 @@ class _ArcPainter extends CustomPainter {
     final rect = Rect.fromCircle(center: center, radius: radius);
 
     final track = Paint()
-      ..color = backgroundColor
+      ..color = backgroundColor ?? SeenlyPalette.background
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;

@@ -75,7 +75,7 @@ class _ListsScreenState extends State<ListsScreen> {
                 children: [
                   PressScale(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     ),
@@ -85,7 +85,7 @@ class _ListsScreenState extends State<ListsScreen> {
                   PressScale(
                     onTap: _createList,
                     haptics: true,
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.add, size: 22, color: SeenlyPalette.accent),
                     ),
@@ -208,7 +208,7 @@ class _ListRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),

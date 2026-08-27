@@ -266,7 +266,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_onboarded == null) {
-      return const Center(
+      return Center(
         child: ThemedLoadingIndicator(
             strokeWidth: 2, color: SeenlyPalette.accent),
       );
@@ -303,12 +303,12 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: SeenlyPalette.paper,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.tune, size: 15, color: SeenlyPalette.ink),
+                      child: Icon(Icons.tune, size: 15, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -318,19 +318,19 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: SeenlyPalette.paper,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
                       child: _refreshing
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 14,
                               height: 14,
                               child: ThemedLoadingIndicator(
                                   strokeWidth: 2, color: SeenlyPalette.accent),
                             )
-                          : const Icon(Icons.refresh, size: 17, color: SeenlyPalette.ink),
+                          : Icon(Icons.refresh, size: 17, color: SeenlyPalette.ink),
                     ),
                   ),
                 ],
@@ -341,16 +341,17 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
           child: Text(
-            _source == 'teamira'
-                ? 'franchises, best-of lists — picked by us'
-                : 'gathered by the editors for tonight',
+            (_source == 'teamira'
+                    ? 'franchises, best-of lists — picked by us'
+                    : 'gathered by the editors for tonight')
+                .tr,
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
           ),
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: ScrollableUnderlineTabs(
-            labels: [for (final f in _filters) f.$2],
+            labels: [for (final f in _filters) f.$2.tr],
             activeIndex: _filters.indexWhere((f) => f.$1 == _filter),
             onChanged: (i) => setState(() => _filter = _filters[i].$1),
           ),
@@ -359,7 +360,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
           child: UnderlineTabRow(
-            labels: const ['collections', 'teamira picks'],
+            labels: ['collections'.tr, 'teamira picks'.tr],
             activeIndex: _source == 'teamira' ? 1 : 0,
             onChanged: (i) => _switchSource(i == 1 ? 'teamira' : 'editorial'),
           ),
@@ -710,7 +711,7 @@ class _CantDecideBanner extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.auto_awesome_outlined, size: 18, color: SeenlyPalette.accent),
+              child: Icon(Icons.auto_awesome_outlined, size: 18, color: SeenlyPalette.accent),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -724,7 +725,7 @@ class _CantDecideBanner extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),

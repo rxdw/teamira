@@ -156,7 +156,7 @@ class CityStreetView extends StatelessWidget {
                           height: 32,
                           decoration:
                               BoxDecoration(color: SeenlyPalette.paper.withOpacity(0.9), shape: BoxShape.circle),
-                          child: const Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
+                          child: Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
                         ),
                       ),
                     ],

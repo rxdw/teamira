@@ -34,7 +34,7 @@ class SeenlyBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final logTheme = context.watch<LogThemeService>().theme;
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: SeenlyPalette.background,
         border: Border(top: BorderSide(color: SeenlyPalette.border, width: 0.5)),
       ),

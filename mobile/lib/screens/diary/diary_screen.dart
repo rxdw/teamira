@@ -19,6 +19,7 @@ import '../../services/log_theme_service.dart';
 import '../../theme/log_theme_copy.dart';
 import '../../widgets/log_ritual.dart';
 import '../../widgets/log_timeline.dart';
+import '../../widgets/diary_constellation.dart';
 import '../collections/collection_full_screen.dart';
 import '../search/search_screen.dart';
 import '../shell/root_shell.dart';
@@ -160,19 +161,19 @@ class _DiaryScreenState extends State<DiaryScreen> {
                           width: 32,
                           height: 32,
                           margin: const EdgeInsets.only(right: 8),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: SeenlyPalette.paper,
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
                           child: _refreshing
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 14,
                                   height: 14,
                                   child: ThemedLoadingIndicator(
                                       strokeWidth: 2, color: SeenlyPalette.accent),
                                 )
-                              : const Icon(Icons.refresh, size: 17, color: SeenlyPalette.ink),
+                              : Icon(Icons.refresh, size: 17, color: SeenlyPalette.ink),
                         ),
                       ),
                       PressScale(
@@ -183,11 +184,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
                         child: Container(
                           width: 32,
                           height: 32,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             color: SeenlyPalette.accent,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.add,
+                          child: Icon(Icons.add,
                               size: 16, color: SeenlyPalette.accentOnAccent),
                         ),
                       ),
@@ -210,7 +211,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
+                      Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
                       const SizedBox(width: 8),
                       Text('search a film, show, or game'.tr,
                           style: SeenlyText.serif(
@@ -357,6 +358,16 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       controller: _logScrollController,
                       padding: const EdgeInsets.only(bottom: 24),
                       children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 4, 22, 18),
+                          child: ScrollReveal(
+                            delay: nextReveal(),
+                            child: SizedBox(
+                              height: MediaQuery.of(context).size.height * 0.62,
+                              child: DiaryConstellationPanel(entries: entries),
+                            ),
+                          ),
+                        ),
                         ScrollReveal(delay: nextReveal(), child: _ShelvesStrip(future: _shelvesFuture)),
                         ScrollReveal(
                             delay: nextReveal(), child: _PickedForYouStrip(future: _pickedFuture)),
@@ -916,12 +927,12 @@ class _ShelfPickCta extends StatelessWidget {
               Container(
                 width: 26,
                 height: 26,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: SeenlyPalette.accent,
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.bookmark, size: 12, color: SeenlyPalette.accentOnAccent),
+                child: Icon(Icons.bookmark, size: 12, color: SeenlyPalette.accentOnAccent),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -930,7 +941,7 @@ class _ShelfPickCta extends StatelessWidget {
               ),
               Text('$count', style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
               const SizedBox(width: 2),
-              const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.accent),
+              Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.accent),
             ],
           ),
         ),
@@ -1102,7 +1113,7 @@ class _SeriesEntryRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),
@@ -1215,7 +1226,7 @@ class _DiaryRow extends StatelessWidget {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.replay, size: 11, color: SeenlyPalette.inkFaint),
+                            Icon(Icons.replay, size: 11, color: SeenlyPalette.inkFaint),
                             const SizedBox(width: 2),
                             Text('rewatch'.tr,
                                 style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.inkFaint)),
@@ -1231,7 +1242,7 @@ class _DiaryRow extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.favorite, size: 10, color: SeenlyPalette.accent),
+                        Icon(Icons.favorite, size: 10, color: SeenlyPalette.accent),
                         const SizedBox(width: 4),
                         Text('${'watched with'.tr} ${entry.watchedWithUsername}',
                             style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.accent)),
@@ -1290,12 +1301,12 @@ class _DiaryRow extends StatelessWidget {
                 margin: const EdgeInsets.only(left: 6),
                 width: 26,
                 height: 26,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: SeenlyPalette.background,
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.ios_share, size: 13, color: SeenlyPalette.inkFaint),
+                child: Icon(Icons.ios_share, size: 13, color: SeenlyPalette.inkFaint),
               ),
             ),
           ],

@@ -57,7 +57,7 @@ class _PlannedRandomPickSheetState extends State<_PlannedRandomPickSheet> {
         children: [
           Row(
             children: [
-              const Icon(Icons.casino_outlined, size: 16, color: SeenlyPalette.accent),
+              Icon(Icons.casino_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 6),
               Text('random pick'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               const Spacer(),
@@ -65,7 +65,7 @@ class _PlannedRandomPickSheetState extends State<_PlannedRandomPickSheet> {
                 GestureDetector(
                   onTap: _reroll,
                   behavior: HitTestBehavior.opaque,
-                  child: const Icon(Icons.refresh, size: 17, color: SeenlyPalette.inkMuted),
+                  child: Icon(Icons.refresh, size: 17, color: SeenlyPalette.inkMuted),
                 ),
             ],
           ),

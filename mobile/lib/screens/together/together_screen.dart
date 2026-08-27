@@ -486,13 +486,13 @@ class _TogetherScreenState extends State<TogetherScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: _handleBack,
                   ),
                   const SizedBox(width: 4),
                   Expanded(child: Text('watch together'.tr, style: SeenlyText.screenTitle)),
                   IconButton(
-                    icon: const Icon(Icons.help_outline, size: 18, color: SeenlyPalette.inkMuted),
+                    icon: Icon(Icons.help_outline, size: 18, color: SeenlyPalette.inkMuted),
                     tooltip: 'how this works'.tr,
                     onPressed: () => showHowItWorksSheet(context),
                   ),
@@ -501,7 +501,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
                       padding: const EdgeInsets.only(right: 14),
                       child: Row(
                         children: [
-                          const Icon(Icons.favorite, size: 13, color: SeenlyPalette.accent),
+                          Icon(Icons.favorite, size: 13, color: SeenlyPalette.accent),
                           const SizedBox(width: 4),
                           Text('$_liveMatchCount',
                               style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
@@ -592,7 +592,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
       case _Phase.netSwiping:
         final session = _session;
         if (session == null || _netIndex >= session.deck.length) {
-          return const Center(
+          return Center(
             child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
           );
         }
@@ -678,7 +678,7 @@ class _SetupView extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           alignment: Alignment.center,
-          child: const Icon(Icons.favorite, size: 26, color: SeenlyPalette.accent),
+          child: Icon(Icons.favorite, size: 26, color: SeenlyPalette.accent),
         ),
         const SizedBox(height: 18),
         Text('decide together, one card at a time'.tr, style: SeenlyText.screenTitle),
@@ -803,7 +803,7 @@ class _HostWaitingView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            const SizedBox(
+            SizedBox(
               width: 18,
               height: 18,
               child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
@@ -1047,7 +1047,7 @@ class _MatchPulseState extends State<_MatchPulse> with SingleTickerProviderState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.favorite, size: 22, color: SeenlyPalette.accent),
+            Icon(Icons.favorite, size: 22, color: SeenlyPalette.accent),
             const SizedBox(height: 6),
             Text('settled, together'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent, weight: FontWeight.w600)),
@@ -1406,7 +1406,7 @@ class _TapeAccent extends StatelessWidget {
 
   const _TapeAccent({required this.seed});
 
-  static const _colors = [
+  static final _colors = [
     SeenlyPalette.tapeRose,
     SeenlyPalette.tapeSage,
     SeenlyPalette.tapeMustard,

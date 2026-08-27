@@ -4,10 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Which set of visuals dresses the logging ritual, the diary
 /// centerpiece, and the "log another evening" button — a little
 /// private cinema with tickets, an evening coach route with a
-/// boarding pass, or a window-box garden that fills in with flowers.
+/// boarding pass, a window-box garden that fills in with flowers, or
+/// a shuttle cleared for launch into orbit.
 /// Purely a look: the same diary entries either way, nothing about
 /// what's saved changes with this.
-enum LogTheme { ticket, coach, garden }
+enum LogTheme { ticket, coach, garden, shuttle }
 
 /// Remembers which [LogTheme] this device is set to — same
 /// device-only-preference pattern as `CollectionsPrefsService`: plain
@@ -25,6 +26,7 @@ class LogThemeService extends ChangeNotifier {
     _theme = switch (stored) {
       'coach' => LogTheme.coach,
       'garden' => LogTheme.garden,
+      'shuttle' => LogTheme.shuttle,
       _ => LogTheme.ticket,
     };
     notifyListeners();
@@ -39,6 +41,7 @@ class LogThemeService extends ChangeNotifier {
       LogTheme.coach => 'coach',
       LogTheme.ticket => 'ticket',
       LogTheme.garden => 'garden',
+      LogTheme.shuttle => 'shuttle',
     };
     await prefs.setString(_key, stored);
   }

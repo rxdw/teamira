@@ -157,7 +157,7 @@ void _showRouteLoadingOverlay(BuildContext context) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
+            SizedBox(
               width: 20,
               height: 20,
               child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
@@ -173,9 +173,10 @@ void _showRouteLoadingOverlay(BuildContext context) {
 }
 
 String _themeNoun(LogTheme theme) => switch (theme) {
-      LogTheme.coach => 'route',
-      LogTheme.ticket => 'trip',
-      LogTheme.garden => 'walk',
+      LogTheme.coach => 'route'.tr,
+      LogTheme.ticket => 'trip'.tr,
+      LogTheme.garden => 'walk'.tr,
+      LogTheme.shuttle => 'launch'.tr,
     };
 
 Future<_ContinuationChoice?> _showContinuationSheet(
@@ -188,13 +189,14 @@ Future<_ContinuationChoice?> _showContinuationSheet(
     LogTheme.coach => SeenlyPalette.periwinkle,
     LogTheme.garden => SeenlyPalette.sage,
     LogTheme.ticket => SeenlyPalette.coral,
+    LogTheme.shuttle => SeenlyPalette.periwinkle,
   };
-  final title = immediate ? 'watch the next episode?' : 'continue from ${saved.stopLabel}?';
+  final title = immediate ? 'watch the next episode?'.tr : '${'continue from'.tr} ${saved.stopLabel}?';
   final subtitle = immediate
-      ? 'pick up the same ${_themeNoun(theme)} right where it left off'
-      : 'last left off at ${saved.stopLabel} — pick it back up, or start a fresh ${_themeNoun(theme)}';
-  final yesLabel = immediate ? 'yes' : 'yes, continue';
-  final noLabel = immediate ? 'not now' : 'start new';
+      ? '${'pick up the same'.tr} ${_themeNoun(theme)} ${'right where it left off'.tr}'
+      : '${'last left off at'.tr} ${saved.stopLabel} — ${'pick it back up, or start a fresh'.tr} ${_themeNoun(theme)}';
+  final yesLabel = immediate ? 'yes'.tr : 'yes, continue'.tr;
+  final noLabel = immediate ? 'not now'.tr : 'start new'.tr;
   final noChoice = immediate ? _ContinuationChoice.notNow : _ContinuationChoice.startNew;
 
   return showModalBottomSheet<_ContinuationChoice>(
@@ -204,7 +206,7 @@ Future<_ContinuationChoice?> _showContinuationSheet(
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),

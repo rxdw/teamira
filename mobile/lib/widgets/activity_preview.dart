@@ -59,7 +59,7 @@ class PosterRatingBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.favorite, size: 9, color: SeenlyPalette.accent),
+          Icon(Icons.favorite, size: 9, color: SeenlyPalette.accent),
           const SizedBox(width: 3),
           Text('$rating', style: const TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.w700)),
         ],

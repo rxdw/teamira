@@ -38,7 +38,7 @@ class LogFlowTopBar extends StatelessWidget {
               height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: SeenlyPalette.ink.withOpacity(0.28), shape: BoxShape.circle),
-              child: const Icon(Icons.chevron_left, color: SeenlyPalette.paper, size: 22),
+              child: Icon(Icons.chevron_left, color: SeenlyPalette.paper, size: 22),
             ),
           ),
           if (trailingLabel != null)
@@ -325,9 +325,10 @@ class LogFlowBackdrop extends StatelessWidget {
 class GlowPlaque extends StatelessWidget {
   final String text;
   final double breathe;
-  final Color glow;
+  Color get glow => _glow ?? SeenlyPalette.mustard;
+  final Color? _glow;
 
-  const GlowPlaque({super.key, required this.text, required this.breathe, this.glow = SeenlyPalette.mustard});
+  GlowPlaque({super.key, required this.text, required this.breathe, Color? glow}) : _glow = glow;
 
   @override
   Widget build(BuildContext context) {
@@ -404,15 +405,16 @@ class CollapsingAnnouncement extends StatelessWidget {
   final Animation<double> preshow; // runs 0→1 once, doesn't repeat
   final Animation<double> breathe; // the shared pulse, for the glow
   final String text;
-  final Color glow;
+  Color get glow => _glow ?? SeenlyPalette.mustard;
+  final Color? _glow;
 
-  const CollapsingAnnouncement({
+  CollapsingAnnouncement({
     super.key,
     required this.preshow,
     required this.breathe,
     required this.text,
-    this.glow = SeenlyPalette.mustard,
-  });
+    Color? glow,
+  }) : _glow = glow;
 
   @override
   Widget build(BuildContext context) {

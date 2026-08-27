@@ -163,7 +163,7 @@ extension BadgeRarityStyle on BadgeRarity {
   /// one introduced just for this.
   LinearGradient get gradient {
     if (this == BadgeRarity.legend) {
-      return const LinearGradient(
+      return LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
@@ -268,7 +268,7 @@ class AchievementBadge extends StatelessWidget {
       final notch = Container(
         width: large ? 10 : 8,
         height: large ? 10 : 8,
-        decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
       );
       badge = Stack(
         clipBehavior: Clip.none,
@@ -334,7 +334,7 @@ class AchievementBadge extends StatelessWidget {
             child: Container(
               width: markSize,
               height: markSize,
-              decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
               alignment: Alignment.center,
               child: pinned
                   ? Icon(Icons.push_pin, size: large ? 11 : 9, color: SeenlyPalette.accent)
@@ -514,7 +514,7 @@ class RoundBadgeMedallion extends StatelessWidget {
             child: Container(
               width: markSize,
               height: markSize,
-              decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
               alignment: Alignment.center,
               child: pinned
                   ? Icon(Icons.push_pin, size: markSize * 0.62, color: SeenlyPalette.accent)
@@ -682,9 +682,9 @@ class _BadgeDetailCard extends StatelessWidget {
                           child: Container(
                             width: 22,
                             height: 22,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                                 color: SeenlyPalette.background, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 12, color: SeenlyPalette.inkMuted),
+                            child: Icon(Icons.close, size: 12, color: SeenlyPalette.inkMuted),
                           ),
                         ),
                       ),
@@ -717,7 +717,7 @@ class _BadgeDetailCard extends StatelessWidget {
                           style: SeenlyText.serif(size: 17, weight: FontWeight.w600)),
                       const SizedBox(height: 6),
                       Text(
-                        a.unlocked ? rarity.label : 'not earned yet',
+                        a.unlocked ? rarity.label : 'not earned yet'.tr,
                         style: SeenlyText.mono(
                           size: 10.5,
                           weight: FontWeight.w700,

@@ -6,7 +6,7 @@ import '../../models/profile_stats.dart';
 import '../../services/locale_service.dart';
 import '../../services/log_theme_service.dart';
 import '../../services/map_style_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
+import '../../services/premium_service.dart';
 import '../../services/ritual_prefs_service.dart';
 import '../../services/sources_display_prefs_service.dart';
 import '../../services/spoiler_prefs_service.dart';
@@ -16,8 +16,9 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import 'integrations_screen.dart';
+import '../premium/premium_screen.dart';
+import '../premium/gift_premium_screen.dart';
 import '../import/import_screen.dart';
-import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/region_picker_sheet.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
@@ -96,6 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _chooseLogTheme(BuildContext context, LogTheme current) async {
     final service = context.read<LogThemeService>();
+    final isPremium = context.read<PremiumService>().isPremium;
     final chosen = await showModalBottomSheet<LogTheme>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -140,6 +142,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               selected: current == LogTheme.garden,
               onTap: () => Navigator.of(context).pop(LogTheme.garden),
             ),
+            const SizedBox(height: 10),
+            _ThemeChoiceRow(
+              icon: Icons.rocket_launch_outlined,
+              label: 'a shuttle, cleared for launch'.tr,
+              selected: current == LogTheme.shuttle,
+              locked: !isPremium,
+              onTap: () {
+                if (!isPremium) {
+                  Navigator.of(context).pop();
+                  Navigator.of(this.context).push(
+                    MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                  );
+                  return;
+                }
+                Navigator.of(context).pop(LogTheme.shuttle);
+              },
+            ),
             const SizedBox(height: 6),
             GestureDetector(
               onTap: () => Navigator.of(context).pop(),
@@ -171,7 +190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
@@ -215,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Container(
                       width: 40,
                       height: 40,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: SeenlyPalette.accent,
                         shape: BoxShape.circle,
                       ),
@@ -233,6 +252,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              child: Text('premium'.tr, style: SeenlyText.metaLabel),
+            ),
+            const SizedBox(height: 8),
+            Builder(builder: (context) {
+              final isPremium = context.watch<PremiumService>().isPremium;
+              return _SettingsTile(
+                icon: Icons.auto_awesome_outlined,
+                label: isPremium ? 'premium is on'.tr : 'go premium'.tr,
+                subtitle: isPremium
+                    ? 'unlimited ai asks, favorites, and the shuttle theme'.tr
+                    : 'unlimited ai asks, favorites, and the shuttle theme'.tr,
+                onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PremiumScreen())),
+              );
+            }),
+            const SizedBox(height: 10),
+            _SettingsTile(
+              icon: Icons.card_giftcard_outlined,
+              label: 'gift a subscription'.tr,
+              subtitle: 'a little cheaper than the regular price'.tr,
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const GiftPremiumScreen())),
             ),
             const SizedBox(height: 24),
             Padding(
@@ -288,7 +333,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.smart_display_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.smart_display_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('mix your sources into the main list?'.tr,
@@ -336,7 +381,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('add matches to my own list too?'.tr,
@@ -384,7 +429,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.local_movies_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.local_movies_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('blur the synopsis'.tr, style: SeenlyText.serif(size: 13)),
@@ -410,7 +455,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          const Icon(Icons.rate_review_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.rate_review_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('blur written reviews'.tr, style: SeenlyText.serif(size: 13)),
@@ -457,7 +502,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.local_movies_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.local_movies_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text('show today\'s pick on Home'.tr, style: SeenlyText.serif(size: 13)),
@@ -546,7 +591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.public, size: 18, color: SeenlyPalette.accent),
+                        Icon(Icons.public, size: 18, color: SeenlyPalette.accent),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -561,9 +606,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ],
                           ),
                         ),
-                        Text(current.label, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                        Text(current.label.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                         const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.inkFaint),
+                        Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.inkFaint),
                       ],
                     ),
                   ),
@@ -591,7 +636,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.layers_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.layers_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Text('how the route map looks'.tr, style: SeenlyText.serif(size: 13)),
                         ],
@@ -637,6 +682,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 LogTheme.coach => (Icons.train, 'an evening route, boarded and torn at the gate'.tr),
                 LogTheme.ticket => (Icons.local_activity_outlined, 'a little cinema, ticket torn for each evening'.tr),
                 LogTheme.garden => (Icons.local_florist_outlined, 'a window garden, a flower grown for each evening'.tr),
+                LogTheme.shuttle => (Icons.rocket_launch_outlined, 'a shuttle, a capsule launched for each evening'.tr),
               };
               return _SettingsTile(
                 icon: icon,
@@ -658,7 +704,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.bolt_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                      Icon(Icons.bolt_outlined, size: 17, color: SeenlyPalette.inkMuted),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -685,59 +731,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }),
             const SizedBox(height: 10),
             Builder(builder: (context) {
-              final mascotPrefs = context.watch<RabbitMascotPrefsService>();
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 22),
-                child: Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: SeenlyPalette.paper,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: SizedBox(
-                          width: 64,
-                          height: 44,
-                          child: OverflowBox(
-                            // RabbitMascot's own intrinsic height —
-                            // 742x1153 canvas (see widgets/rabbit_mascot.dart) —
-                            // taller and narrower than the old fixed
-                            // mascot art this preview was tuned for.
-                            minHeight: 64 / (742 / 1153),
-                            maxHeight: 64 / (742 / 1153),
-                            child: const RabbitMascot(size: 64),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('rabbit companion'.tr, style: SeenlyText.serif(size: 13)),
-                            const SizedBox(height: 2),
-                            Text(
-                              'a little guide on empty screens, loading, and milestones'.tr,
-                              style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: mascotPrefs.enabled,
-                        activeColor: SeenlyPalette.accent,
-                        onChanged: (value) => context.read<RabbitMascotPrefsService>().setEnabled(value),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 10),
-            Builder(builder: (context) {
               final themePrefs = context.watch<ThemePrefsService>();
               return Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -752,7 +745,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.nights_stay_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                          Icon(Icons.nights_stay_outlined, size: 17, color: SeenlyPalette.inkMuted),
                           const SizedBox(width: 10),
                           Text('appearance'.tr, style: SeenlyText.serif(size: 13)),
                         ],
@@ -761,7 +754,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 27),
                         child: Text(
-                          'dark mode is early — for now it just changes the rabbit'.tr,
+                          'dark mode is early — for now it just changes the co-viewing bunnies'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                         ),
                       ),
@@ -807,7 +800,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.coral)),
                       const Spacer(),
                       if (_loggingOut)
-                        const SizedBox(
+                        SizedBox(
                           width: 14,
                           height: 14,
                           child: ThemedLoadingIndicator(
@@ -849,12 +842,14 @@ class _ThemeChoiceRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool selected;
+  final bool locked;
   final VoidCallback onTap;
 
   const _ThemeChoiceRow({
     required this.icon,
     required this.label,
     required this.selected,
+    this.locked = false,
     required this.onTap,
   });
 
@@ -879,7 +874,25 @@ class _ThemeChoiceRow extends StatelessWidget {
                   style: SeenlyText.serif(
                       size: 13, color: selected ? SeenlyPalette.ink : SeenlyPalette.inkMuted)),
             ),
-            if (selected) Icon(Icons.check_circle, size: 17, color: SeenlyPalette.accent),
+            if (locked)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: SeenlyPalette.mustard.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lock_outline, size: 11, color: SeenlyPalette.clay),
+                    const SizedBox(width: 3),
+                    Text('premium'.tr,
+                        style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.clay)),
+                  ],
+                ),
+              )
+            else if (selected)
+              Icon(Icons.check_circle, size: 17, color: SeenlyPalette.accent),
           ],
         ),
       ),
@@ -932,7 +945,7 @@ class _SettingsTile extends StatelessWidget {
                 ),
               ),
               if (interactive)
-                const Icon(Icons.chevron_right, size: 17, color: SeenlyPalette.inkFaint),
+                Icon(Icons.chevron_right, size: 17, color: SeenlyPalette.inkFaint),
             ],
           ),
         ),
@@ -1215,7 +1228,7 @@ class _PrivacyRow extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(child: Text(label, style: SeenlyText.serif(size: 13))),
             if (saving)
-              const SizedBox(
+              SizedBox(
                   width: 13, height: 13, child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
           ],
         ),
@@ -1236,7 +1249,7 @@ class _PrivacyRow extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
-                      level.label,
+                      level.label.tr,
                       style: SeenlyText.mono(
                         size: 9.5,
                         weight: FontWeight.w700,

@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../theme/seenly_brightness.dart';
+
 /// Settings > "appearance": follow the system, or force light/dark.
 ///
 /// Same device-only SharedPreferences pattern as the other small
-/// look/feel toggles (see [RabbitMascotPrefsService], [RitualPrefsService]).
+/// look/feel toggles (see [RitualPrefsService]).
 ///
-/// For now [SeenlyAppTheme.dark] mirrors [SeenlyAppTheme.light] color for
-/// color — the only thing that actually changes when dark mode is active
-/// is which rabbit mascot artwork gets drawn (see widgets/rabbit_mascot.dart).
-/// The rest of the app's real dark palette is coming later; this just
-/// wires up the on/off switch and persistence ahead of that.
+/// Keeps [SeenlyBrightness] in sync with the chosen mode — that's the
+/// flag [SeenlyPalette]'s colors actually read, since most of the app
+/// reads them as bare static getters rather than through
+/// `Theme.of(context)`. Always update it before calling
+/// [notifyListeners] so that by the time dependents rebuild, the palette
+/// is already resolving to the right brightness.
 class ThemePrefsService extends ChangeNotifier {
   static const _modeKey = 'seenly_theme_mode';
 
@@ -25,12 +28,14 @@ class ThemePrefsService extends ChangeNotifier {
       'dark' => ThemeMode.dark,
       _ => ThemeMode.system,
     };
+    SeenlyBrightness.setMode(_mode);
     notifyListeners();
   }
 
   Future<void> setMode(ThemeMode mode) async {
     if (_mode == mode) return;
     _mode = mode;
+    SeenlyBrightness.setMode(_mode);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_modeKey, switch (mode) {

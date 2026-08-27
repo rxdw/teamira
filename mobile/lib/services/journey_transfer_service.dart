@@ -1,6 +1,7 @@
 import '../data/cinema_showtimes.dart';
 import '../data/coach_routes.dart';
 import '../data/garden_tasks.dart';
+import '../data/launch_sites.dart';
 import '../models/media_item.dart';
 import '../models/series_route_state.dart';
 import '../services/geo_city_service.dart';
@@ -78,6 +79,8 @@ Future<JourneyTransfer?> buildTransfer({
       return _ticketTransfer(state, item);
     case LogTheme.garden:
       return _gardenTransfer(state, item);
+    case LogTheme.shuttle:
+      return _shuttleTransfer(state, item);
   }
 }
 
@@ -173,5 +176,30 @@ JourneyTransfer? _gardenTransfer(SeriesRouteState state, MediaItem item) {
     originLng: garden.gateLng,
     destLat: garden.innerLat,
     destLng: garden.innerLng,
+  );
+}
+
+/// Shuttle: same "stay put at the real site" reading as the garden
+/// transfer above — the next episode launches from the same real
+/// spaceport the series has been using, at whatever a fresh runtime
+/// works out to, rather than picking a new one each episode.
+JourneyTransfer? _shuttleTransfer(SeriesRouteState state, MediaItem item) {
+  LaunchSite? site;
+  for (final s in launchSites) {
+    if (s.name == state.matchKey) {
+      site = s;
+      break;
+    }
+  }
+  if (site == null) return null;
+  return JourneyTransfer(
+    routeLabel: site.name,
+    routeDetail: '${_fmtDuration(_effectiveMinutes(item))} to the pad · ${site.city}, ${site.country}',
+    routeMinutes: _effectiveMinutes(item),
+    destMatchKey: site.name,
+    originLat: site.gateLat,
+    originLng: site.gateLng,
+    destLat: site.padLat,
+    destLng: site.padLng,
   );
 }

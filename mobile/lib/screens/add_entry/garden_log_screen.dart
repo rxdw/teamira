@@ -18,9 +18,9 @@ import '../../widgets/review_composer.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../services/log_theme_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
 import '../../widgets/favorite_toggle.dart';
-import '../../widgets/rabbit_mascot.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
+import '../../widgets/level_up_celebration.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
@@ -407,7 +407,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
           child: Opacity(
             opacity: _selectedSpot == null ? 0.45 : 1.0,
             child: PrimaryButton(
-              label: _selectedSpot == null ? 'pick a spot' : 'plant it at $_spotLabel',
+              label: _selectedSpot == null ? 'pick a spot'.tr : '${'plant it at'.tr} $_spotLabel',
               onTap: _selectedSpot == null ? null : () => _goTo(_Step.details),
             ),
           ),
@@ -475,7 +475,9 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                       const SizedBox(width: 8),
                       Expanded(
                         child: PillChip(
-                          label: _when == _When.custom && _customDate != null ? '${_customDate!.month}/${_customDate!.day}' : 'pick date',
+                          label: _when == _When.custom && _customDate != null
+                              ? '${_customDate!.month}/${_customDate!.day}'
+                              : 'pick date'.tr,
                           active: _when == _When.custom,
                           dashed: true,
                           fullWidth: true,
@@ -612,8 +614,8 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                           child: Container(
                             width: 34,
                             height: 34,
-                            decoration: const BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                            child: const Icon(Icons.add, size: 17, color: SeenlyPalette.accentOnAccent),
+                            decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                            child: Icon(Icons.add, size: 17, color: SeenlyPalette.accentOnAccent),
                           ),
                         ),
                       ],
@@ -749,7 +751,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                       ),
                     ],
                   ),
-                  const Divider(height: 28, color: SeenlyPalette.border),
+                  Divider(height: 28, color: SeenlyPalette.border),
                   ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
@@ -884,7 +886,20 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
           child: PrimaryButton(
             label: 'leave it growing'.tr,
-            onTap: () => Navigator.of(context).pop(true),
+            onTap: () async {
+              // Right as the person is about to leave the planting
+              // ritual behind — one more beat (or two), if this save
+              // leveled them up and/or a badge just came with it,
+              // before actually stepping away.
+              final leveledUp = context.read<AppState>().consumePendingLevelUp();
+              if (leveledUp != null && context.mounted) {
+                await showLevelUpCelebration(context, leveledUp);
+              }
+              if (context.mounted) {
+                await checkAndCelebrateNewAchievements(context);
+              }
+              if (context.mounted) Navigator.of(context).pop(true);
+            },
           ),
         ),
       ],
@@ -959,7 +974,7 @@ class _WindowBox extends StatelessWidget {
           Container(
             height: 16,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [SeenlyPalette.mustard, Color(0xFFB9863C)],
@@ -1044,7 +1059,7 @@ class _Spot extends StatelessWidget {
           height: 20,
           decoration: BoxDecoration(color: isSelected ? SeenlyPalette.accent : SeenlyPalette.sage, shape: BoxShape.circle),
           alignment: Alignment.center,
-          child: const Icon(Icons.eco, size: 12, color: SeenlyPalette.paper),
+          child: Icon(Icons.eco, size: 12, color: SeenlyPalette.paper),
         ),
         const SizedBox(height: 3),
         Container(width: 3, height: 32, color: (isSelected ? SeenlyPalette.accent : SeenlyPalette.sage).withOpacity(0.8)),
@@ -1130,7 +1145,7 @@ class _GardenCastPickTile extends StatelessWidget {
                             color: SeenlyPalette.accent,
                             border: Border.all(color: SeenlyPalette.paper, width: 2),
                           ),
-                          child: const Icon(Icons.favorite, size: 10, color: SeenlyPalette.accentOnAccent),
+                          child: Icon(Icons.favorite, size: 10, color: SeenlyPalette.accentOnAccent),
                         ),
                       ),
                   ],
@@ -1277,7 +1292,7 @@ class _BedStrip extends StatelessWidget {
             height: 14,
             margin: const EdgeInsets.symmetric(horizontal: 4),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [SeenlyPalette.mustard, Color(0xFFB9863C)]),
+              gradient: LinearGradient(colors: [SeenlyPalette.mustard, Color(0xFFB9863C)]),
               borderRadius: BorderRadius.circular(6),
             ),
           ),
@@ -1353,7 +1368,7 @@ class _BedSprout extends StatelessWidget {
             height: 16,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: const Icon(Icons.eco, size: 9, color: SeenlyPalette.paper),
+            child: Icon(Icons.eco, size: 9, color: SeenlyPalette.paper),
           ),
           const SizedBox(height: 3),
           Container(width: 2.4, height: height, color: color.withOpacity(0.8)),
@@ -1423,7 +1438,7 @@ class _SoilMoundsPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final paint = Paint()
-      ..shader = const LinearGradient(
+      ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [SeenlyPalette.mustard, Color(0xFFB9863C)],
@@ -1626,14 +1641,11 @@ class _BloomRevealState extends State<_BloomReveal> with SingleTickerProviderSta
 }
 
 /// A quiet little "thank you" that settles in just under the keepsake
-/// once it's bloomed — the same ordinary rabbit companion used
-/// everywhere else in the app, already holding its own little ticket,
-/// giving one happy hop before easing to a stop.
+/// once it's bloomed.
 ///
 /// Held back a beat behind [_BloomReveal]'s longer bloom animation so
 /// it plays like a reaction to the bud settling rather than two things
-/// happening at once, and left out entirely (no gap in the layout)
-/// when the rabbit companion is turned off in Settings.
+/// happening at once.
 class _BloomStepMascot extends StatefulWidget {
   const _BloomStepMascot();
 
@@ -1663,9 +1675,6 @@ class _BloomStepMascotState extends State<_BloomStepMascot> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
-    if (!context.watch<RabbitMascotPrefsService>().enabled) {
-      return const SizedBox(height: 4);
-    }
     return AnimatedBuilder(
       animation: _c,
       builder: (_, __) {
@@ -1682,8 +1691,6 @@ class _BloomStepMascotState extends State<_BloomStepMascot> with SingleTickerPro
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const RabbitMascot(mood: RabbitMood.celebrating, size: 88),
-                    const SizedBox(height: 8),
                     Text(
                       'thank you for tonight'.tr,
                       style: SeenlyText.serif(

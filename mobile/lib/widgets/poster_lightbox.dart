@@ -6,6 +6,7 @@ import '../models/media_detail.dart';
 import '../models/media_item.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import 'tilt_card.dart';
 import 'title_share.dart';
 import '../services/app_translations.dart';
 
@@ -181,30 +182,48 @@ class _LightboxContentState extends State<_LightboxContent> {
                                 tag: widget.heroTag,
                                 child: Material(
                                   color: Colors.transparent,
-                                  child: Container(
-                                    width: posterWidth,
-                                    height: posterHeight,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(18),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.35),
-                                          blurRadius: 40,
-                                          offset: const Offset(0, 18),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(18),
-                                      child: item.posterUrl != null
-                                          ? Image.network(
-                                              item.posterUrl!,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) => Container(
-                                                color: SeenlyPalette.mediaColor(item.mediaType),
-                                              ),
-                                            )
-                                          : Container(color: SeenlyPalette.mediaColor(item.mediaType)),
+                                  // The lightbox is the one place a poster
+                                  // sits still enough, big enough, and free
+                                  // of any competing horizontal gesture to
+                                  // earn a hands-on 3D moment — hold the
+                                  // poster and it leans into your thumb
+                                  // with a sliding glare, the same "wow"
+                                  // beat a lot of marketing sites reach for
+                                  // three.js to do. The vertical
+                                  // drag-to-dismiss on the GestureDetector
+                                  // above still works underneath this —
+                                  // TiltCard listens to raw pointer events
+                                  // rather than joining the gesture arena,
+                                  // so a drag down both dismisses *and*
+                                  // tips the poster back, instead of the
+                                  // two fighting over the touch.
+                                  child: TiltCard(
+                                    borderRadius: BorderRadius.circular(18),
+                                    child: Container(
+                                      width: posterWidth,
+                                      height: posterHeight,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(18),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.35),
+                                            blurRadius: 40,
+                                            offset: const Offset(0, 18),
+                                          ),
+                                        ],
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: item.posterUrl != null
+                                            ? Image.network(
+                                                item.posterUrl!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => Container(
+                                                  color: SeenlyPalette.mediaColor(item.mediaType),
+                                                ),
+                                              )
+                                            : Container(color: SeenlyPalette.mediaColor(item.mediaType)),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -342,7 +361,7 @@ class _ShareThisTitleButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.ios_share_rounded, size: 16, color: SeenlyPalette.paper),
+            Icon(Icons.ios_share_rounded, size: 16, color: SeenlyPalette.paper),
             const SizedBox(width: 8),
             Text(
               'share this title'.tr,

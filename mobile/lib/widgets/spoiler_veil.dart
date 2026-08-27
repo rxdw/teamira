@@ -73,7 +73,7 @@ class _SpoilerVeilState extends State<SpoilerVeil> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.visibility_off_outlined, size: 16, color: SeenlyPalette.inkMuted),
+                      Icon(Icons.visibility_off_outlined, size: 16, color: SeenlyPalette.inkMuted),
                       const SizedBox(height: 5),
                       Text(widget.label,
                           style: SeenlyText.serif(size: 11.5, italic: true, color: SeenlyPalette.inkMuted)),

@@ -231,7 +231,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                       // Back steps back through the ritual; on the first
                       // step there's nothing to step back to, so it just
                       // leaves the screen — same place the close button
@@ -255,8 +255,8 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                       child: Container(
                         width: 26,
                         height: 26,
-                        decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                        child: const Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
+                        decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+                        child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
                       ),
                     ),
                   ],
@@ -306,7 +306,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
               border: InputBorder.none,
               hintText: 'search for a title…'.tr,
               hintStyle: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder),
-              prefixIcon: const Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
+              prefixIcon: Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
               prefixIconConstraints: const BoxConstraints(minWidth: 30),
             ),
           ),
@@ -340,7 +340,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
           ),
           child: Row(
             children: [
-              const Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.inkFaint),
+              Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.inkFaint),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -348,7 +348,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                   style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
                 ),
               ),
-              const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+              Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
             ],
           ),
         ),
@@ -406,7 +406,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
   // Nothing typed yet — browse the plan-to-watch shelf, same as before.
   Widget _shelfGrid() {
     if (_loadingShelf) {
-      return const Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent));
+      return Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent));
     }
     final shelf = _shelf ?? const [];
     if (shelf.isEmpty) {
@@ -452,7 +452,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
   // search tab).
   Widget _searchResultsGrid() {
     if (_searching) {
-      return const Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent));
+      return Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent));
     }
     if (_searchResults.isEmpty) {
       return Center(
@@ -524,14 +524,14 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                           errorBuilder: (_, __, ___) => Container(
                             color: SeenlyPalette.mediaColor(picked.mediaType),
                             alignment: Alignment.center,
-                            child: const Icon(Icons.movie_creation_outlined,
+                            child: Icon(Icons.movie_creation_outlined,
                                 color: SeenlyPalette.paper, size: 40),
                           ),
                         )
                       : Container(
                           color: SeenlyPalette.mediaColor(picked.mediaType),
                           alignment: Alignment.center,
-                          child: const Icon(Icons.movie_creation_outlined,
+                          child: Icon(Icons.movie_creation_outlined,
                               color: SeenlyPalette.paper, size: 40),
                         ),
                 ),
@@ -636,7 +636,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                   if (_time != null)
                     GestureDetector(
                       onTap: () => setState(() => _time = null),
-                      child: const Padding(
+                      child: Padding(
                         padding: EdgeInsets.all(2),
                         child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkFaint),
                       ),
@@ -786,7 +786,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
@@ -845,7 +845,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                       ),
                       alignment: Alignment.center,
                       child: _busy
-                          ? const ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
+                          ? ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
                           : Text('get a code'.tr,
                               style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
                     ),
@@ -891,7 +891,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
                     ),
                     alignment: Alignment.center,
                     child: _busy
-                        ? const ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
+                        ? ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
                         : Text('link up'.tr,
                             style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
                   ),

@@ -95,7 +95,7 @@ class _EmptyEveningCard extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.local_activity_outlined, size: 21, color: SeenlyPalette.accent),
+              child: Icon(Icons.local_activity_outlined, size: 21, color: SeenlyPalette.accent),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -111,7 +111,7 @@ class _EmptyEveningCard extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),
@@ -214,10 +214,12 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
 
   String get _reminderText {
     final plan = widget.plan;
-    if (plan.isPast) return 'was this evening — did you watch it?';
-    if (plan.isToday) return 'tonight\'s the night';
-    if (plan.isTomorrow) return 'coming up tomorrow';
-    if (plan.daysUntil <= 7) return 'in ${plan.daysUntil} days';
+    if (plan.isPast) return 'was this evening — did you watch it?'.tr;
+    if (plan.isToday) return 'tonight\'s the night'.tr;
+    if (plan.isTomorrow) return 'coming up tomorrow'.tr;
+    if (plan.daysUntil <= 7) {
+      return '${'in'.tr} ${ruCount(plan.daysUntil, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')}';
+    }
     return _formatDate(plan.date);
   }
 
@@ -262,7 +264,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                       : Container(
                           color: SeenlyPalette.mediaColor(plan.mediaType),
                           alignment: Alignment.center,
-                          child: const Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 30),
+                          child: Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 30),
                         ),
                 ),
                 // Soft gradient so the ribbon and (if present) the
@@ -317,7 +319,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.favorite, size: 10, color: SeenlyPalette.accent),
+                          Icon(Icons.favorite, size: 10, color: SeenlyPalette.accent),
                           const SizedBox(width: 4),
                           Text(
                             plan.partnerUsername ?? 'together',
@@ -402,16 +404,16 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                     width: 30,
                     height: 30,
                     margin: const EdgeInsets.only(right: 6),
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     alignment: Alignment.center,
-                    child: const Icon(Icons.add, size: 15, color: SeenlyPalette.accent),
+                    child: Icon(Icons.add, size: 15, color: SeenlyPalette.accent),
                   ),
                 ),
                 if (plan.isPast) ...[
                   GestureDetector(
                     onTap: _busy ? null : _markWatched,
                     child: _busy
-                        ? const Padding(
+                        ? Padding(
                             padding: EdgeInsets.all(6),
                             child: SizedBox(
                               width: 14,
@@ -437,9 +439,9 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                   child: Container(
                     width: 30,
                     height: 30,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     alignment: Alignment.center,
-                    child: const Icon(Icons.close, size: 13, color: SeenlyPalette.inkFaint),
+                    child: Icon(Icons.close, size: 13, color: SeenlyPalette.inkFaint),
                   ),
                 ),
               ],
@@ -467,7 +469,7 @@ class _AllPlansSheet extends StatelessWidget {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
@@ -497,9 +499,9 @@ class _AllPlansSheet extends StatelessWidget {
                     child: Container(
                       width: 28,
                       height: 28,
-                      decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.add, size: 15, color: SeenlyPalette.accent),
+                      child: Icon(Icons.add, size: 15, color: SeenlyPalette.accent),
                     ),
                   ),
                 ],
@@ -633,7 +635,7 @@ class _AllPlansRowState extends State<_AllPlansRow> {
               GestureDetector(
                 onTap: _busy ? null : _markWatched,
                 child: _busy
-                    ? const Padding(
+                    ? Padding(
                         padding: EdgeInsets.all(6),
                         child: SizedBox(
                           width: 14,
@@ -658,9 +660,9 @@ class _AllPlansRowState extends State<_AllPlansRow> {
               child: Container(
                 width: 26,
                 height: 26,
-                decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                 alignment: Alignment.center,
-                child: const Icon(Icons.close, size: 12, color: SeenlyPalette.inkFaint),
+                child: Icon(Icons.close, size: 12, color: SeenlyPalette.inkFaint),
               ),
             ),
           ],

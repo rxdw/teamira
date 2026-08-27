@@ -34,7 +34,7 @@ class GardenSubmitButton extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: loading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 18,
                   height: 18,
                   child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),

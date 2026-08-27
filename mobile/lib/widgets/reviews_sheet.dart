@@ -92,7 +92,7 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             const SizedBox(height: 14),
             if (_loading)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 30),
                 child: Center(
                   child: SizedBox(
@@ -171,7 +171,7 @@ class _ReviewCardState extends State<_ReviewCard> {
                     style: SeenlyText.serif(size: 13, weight: FontWeight.w600)),
               ),
               if (r.rating != null) ...[
-                const Icon(Icons.star_rounded, size: 14, color: SeenlyPalette.mustard),
+                Icon(Icons.star_rounded, size: 14, color: SeenlyPalette.mustard),
                 const SizedBox(width: 2),
                 Text(r.rating!.toStringAsFixed(1), style: SeenlyText.mono(size: 11)),
               ],

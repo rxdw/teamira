@@ -127,7 +127,7 @@ class _SeasonTrackerState extends State<SeasonTracker> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 8),
         child: SizedBox(
           height: 18,
@@ -163,7 +163,7 @@ class _SeasonTrackerState extends State<SeasonTracker> {
             value: total == 0 ? 0.0 : watched / total,
             minHeight: 5,
             backgroundColor: SeenlyPalette.paper,
-            valueColor: const AlwaysStoppedAnimation(SeenlyPalette.accent),
+            valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
           ),
         ),
         const SizedBox(height: 12),

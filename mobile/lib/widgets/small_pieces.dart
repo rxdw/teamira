@@ -19,14 +19,15 @@ const kTabLagCurve = Curves.easeInCubic;
 class DashedBox extends StatelessWidget {
   final Widget child;
   final double radius;
-  final Color color;
+  Color get color => _color ?? SeenlyPalette.dashedBorder;
+  final Color? _color;
 
-  const DashedBox({
+  DashedBox({
     super.key,
     required this.child,
     this.radius = 10,
-    this.color = SeenlyPalette.dashedBorder,
-  });
+    Color? color,
+  }) : _color = color;
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +207,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
       ),
       alignment: Alignment.center,
       child: widget.loading
-          ? const SizedBox(
+          ? SizedBox(
               width: 18,
               height: 18,
               child: ThemedLoadingIndicator(
@@ -363,7 +364,7 @@ class _EqualWidthUnderlineTabsState extends State<_EqualWidthUnderlineTabs>
                   bottom: 0,
                   width: right - left,
                   height: 2,
-                  child: const DecoratedBox(
+                  child: DecoratedBox(
                     decoration: BoxDecoration(color: SeenlyPalette.accent),
                   ),
                 );
@@ -407,7 +408,7 @@ class ScrollableUnderlineTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: SeenlyPalette.border)),
       ),
       child: LayoutBuilder(
@@ -517,7 +518,7 @@ class UnderlineTabRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: SeenlyPalette.border)),
       ),
       child: _EqualWidthUnderlineTabs(

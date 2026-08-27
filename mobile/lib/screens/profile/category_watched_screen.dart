@@ -43,7 +43,7 @@ class CategoryWatchedScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 4, 20, 0),
                 child: IconButton(
-                  icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                  icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),

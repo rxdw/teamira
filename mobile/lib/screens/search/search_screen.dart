@@ -191,11 +191,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: SeenlyPalette.paper,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      child: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -217,7 +217,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           hintText: 'search a film, show, or game'.tr,
                           hintStyle: SeenlyText.serif(
                               italic: true, size: 14, color: SeenlyPalette.placeholder),
-                          prefixIcon: const Icon(Icons.search,
+                          prefixIcon: Icon(Icons.search,
                               size: 16, color: SeenlyPalette.inkFaint),
                         ),
                       ),
@@ -232,11 +232,11 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: SeenlyPalette.paper,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.confirmation_number_outlined,
+                      child: Icon(Icons.confirmation_number_outlined,
                           size: 15, color: SeenlyPalette.inkMuted),
                     ),
                   ),
@@ -244,7 +244,7 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             ),
             ScrollableUnderlineTabs(
-              labels: [for (final f in _filters) f.$2],
+              labels: [for (final f in _filters) f.$2.tr],
               activeIndex: _filters.indexWhere((f) => f.$1 == _filter),
               onChanged: (i) {
                 setState(() {
@@ -416,14 +416,16 @@ class _AskTeamiraInviteState extends State<_AskTeamiraInvite> {
                         highlightColor: SeenlyPalette.paper,
                       ),
                     ),
-                    const Icon(Icons.auto_awesome_outlined, size: 13, color: SeenlyPalette.periwinkle),
+                    Icon(Icons.auto_awesome_outlined, size: 13, color: SeenlyPalette.periwinkle),
                   ],
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  hasQuery ? 'nothing matched "$query" — try teamira' : 'not sure what to search for?',
+                  hasQuery
+                      ? '${'nothing matched'.tr} "$query" — ${'try teamira'.tr}'
+                      : 'not sure what to search for?'.tr,
                   overflow: TextOverflow.ellipsis,
                   style: SeenlyText.serif(size: 13.5, weight: FontWeight.w600),
                 ),
@@ -637,11 +639,11 @@ class _AddButton extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget icon;
     if (status == 'watched') {
-      icon = const Icon(Icons.check_circle, key: ValueKey('watched'), size: 20, color: SeenlyPalette.accent);
+      icon = Icon(Icons.check_circle, key: ValueKey('watched'), size: 20, color: SeenlyPalette.accent);
     } else if (status == 'watching') {
-      icon = const Icon(Icons.play_circle_fill, key: ValueKey('watching'), size: 20, color: SeenlyPalette.accent);
+      icon = Icon(Icons.play_circle_fill, key: ValueKey('watching'), size: 20, color: SeenlyPalette.accent);
     } else if (status == 'watch_later') {
-      icon = const Icon(Icons.bookmark, key: ValueKey('watch_later'), size: 20, color: SeenlyPalette.accent);
+      icon = Icon(Icons.bookmark, key: ValueKey('watch_later'), size: 20, color: SeenlyPalette.accent);
     } else {
       icon = PressScale(
         key: const ValueKey('add'),
@@ -650,11 +652,11 @@ class _AddButton extends StatelessWidget {
         child: Container(
           width: 26,
           height: 26,
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: SeenlyPalette.background,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.bookmark_add_outlined, size: 14, color: SeenlyPalette.accent),
+          child: Icon(Icons.bookmark_add_outlined, size: 14, color: SeenlyPalette.accent),
         ),
       );
     }

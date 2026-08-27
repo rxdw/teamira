@@ -952,7 +952,7 @@ class ShimmerBlock extends StatefulWidget {
   final BorderRadius borderRadius;
   final Color baseColor;
   final Color highlightColor;
-  const ShimmerBlock({
+  ShimmerBlock({
     super.key,
     this.width,
     this.height,

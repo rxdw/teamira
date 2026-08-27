@@ -370,7 +370,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => _endAndClose(),
                   ),
                   const Spacer(),
@@ -395,7 +395,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
           onNarrowDown: _narrowDown,
         );
       case _Phase.starting:
-        return const Center(
+        return Center(
           child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
         );
       case _Phase.error:
@@ -756,7 +756,7 @@ class _VoteTapeAccent extends StatelessWidget {
   final String seed;
   const _VoteTapeAccent({required this.seed});
 
-  static const _colors = [
+  static final _colors = [
     SeenlyPalette.tapeRose,
     SeenlyPalette.tapeSage,
     SeenlyPalette.tapeMustard,
@@ -909,7 +909,7 @@ class _MatchPulseState extends State<_MatchPulse> with SingleTickerProviderState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.favorite, size: 22, color: SeenlyPalette.accent),
+            Icon(Icons.favorite, size: 22, color: SeenlyPalette.accent),
             const SizedBox(height: 6),
             Text(widget.isCompany ? 'everyone said yes' : 'you both said yes',
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent, weight: FontWeight.w600)),
@@ -936,7 +936,7 @@ class _MatchedView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 30, 22, 24),
       children: [
-        const Icon(Icons.favorite, size: 30, color: SeenlyPalette.accent),
+        Icon(Icons.favorite, size: 30, color: SeenlyPalette.accent),
         const SizedBox(height: 14),
         Text('settled, together'.tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
@@ -1003,7 +1003,7 @@ class _RecapView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 30, 22, 24),
       children: [
-        const Icon(Icons.nights_stay_outlined, size: 30, color: SeenlyPalette.accent),
+        Icon(Icons.nights_stay_outlined, size: 30, color: SeenlyPalette.accent),
         const SizedBox(height: 14),
         Text("you're through the deck".tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),
@@ -1049,7 +1049,7 @@ class _SetupView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 10, 22, 24),
       children: [
-        const Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent),
+        Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent),
         const SizedBox(height: 14),
         Text('vote together'.tr, style: SeenlyText.screenTitle),
         const SizedBox(height: 8),

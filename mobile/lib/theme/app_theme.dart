@@ -22,95 +22,44 @@ class SeenlyAppTheme {
     },
   );
 
-  static ThemeData get light {
-    final base = ThemeData.light(useMaterial3: true);
-    return base.copyWith(
-      scaffoldBackgroundColor: SeenlyPalette.background,
-      pageTransitionsTheme: _pageTransitions,
-      colorScheme: base.colorScheme.copyWith(
-        primary: SeenlyPalette.accent,
-        onPrimary: SeenlyPalette.accentOnAccent,
-        surface: SeenlyPalette.paper,
-        error: SeenlyPalette.coral,
-      ),
-      textTheme: base.textTheme.apply(
-        bodyColor: SeenlyPalette.ink,
-        displayColor: SeenlyPalette.ink,
-      ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: SeenlyPalette.background,
-        foregroundColor: SeenlyPalette.ink,
-        elevation: 0,
-        centerTitle: false,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: SeenlyPalette.accent,
-          foregroundColor: SeenlyPalette.accentOnAccent,
-          textStyle: SeenlyText.serif(italic: true, size: 14),
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          elevation: 0,
-        ),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: SeenlyPalette.paper,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
-        ),
-        hintStyle: SeenlyText.serif(color: SeenlyPalette.placeholder),
-      ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: SeenlyPalette.ink,
-        contentTextStyle: SeenlyText.serif(color: SeenlyPalette.paper),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      useMaterial3: true,
-    );
-  }
+  static ThemeData get light => _build(base: ThemeData.light(useMaterial3: true), colors: SeenlyPalette.lightColors);
 
-  /// Same palette as [light], color for color — dark mode doesn't have
-  /// its own look yet, so nothing should visibly change when it's on
-  /// except the rabbit mascot swapping to its dark-friendly artwork
-  /// (that swap keys off [Brightness.dark], which is why this still
-  /// needs to be a real `ThemeData.dark()`-based theme rather than just
-  /// reusing [light] outright). When the real dark palette is designed,
-  /// only the colors below need to change.
-  static ThemeData get dark {
-    final base = ThemeData.dark(useMaterial3: true);
+  /// The real dark palette — see the note at the top of palette.dart for
+  /// the "evening lamp" idea behind the colors themselves.
+  static ThemeData get dark => _build(base: ThemeData.dark(useMaterial3: true), colors: SeenlyPalette.darkColors);
+
+  // Shared builder: [light] and [dark] are built at the same time
+  // regardless of which one is actually active right now (Flutter holds
+  // both simultaneously and picks based on the device/app brightness), so
+  // this deliberately takes an explicit color set rather than reading the
+  // ambient SeenlyPalette.x getters — those would just return whichever
+  // one happens to be current and give both themes the same colors.
+  static ThemeData _build({required ThemeData base, required SeenlyColorSet colors}) {
     return base.copyWith(
-      scaffoldBackgroundColor: SeenlyPalette.background,
+      scaffoldBackgroundColor: colors.background,
       pageTransitionsTheme: _pageTransitions,
       colorScheme: base.colorScheme.copyWith(
-        primary: SeenlyPalette.accent,
-        onPrimary: SeenlyPalette.accentOnAccent,
-        surface: SeenlyPalette.paper,
-        error: SeenlyPalette.coral,
+        primary: colors.accent,
+        onPrimary: colors.accentOnAccent,
+        surface: colors.paper,
+        error: colors.coral,
+        brightness: base.brightness,
       ),
       textTheme: base.textTheme.apply(
-        bodyColor: SeenlyPalette.ink,
-        displayColor: SeenlyPalette.ink,
+        bodyColor: colors.ink,
+        displayColor: colors.ink,
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: SeenlyPalette.background,
-        foregroundColor: SeenlyPalette.ink,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colors.background,
+        foregroundColor: colors.ink,
         elevation: 0,
         centerTitle: false,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: SeenlyPalette.accent,
-          foregroundColor: SeenlyPalette.accentOnAccent,
-          textStyle: SeenlyText.serif(italic: true, size: 14),
+          backgroundColor: colors.accent,
+          foregroundColor: colors.accentOnAccent,
+          textStyle: SeenlyText.serif(italic: true, size: 14, color: colors.accentOnAccent),
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
@@ -120,18 +69,17 @@ class SeenlyAppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: SeenlyPalette.paper,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        fillColor: colors.paper,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
         ),
-        hintStyle: SeenlyText.serif(color: SeenlyPalette.placeholder),
+        hintStyle: SeenlyText.serif(color: colors.placeholder),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: SeenlyPalette.ink,
-        contentTextStyle: SeenlyText.serif(color: SeenlyPalette.paper),
+        backgroundColor: colors.ink,
+        contentTextStyle: SeenlyText.serif(color: colors.paper),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),

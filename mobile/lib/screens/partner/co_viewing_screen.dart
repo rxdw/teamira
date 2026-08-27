@@ -6,7 +6,6 @@ import '../../models/friend.dart';
 import '../../models/partner_status.dart';
 import '../../models/suggestion.dart';
 import '../../services/api_client.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
@@ -92,9 +91,9 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
       await _load(silent: true);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_isCompany
+        SnackBar(content: Text((_isCompany
             ? 'planned together — watch it whenever everyone\'s ready'
-            : 'planned together — watch it whenever you\'re both ready')),
+            : 'planned together — watch it whenever you\'re both ready').tr)),
       );
     } catch (_) {
       if (!mounted) return;
@@ -197,16 +196,16 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
               backgroundColor: SeenlyPalette.paper,
               title: Text(
                 isCompany
-                    ? 'leave this co-viewing circle?'
-                    : 'unlink from ${_data?.partnerUsername ?? 'your partner'}?',
+                    ? 'leave this co-viewing circle?'.tr
+                    : '${'unlink from'.tr} ${_data?.partnerUsername ?? 'your partner'.tr}?',
                 style: SeenlyText.serif(size: 16),
               ),
               content: Text(
-                isCompany
+                (isCompany
                     ? "you'll leave the circle — everyone else keeps it going, and "
                         "what's already in your own diary stays put."
                     : 'this closes co-viewing between you two — what\'s already in '
-                        'each of your diaries stays put.',
+                        'each of your diaries stays put.').tr,
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
               ),
               actions: [
@@ -251,7 +250,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                 children: [
                   PressScale(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     ),
@@ -259,14 +258,14 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
                   const Spacer(),
                   PressScale(
                     onTap: _openHowItWorks,
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.help_outline, size: 18, color: SeenlyPalette.inkMuted),
                     ),
                   ),
                   PressScale(
                     onTap: _openSettings,
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.tune, size: 18, color: SeenlyPalette.inkMuted),
                     ),
@@ -275,7 +274,7 @@ class _CoViewingScreenState extends State<CoViewingScreen> {
               ),
             ),
             if (_loading)
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
                 ),
@@ -635,14 +634,14 @@ class _SuggestedGridTile extends StatelessWidget {
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 180),
                       child: busy
-                          ? const SizedBox(
+                          ? SizedBox(
                               key: ValueKey('busy'),
                               width: 12,
                               height: 12,
                               child: ThemedLoadingIndicator(
                                   strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                             )
-                          : const Icon(Icons.check, key: ValueKey('check'), size: 16, color: SeenlyPalette.accentOnAccent),
+                          : Icon(Icons.check, key: ValueKey('check'), size: 16, color: SeenlyPalette.accentOnAccent),
                     ),
                   ),
                 ),
@@ -658,7 +657,7 @@ class _SuggestedGridTile extends StatelessWidget {
                       border: Border.all(color: SeenlyPalette.border),
                     ),
                     alignment: Alignment.center,
-                    child: const Icon(Icons.close, size: 16, color: SeenlyPalette.inkFaint),
+                    child: Icon(Icons.close, size: 16, color: SeenlyPalette.inkFaint),
                   ),
                 ),
               ),
@@ -700,18 +699,17 @@ class _CozyHeader extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        decoration: const BoxDecoration(color: SeenlyPalette.paper),
+        decoration: BoxDecoration(color: SeenlyPalette.paper),
         child: Stack(
           children: [
-            if (context.watch<RabbitMascotPrefsService>().enabled)
-              Positioned(
-                right: -10,
-                bottom: -8,
-                child: Opacity(
-                  opacity: 0.9,
-                  child: CoViewingBunniesCorner(size: 72),
-                ),
+            Positioned(
+              right: -10,
+              bottom: -8,
+              child: Opacity(
+                opacity: 0.9,
+                child: CoViewingBunniesCorner(size: 72),
               ),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
               child: Column(
@@ -723,7 +721,7 @@ class _CozyHeader extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       for (var i = 0; i < names.length; i++) ...[
-                        if (i > 0) const Icon(Icons.favorite, size: 13, color: SeenlyPalette.accent),
+                        if (i > 0) Icon(Icons.favorite, size: 13, color: SeenlyPalette.accent),
                         _Initial(name: names[i]),
                       ],
                       // Sits right where "who's in this" is already shown,
@@ -769,7 +767,7 @@ class _AddSeatButton extends StatelessWidget {
       child: DashedBox(
         radius: 20,
         color: SeenlyPalette.inkFaint,
-        child: const SizedBox(
+        child: SizedBox(
           width: 37,
           height: 37,
           child: Icon(Icons.add, size: 18, color: SeenlyPalette.inkFaint),
@@ -789,7 +787,7 @@ class _Initial extends StatelessWidget {
     return Container(
       width: 40,
       height: 40,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: SeenlyPalette.accent,
         shape: BoxShape.circle,
       ),
@@ -829,13 +827,13 @@ class _MarkWatchedBadge extends StatelessWidget {
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 180),
           child: busy
-              ? const SizedBox(
+              ? SizedBox(
                   key: ValueKey('busy'),
                   width: 11,
                   height: 11,
                   child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                 )
-              : const Icon(Icons.check, key: ValueKey('check'), size: 13, color: SeenlyPalette.accentOnAccent),
+              : Icon(Icons.check, key: ValueKey('check'), size: 13, color: SeenlyPalette.accentOnAccent),
         ),
       ),
     );
@@ -966,7 +964,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
             ),
             const SizedBox(height: 16),
             if (_loading)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
                 child: Center(
                   child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
@@ -1033,7 +1031,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 180),
                                 child: busy
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         key: ValueKey('busy'),
                                         width: 12,
                                         height: 12,

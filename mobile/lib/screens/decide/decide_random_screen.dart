@@ -219,10 +219,10 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -398,7 +398,7 @@ class _GlowingPoster extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, size: 14, color: SeenlyPalette.mustard),
+                      Icon(Icons.star_rounded, size: 14, color: SeenlyPalette.mustard),
                       const SizedBox(width: 3),
                       Text(
                         pick.rating!.toStringAsFixed(1),
@@ -438,7 +438,7 @@ class _SecondaryButton extends StatelessWidget {
             border: Border.all(color: SeenlyPalette.border),
           ),
           child: loading
-              ? const Center(
+              ? Center(
                   child: SizedBox(
                     width: 16,
                     height: 16,

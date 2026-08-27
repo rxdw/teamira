@@ -38,12 +38,13 @@ Color logThemeAccent(LogTheme theme) => switch (theme) {
       LogTheme.garden => SeenlyPalette.sage,
       LogTheme.coach => SeenlyPalette.clay,
       LogTheme.ticket => SeenlyPalette.mustard,
+      LogTheme.shuttle => SeenlyPalette.periwinkle,
     };
 
 /// The washi-tape corner rotates through these three across entries so
 /// a long log doesn't read as the same sticker repeated — same trio
 /// [SeenlyPalette] already reserves for tape accents elsewhere.
-const List<Color> _tapeColors = [
+final List<Color> _tapeColors = [
   SeenlyPalette.tapeRose,
   SeenlyPalette.tapeSage,
   SeenlyPalette.tapeMustard,
@@ -347,7 +348,7 @@ class _Punch extends StatelessWidget {
       child: Container(
         width: 14,
         height: 14,
-        decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+        decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
       ),
     );
   }

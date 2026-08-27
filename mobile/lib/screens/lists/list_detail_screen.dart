@@ -237,7 +237,7 @@ class _Header extends StatelessWidget {
         children: [
           PressScale(
             onTap: onBack,
-            child: const Padding(
+            child: Padding(
               padding: EdgeInsets.all(8),
               child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
             ),
@@ -252,7 +252,7 @@ class _Header extends StatelessWidget {
           if (onDelete != null)
             PressScale(
               onTap: onDelete,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(8),
                 child: Icon(Icons.delete_outline, size: 19, color: SeenlyPalette.inkFaint),
               ),

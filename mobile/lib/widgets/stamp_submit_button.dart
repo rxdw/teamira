@@ -73,7 +73,7 @@ class _StampSubmitButtonState extends State<StampSubmitButton> with TickerProvid
                   padding: EdgeInsets.only(right: _stubWidth, left: 24),
                   child: Center(
                     child: widget.loading
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(

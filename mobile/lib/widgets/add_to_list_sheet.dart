@@ -150,7 +150,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             const SizedBox(height: 14),
             if (_loading)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 30),
                 child: Center(
                   child: SizedBox(
@@ -197,7 +197,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                                     style: SeenlyText.serif(size: 13)),
                               ),
                               if (busy)
-                                const SizedBox(
+                                SizedBox(
                                   width: 14, height: 14,
                                   child: ThemedLoadingIndicator(
                                       strokeWidth: 2, color: SeenlyPalette.accent),
@@ -242,12 +242,12 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                       child: Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: SeenlyPalette.accent,
                           shape: BoxShape.circle,
                         ),
                         alignment: Alignment.center,
-                        child: const Icon(Icons.check,
+                        child: Icon(Icons.check,
                             size: 18, color: SeenlyPalette.accentOnAccent),
                       ),
                     ),
@@ -258,7 +258,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                   onTap: () => setState(() => _creatingNew = true),
                   child: Row(
                     children: [
-                      const Icon(Icons.add, size: 16, color: SeenlyPalette.accent),
+                      Icon(Icons.add, size: 16, color: SeenlyPalette.accent),
                       const SizedBox(width: 8),
                       Text('new list'.tr,
                           style: SeenlyText.serif(

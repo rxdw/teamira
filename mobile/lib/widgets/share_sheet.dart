@@ -166,7 +166,7 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
                           color: SeenlyPalette.ink.withOpacity(0.08),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close_rounded,
+                        child: Icon(Icons.close_rounded,
                             size: 16, color: SeenlyPalette.inkMuted),
                       ),
                     ),

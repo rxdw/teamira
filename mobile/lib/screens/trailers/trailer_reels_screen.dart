@@ -132,8 +132,8 @@ class _TrailerReelsScreenState extends State<TrailerReelsScreen> {
                         // this card, into TitleDetailScreen's header,
                         // rather than hard-cutting at either hop.
                         heroTag: heroTag,
-                        onLike: () => _react(item, 'like', 'tucked into plan to watch'),
-                        onWatched: () => _react(item, 'watched', 'marked as watched'),
+                        onLike: () => _react(item, 'like', 'tucked into plan to watch'.tr),
+                        onWatched: () => _react(item, 'watched', 'marked as watched'.tr),
                         onShare: () => _share(item),
                         onOpenDetail: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -168,7 +168,7 @@ class _TrailerReelsScreenState extends State<TrailerReelsScreen> {
                     color: SeenlyPalette.ink.withOpacity(0.45),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: SeenlyPalette.paper, size: 20),
+                  child: Icon(Icons.close, color: SeenlyPalette.paper, size: 20),
                 ),
               ),
             ),
@@ -488,7 +488,7 @@ class _WatchTrailerButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.paper),
+            Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.paper),
             const SizedBox(width: 9),
             Text('watch trailer'.tr,
                 style: SeenlyText.serif(

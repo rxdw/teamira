@@ -54,7 +54,6 @@ router = APIRouter(prefix="/profile", tags=["profile"])
 # for "is this a real preset id" so a client can't set avatar_preset to
 # garbage; add a new mascot asset on the client, add its id here.
 AVATAR_PRESETS = {
-    "bunny_mascot", "bunny_with_popcorn", "bunny_critic",
     "bunnies_coviewing",
 }
 

@@ -75,13 +75,13 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: SeenlyPalette.paper,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -115,14 +115,14 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                   if (snapshot.hasError) {
                     final message = snapshot.error is ApiException
                         ? (snapshot.error as ApiException).message
-                        : "couldn't reach teamira's catalog just now";
+                        : "couldn't reach teamira's catalog just now".tr;
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.auto_awesome_outlined, size: 26, color: SeenlyPalette.placeholder),
+                            Icon(Icons.auto_awesome_outlined, size: 26, color: SeenlyPalette.placeholder),
                             const SizedBox(height: 10),
                             Text(
                               message,

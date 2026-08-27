@@ -158,7 +158,7 @@ class _TicketScanScreenState extends State<TicketScanScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 2),
@@ -235,7 +235,7 @@ class _IntroBody extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.confirmation_number_outlined, size: 34, color: SeenlyPalette.accent),
+            child: Icon(Icons.confirmation_number_outlined, size: 34, color: SeenlyPalette.accent),
           ),
           const SizedBox(height: 22),
           Text('got a ticket stub from tonight?'.tr,
@@ -358,7 +358,7 @@ class _CenteredMessage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (spinning)
-              const SizedBox(
+              SizedBox(
                 width: 26, height: 26,
                 child: CircularProgressIndicator(strokeWidth: 2.4, color: SeenlyPalette.accent),
               )

@@ -118,7 +118,7 @@ class _FranchiseInfoSheet extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.accent),
+                        Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.accent),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -130,7 +130,7 @@ class _FranchiseInfoSheet extends StatelessWidget {
                             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.accent),
                           ),
                         ),
-                        const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.accent),
+                        Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.accent),
                       ],
                     ),
                   ),

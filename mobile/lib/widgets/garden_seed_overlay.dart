@@ -244,7 +244,7 @@ class _WindowBoxPicker extends StatelessWidget {
           Container(
             height: 14,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [SeenlyPalette.mustard, Color(0xFFB9863C)],
@@ -324,9 +324,9 @@ class _Spot extends StatelessWidget {
         Container(
           width: 16,
           height: 16,
-          decoration: const BoxDecoration(color: SeenlyPalette.sage, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: SeenlyPalette.sage, shape: BoxShape.circle),
           alignment: Alignment.center,
-          child: const Icon(Icons.eco, size: 10, color: SeenlyPalette.paper),
+          child: Icon(Icons.eco, size: 10, color: SeenlyPalette.paper),
         ),
         const SizedBox(height: 3),
         Container(width: 2.4, height: 26, color: SeenlyPalette.sage.withOpacity(0.8)),
@@ -364,7 +364,7 @@ class _Spot extends StatelessWidget {
             bottom: 6 + sproutH - 4,
             child: Opacity(
               opacity: sprout.clamp(0.0, 1.0).toDouble(),
-              child: const Icon(Icons.eco, size: 15, color: SeenlyPalette.sage),
+              child: Icon(Icons.eco, size: 15, color: SeenlyPalette.sage),
             ),
           ),
           if (drop < 1)
@@ -375,7 +375,7 @@ class _Spot extends StatelessWidget {
                 child: Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(color: SeenlyPalette.clay, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: SeenlyPalette.clay, shape: BoxShape.circle),
                 ),
               ),
             ),

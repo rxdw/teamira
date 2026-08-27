@@ -12,6 +12,7 @@ import '../../widgets/wow_motion.dart';
 import '../shell/root_shell.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../services/log_theme_service.dart';
 
 /// Solo version of the Watch Together vote deck — same swipe language
 /// (left to pass, right to keep) but with nobody else's decisions to
@@ -81,10 +82,10 @@ class _DecideSwipeScreenState extends State<DecideSwipeScreen> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -462,15 +463,23 @@ class _RecapView extends StatelessWidget {
     required this.onDone,
   });
 
+  static IconData _recapIcon(LogTheme theme) => switch (theme) {
+        LogTheme.garden => Icons.local_florist_outlined,
+        LogTheme.coach => Icons.route_outlined,
+        LogTheme.ticket => Icons.confirmation_number_outlined,
+        LogTheme.shuttle => Icons.rocket_launch_outlined,
+      };
+
   @override
   Widget build(BuildContext context) {
+    final theme = context.watch<LogThemeService>().theme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.local_florist_outlined, size: 34, color: SeenlyPalette.accent),
+            Icon(_recapIcon(theme), size: 34, color: SeenlyPalette.accent),
             const SizedBox(height: 14),
             Text('that\'s the whole pile'.tr, style: SeenlyText.serif(size: 18, weight: FontWeight.w600)),
             const SizedBox(height: 6),

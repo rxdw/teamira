@@ -10,6 +10,7 @@ import '../../widgets/poster_tile.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
+import '../../services/log_theme_service.dart';
 
 enum _Phase { input, loading, review, importing, done }
 
@@ -110,7 +111,7 @@ class _ImportScreenState extends State<ImportScreen> {
               children: [
                 if (!widget.embedded)
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 if (!widget.embedded) const SizedBox(width: 4),
@@ -391,7 +392,7 @@ class _InputStepState extends State<_InputStep> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.edit_note, size: 20, color: SeenlyPalette.accent),
+            Icon(Icons.edit_note, size: 20, color: SeenlyPalette.accent),
             const SizedBox(width: 8),
             Expanded(
               child: Text('or just type it in'.tr,
@@ -643,7 +644,7 @@ class _LoadingStep extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
+          ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
           const SizedBox(height: 14),
           Text(
             message,
@@ -803,7 +804,7 @@ class _ImportRowCard extends StatelessWidget {
                 ),
               ),
               child: row.selected
-                  ? const Icon(Icons.check, size: 14, color: SeenlyPalette.accentOnAccent)
+                  ? Icon(Icons.check, size: 14, color: SeenlyPalette.accentOnAccent)
                   : null,
             ),
           ),
@@ -901,8 +902,16 @@ class _DoneStep extends StatelessWidget {
 
   const _DoneStep({required this.result, required this.embedded, this.onDone});
 
+  static IconData _doneIcon(LogTheme theme) => switch (theme) {
+        LogTheme.garden => Icons.local_florist_outlined,
+        LogTheme.coach => Icons.route_outlined,
+        LogTheme.ticket => Icons.confirmation_number_outlined,
+        LogTheme.shuttle => Icons.rocket_launch_outlined,
+      };
+
   @override
   Widget build(BuildContext context) {
+    final theme = context.watch<LogThemeService>().theme;
     final parts = <String>[
       if (result.watchedCount > 0) '${result.watchedCount} watched',
       if (result.watchLaterCount > 0) '${result.watchLaterCount} to plan to watch',
@@ -913,7 +922,7 @@ class _DoneStep extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.local_florist_outlined, size: 30, color: SeenlyPalette.accent),
+            Icon(_doneIcon(theme), size: 30, color: SeenlyPalette.accent),
             const SizedBox(height: 14),
             Text(
               parts.isEmpty ? 'nothing was added' : 'added ${parts.join(' and ')}',
@@ -922,7 +931,7 @@ class _DoneStep extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             PrimaryButton(
-              label: embedded ? 'continue' : 'done',
+              label: (embedded ? 'continue' : 'done').tr,
               onTap: () {
                 if (embedded) {
                   onDone?.call();

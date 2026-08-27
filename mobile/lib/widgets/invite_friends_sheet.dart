@@ -150,8 +150,8 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
               child: Container(
                 width: 24,
                 height: 24,
-                decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                child: const Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
+                decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+                child: Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
               ),
             ),
           ],
@@ -180,7 +180,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
                     style: SeenlyText.mono(size: 18, color: SeenlyPalette.ink, weight: FontWeight.w700)
                         .copyWith(letterSpacing: 3)),
                 const SizedBox(width: 10),
-                const Icon(Icons.copy_rounded, size: 14, color: SeenlyPalette.inkFaint),
+                Icon(Icons.copy_rounded, size: 14, color: SeenlyPalette.inkFaint),
               ],
             ),
           ),
@@ -195,7 +195,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.ios_share_rounded, size: 15, color: SeenlyPalette.accentOnAccent),
+                Icon(Icons.ios_share_rounded, size: 15, color: SeenlyPalette.accentOnAccent),
                 const SizedBox(width: 8),
                 Text('share invite'.tr, style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
               ],

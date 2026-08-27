@@ -69,12 +69,12 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
   String _friendlyError(Object e) {
     final message = e.toString();
     if (message.contains('404')) {
-      return "couldn't find anything there — check it's public and try again";
+      return "couldn't find anything there — check it's public and try again".tr;
     }
     if (message.contains('503')) {
-      return "this server isn't set up for that platform yet";
+      return "this server isn't set up for that platform yet".tr;
     }
-    return "couldn't resolve that link just now — try again in a moment";
+    return "couldn't resolve that link just now — try again in a moment".tr;
   }
 
   Future<void> _commit() async {
@@ -112,7 +112,7 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(_committed != null),
                   ),
                   const SizedBox(width: 4),
@@ -252,7 +252,7 @@ class _LoadingStep extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
+          ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
           const SizedBox(height: 14),
           Text(message, style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted)),
         ],
@@ -378,7 +378,7 @@ class _SourceRowCard extends StatelessWidget {
                     color: row.selected ? SeenlyPalette.accent : SeenlyPalette.dashedBorder, width: 1.4),
               ),
               child: row.selected
-                  ? const Icon(Icons.check, size: 14, color: SeenlyPalette.accentOnAccent)
+                  ? Icon(Icons.check, size: 14, color: SeenlyPalette.accentOnAccent)
                   : null,
             ),
           ),
@@ -488,7 +488,7 @@ class _DoneStep extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.accent),
+            Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.accent),
             const SizedBox(height: 14),
             Text(
               parts.isEmpty

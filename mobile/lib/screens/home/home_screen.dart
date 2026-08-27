@@ -21,7 +21,7 @@ import '../../services/api_client.dart';
 import '../../services/auto_tracking_prefs_service.dart';
 import '../../services/log_theme_service.dart';
 import '../../services/on_this_day_prefs_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
+import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
@@ -33,11 +33,11 @@ import '../../widgets/invite_friends_sheet.dart';
 import '../../widgets/pairing_qr.dart';
 import '../../widgets/parallax_poster.dart';
 import '../../widgets/polaroid_card.dart';
-import '../../widgets/rabbit_mascot.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/series_episodes_sheet.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/today_pick_card.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/card_snap_scroll_physics.dart';
 import '../../widgets/trailer_preview_card.dart';
@@ -58,6 +58,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_pull_to_refresh.dart';
 import 'ask_teamira_results_screen.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// Home-specific shorthand for [scopedPosterHeroTag] — every call site in
 /// this file scopes under 'home', trailer reels under 'foryou' (see
@@ -479,11 +480,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                     period: const Duration(milliseconds: 6000),
                                     minSize: 0.9,
                                     maxOpacity: 0.18,
-                                    child: const Icon(Icons.nights_stay_outlined,
+                                    child: Icon(Icons.nights_stay_outlined,
                                         size: 16, color: SeenlyPalette.accent),
                                   ),
                                   const SizedBox(width: 7),
-                                  Text(_greeting(), style: SeenlyText.greeting),
+                                  Text(_greeting().tr, style: SeenlyText.greeting),
                                   if (data.stats.streakDays > 0) ...[
                                     const SizedBox(width: 8),
                                     PressScale(
@@ -500,7 +501,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                               period: const Duration(milliseconds: 4200),
                                               minSize: 0.88,
                                               maxOpacity: 0.22,
-                                              child: const Icon(Icons.local_fire_department_rounded,
+                                              child: Icon(Icons.local_fire_department_rounded,
                                                   size: 17, color: SeenlyPalette.mustard),
                                             ),
                                             const SizedBox(width: 2),
@@ -535,11 +536,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             width: 34,
                             height: 34,
                             margin: const EdgeInsets.only(top: 2, right: 8),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: SeenlyPalette.paper,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.confirmation_number_outlined,
+                            child: Icon(Icons.confirmation_number_outlined,
                                 size: 16, color: SeenlyPalette.ink),
                           ),
                         ),
@@ -553,11 +554,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             width: 34,
                             height: 34,
                             margin: const EdgeInsets.only(top: 2),
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: SeenlyPalette.paper,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.search,
+                            child: Icon(Icons.search,
                                 size: 16, color: SeenlyPalette.ink),
                           ),
                         ),
@@ -707,34 +708,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: freshEntries.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
-                        child: Builder(builder: (context) {
-                          final showMascot = context.watch<RabbitMascotPrefsService>().enabled;
-                          // The rabbit sits in the Row itself now, not floated
-                          // over it with a negative offset — that's what let
-                          // it bleed past this row's own bounds and land on
-                          // top of whatever section happened to be next
-                          // (the diary header above, or "picked for tonight"
-                          // below, depending on which other sections were
-                          // present). Sized to sit comfortably next to a
-                          // single line of text with no overflow either way.
-                          const mascotSize = 92.0;
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (showMascot) ...[
-                                const RabbitMascot(mood: RabbitMood.sad, size: mascotSize),
-                                const SizedBox(width: 12),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  'nothing logged yet — find something and tuck it in'.tr,
-                                  style: SeenlyText.serif(
-                                      italic: true, color: SeenlyPalette.placeholder),
-                                ),
-                              ),
-                            ],
-                          );
-                        }),
+                        child: Text(
+                          'nothing logged yet — find something and tuck it in'.tr,
+                          style: SeenlyText.serif(
+                              italic: true, color: SeenlyPalette.placeholder),
+                        ),
                       )
                     : Padding(
                         padding: const EdgeInsets.only(bottom: 22),
@@ -754,7 +732,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             separatorBuilder: (_, __) => const SizedBox(width: 10),
                             itemBuilder: (context, i) {
                               final e = freshEntries[i];
-                              const tapes = [
+                              final tapes = [
                                 SeenlyPalette.tapeRose,
                                 SeenlyPalette.tapeSage,
                                 SeenlyPalette.tapeMustard,
@@ -1102,13 +1080,27 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final query = _controller.text.trim();
     if (query.isEmpty) {
       _focusNode.requestFocus();
       return;
     }
     _focusNode.unfocus();
+    // Free tier: 3 asks a month (see PremiumService) — checked here
+    // rather than inside the results screen so a blocked ask never even
+    // starts the "teamira is thinking" state.
+    final allowed = await context.read<PremiumService>().recordAiAsk();
+    if (!mounted) return;
+    if (!allowed) {
+      showPremiumUpsellSheet(
+        context,
+        icon: Icons.auto_awesome_outlined,
+        title: 'вопросы к teamira на этот месяц закончились',
+        message: 'на бесплатном тарифе доступно 3 вопроса в месяц — с премиумом их можно задавать сколько угодно',
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => AskTeamiraResultsScreen(query: query)),
     );
@@ -1135,7 +1127,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome_outlined, size: 16, color: SeenlyPalette.accent),
+              Icon(Icons.auto_awesome_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 7),
               Text('ask teamira'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ],
@@ -1174,7 +1166,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
           SizedBox(
             width: double.infinity,
             child: PressScale(
-              onTap: _submit,
+              onTap: () => _submit(),
               scaleTo: 0.96,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1189,7 +1181,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
                         style: SeenlyText.mono(
                             size: 12, weight: FontWeight.w700, color: SeenlyPalette.accentOnAccent)),
                     const SizedBox(width: 6),
-                    const Icon(Icons.arrow_forward, size: 14, color: SeenlyPalette.accentOnAccent),
+                    Icon(Icons.arrow_forward, size: 14, color: SeenlyPalette.accentOnAccent),
                   ],
                 ),
               ),
@@ -1448,11 +1440,17 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
     final parsed = DateTime.tryParse(iso);
     if (parsed == null) return '';
     final diff = DateTime.now().difference(parsed);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    return '${(diff.inDays / 7).floor()}w ago';
+    if (diff.inMinutes < 1) return 'just now'.tr;
+    if (diff.inMinutes < 60) {
+      return '${ruCount(diff.inMinutes, one: 'минуту', few: 'минуты', many: 'минут', englishOne: 'minute', englishOther: 'minutes')} ${'ago'.tr}';
+    }
+    if (diff.inHours < 24) {
+      return '${ruCount(diff.inHours, one: 'час', few: 'часа', many: 'часов', englishOne: 'hour', englishOther: 'hours')} ${'ago'.tr}';
+    }
+    if (diff.inDays < 7) {
+      return '${ruCount(diff.inDays, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'ago'.tr}';
+    }
+    return '${ruCount((diff.inDays / 7).floor(), one: 'неделю', few: 'недели', many: 'недель', englishOne: 'week', englishOther: 'weeks')} ${'ago'.tr}';
   }
 
   @override
@@ -1469,7 +1467,7 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
         onTap: () => showInviteFriendsSheet(context),
         child: Row(
           children: [
-            const Icon(Icons.person_add_alt_1_rounded, size: 12, color: SeenlyPalette.inkFaint),
+            Icon(Icons.person_add_alt_1_rounded, size: 12, color: SeenlyPalette.inkFaint),
             const SizedBox(width: 6),
             Text('invite friends to see their activity here'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
@@ -1800,14 +1798,22 @@ Color _watchingNowAccent(LogTheme theme) => switch (theme) {
       LogTheme.coach => SeenlyPalette.periwinkle,
       LogTheme.garden => SeenlyPalette.sage,
       LogTheme.ticket => SeenlyPalette.coral,
+      LogTheme.shuttle => SeenlyPalette.periwinkle,
     };
 
 String _fmtMinutesLeft(int minutes) {
-  if (minutes <= 0) return 'almost there';
-  if (minutes < 60) return '$minutes min left';
+  if (minutes <= 0) return 'almost there'.tr;
+  final left = 'left'.tr;
+  if (minutes < 60) {
+    final count = LocaleService.appIsRussian ? '$minutes мин' : '$minutes min';
+    return LocaleService.appIsRussian ? '$left $count' : '$count $left';
+  }
   final h = minutes ~/ 60;
   final m = minutes % 60;
-  return m == 0 ? '${h}h left' : '${h}h ${m}min left';
+  final hStr = LocaleService.appIsRussian ? '$h ч' : '${h}h';
+  if (m == 0) return LocaleService.appIsRussian ? '$left $hStr' : '$hStr $left';
+  final mStr = LocaleService.appIsRussian ? '$m мин' : '${m}min';
+  return LocaleService.appIsRussian ? '$left $hStr $mStr' : '$hStr $mStr $left';
 }
 
 /// The "watching now" card for a title with a live journey running right
@@ -1863,7 +1869,7 @@ class _WatchingNowJourneyCardState extends State<_WatchingNowJourneyCard> {
         ),
         progressBar: _UnderPosterProgressBar(
           progress: progress,
-          label: journey.isPaused ? 'paused' : _fmtMinutesLeft(minutesLeft),
+          label: journey.isPaused ? 'paused'.tr : _fmtMinutesLeft(minutesLeft),
           accent: accent,
         ),
       ),
@@ -1929,7 +1935,7 @@ class _WatchingNowEntryCardState extends State<_WatchingNowEntryCard> {
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final label = _watched != null && _total != null
-        ? '$_watched/$_total ${ruPluralForm(_total, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}'
+        ? '$_watched/$_total ${ruPluralForm(_total!, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}'
         : 'in progress'.tr;
     // Only meaningful for the non-series tap path below (straight to
     // TitleDetailScreen) — series taps open a sheet instead, so this tag
@@ -2177,12 +2183,12 @@ class _OnThisDaySectionState extends State<_OnThisDaySection> {
             GestureDetector(
               onTap: _dismiss,
               behavior: HitTestBehavior.opaque,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.only(right: 6, top: 2, bottom: 2),
                 child: Icon(Icons.close, size: 16, color: SeenlyPalette.inkFaint),
               ),
             ),
-            const Icon(Icons.auto_stories_outlined, size: 15, color: SeenlyPalette.accent),
+            Icon(Icons.auto_stories_outlined, size: 15, color: SeenlyPalette.accent),
             const SizedBox(width: 7),
             Text('on this day'.tr, style: SeenlyText.sectionTitle),
           ],
@@ -2260,7 +2266,7 @@ class _OnThisDayCard extends StatelessWidget {
                       placeholder: Container(color: SeenlyPalette.mediaColor(entry.mediaType)),
                     )
                   : Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -2558,7 +2564,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                                       alignment: Alignment.centerRight,
                                       child: GestureDetector(
                                         onTap: () => Navigator.of(sheetContext).maybePop(),
-                                        child: const Padding(
+                                        child: Padding(
                                           padding: EdgeInsets.only(bottom: 6),
                                           child: Icon(Icons.close, size: 18, color: SeenlyPalette.inkFaint),
                                         ),
@@ -2594,12 +2600,12 @@ class _CoViewingCardState extends State<_CoViewingCard> {
           onTap: (_status?.linked ?? false) ? _openCoViewing : null,
           child: Row(
             children: [
-              const Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
+              Icon(Icons.favorite_border, size: 15, color: SeenlyPalette.accent),
               const SizedBox(width: 7),
               Text('co-viewing'.tr, style: SeenlyText.sectionTitle),
               if (_status?.linked ?? false) ...[
                 const Spacer(),
-                const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+                Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
               ],
             ],
           ),
@@ -2613,7 +2619,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
         ),
         const SizedBox(height: 12),
         if (_loading)
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(vertical: 6),
             child: SizedBox(
               width: 16,
@@ -2677,27 +2683,26 @@ class _CoViewingCardState extends State<_CoViewingCard> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: Container(
-          decoration: const BoxDecoration(color: SeenlyPalette.paper),
+          decoration: BoxDecoration(color: SeenlyPalette.paper),
           child: Stack(
             children: [
               // Decorative, sits behind the real content and bleeds
               // slightly past the card's own edge — the ClipRRect above
               // trims it back to the card's rounded corner.
-              if (context.watch<RabbitMascotPrefsService>().enabled)
-                Positioned(
-                  right: -8,
-                  bottom: -6,
-                  child: Opacity(
-                    opacity: 0.9,
-                    child: CoViewingBunniesCorner(size: 58),
-                  ),
+              Positioned(
+                right: -8,
+                bottom: -6,
+                child: Opacity(
+                  opacity: 0.9,
+                  child: CoViewingBunniesCorner(size: 58),
                 ),
+              ),
               Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.accent),
+                    Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.accent),
                     const SizedBox(height: 10),
                     Text('co-viewing'.tr, style: SeenlyText.sectionTitle),
                     const SizedBox(height: 3),
@@ -2781,7 +2786,7 @@ class _StreakInfoSheet extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.local_fire_department_rounded,
+                        Icon(Icons.local_fire_department_rounded,
                             size: 18, color: SeenlyPalette.mustard),
                         const SizedBox(width: 8),
                         Expanded(
@@ -2796,7 +2801,7 @@ class _StreakInfoSheet extends StatelessWidget {
                             width: 24,
                             height: 24,
                             decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
+                            child: Icon(Icons.close, size: 13, color: SeenlyPalette.inkMuted),
                           ),
                         ),
                       ],
@@ -2883,7 +2888,7 @@ class _AutoTrackingBannerState extends State<_AutoTrackingBanner> {
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.sync_outlined, size: 15, color: SeenlyPalette.accent),
+              child: Icon(Icons.sync_outlined, size: 15, color: SeenlyPalette.accent),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -2911,7 +2916,7 @@ class _AutoTrackingBannerState extends State<_AutoTrackingBanner> {
             GestureDetector(
               onTap: _dismiss,
               behavior: HitTestBehavior.opaque,
-              child: const Padding(
+              child: Padding(
                 padding: EdgeInsets.all(6),
                 child: Icon(Icons.close, size: 16, color: SeenlyPalette.inkFaint),
               ),
@@ -2954,11 +2959,11 @@ class _CantDecideCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Icon(Icons.help_outline_rounded, size: 16, color: SeenlyPalette.accent),
+                Icon(Icons.help_outline_rounded, size: 16, color: SeenlyPalette.accent),
                 const SizedBox(width: 6),
                 Text('can\'t decide?'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                 const Spacer(),
-                const Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.inkFaint),
+                Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.inkFaint),
               ],
             ),
             const SizedBox(height: 10),
@@ -2974,7 +2979,7 @@ class _CantDecideCard extends StatelessWidget {
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(Icons.auto_awesome_outlined, size: 15, color: SeenlyPalette.accent),
+                  child: Icon(Icons.auto_awesome_outlined, size: 15, color: SeenlyPalette.accent),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -3077,7 +3082,7 @@ class _JoinCodeInline extends StatelessWidget {
                 onJoin();
               }
             },
-            icon: const Icon(Icons.qr_code_scanner, size: 16, color: SeenlyPalette.accent),
+            icon: Icon(Icons.qr_code_scanner, size: 16, color: SeenlyPalette.accent),
             label: Text('scan their code instead'.tr,
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w600)),
           ),
@@ -3255,7 +3260,7 @@ class _SuggestionRow extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: busy
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 12,
                             height: 12,
                             child: ThemedLoadingIndicator(
@@ -3276,7 +3281,7 @@ class _SuggestionRow extends StatelessWidget {
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.close, size: 14, color: SeenlyPalette.inkFaint),
+                  child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkFaint),
                 ),
               ),
             ],
@@ -3411,7 +3416,6 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final showMascot = context.watch<RabbitMascotPrefsService>().enabled;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -3419,10 +3423,6 @@ class _ErrorState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (showMascot) ...[
-                const RabbitMascot(mood: RabbitMood.sad, size: 92),
-                const SizedBox(height: 10),
-              ],
               Text('couldn\'t reach the diary just now'.tr,
                   style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
               const SizedBox(height: 14),

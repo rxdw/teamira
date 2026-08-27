@@ -66,12 +66,14 @@ class _AmbientStageState extends State<AmbientStage>
     LogTheme.ticket: Alignment.topCenter,
     LogTheme.coach: Alignment(0, 1.1),
     LogTheme.garden: Alignment.topRight,
+    LogTheme.shuttle: Alignment.topCenter,
   };
 
-  static const _glowColor = {
+  static final _glowColor = {
     LogTheme.ticket: SeenlyPalette.accent,
     LogTheme.coach: SeenlyPalette.mustard,
     LogTheme.garden: SeenlyPalette.sage,
+    LogTheme.shuttle: SeenlyPalette.periwinkle,
   };
 
   @override
@@ -85,7 +87,7 @@ class _AmbientStageState extends State<AmbientStage>
       children: [
         // The paper itself, so every screen using this still has a solid
         // base even before anything else here paints.
-        const ColoredBox(color: SeenlyPalette.background),
+        ColoredBox(color: SeenlyPalette.background),
 
         // A held wash of the chosen theme's color — soft, but a genuine
         // presence, not a whisper lost against the paper.

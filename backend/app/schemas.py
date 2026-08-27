@@ -1005,8 +1005,7 @@ class FriendProfileOut(BaseModel):
     status_text: Optional[str] = None
     collections: FriendCollectionsOut
     # This account's pinned badge showcase (see User.pinned_achievement_ids)
-    # — always visible, same as the current-level bunny already shown on a
-    # friend's profile; a deliberate self-presentation choice, not a
+    # — always visible; a deliberate self-presentation choice, not a
     # privacy-gated shelf. Empty if they haven't pinned anything yet.
     pinned_achievements: List[AchievementOut] = []
     # This account's recent activity, same privacy gating as the shelves

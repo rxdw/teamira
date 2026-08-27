@@ -651,9 +651,6 @@ class AvatarPresetOption {
 }
 
 const List<AvatarPresetOption> kAvatarPresets = [
-  AvatarPresetOption('bunny_mascot', 'assets/mascot/rabbit_mascot.png'),
-  AvatarPresetOption('bunny_with_popcorn', 'assets/mascot/bunny_with_popcorn_level1.png'),
-  AvatarPresetOption('bunny_critic', 'assets/mascot/bunny_critic_level5.png'),
   AvatarPresetOption('bunnies_coviewing', 'assets/mascot/bunnies_coViewing.png'),
 ];
 

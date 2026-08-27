@@ -53,9 +53,10 @@ class BuildingWidget extends StatelessWidget {
   final double rise; // 0..1
   final bool compact;
   final bool showLabel;
-  final Color labelColor;
+  Color get labelColor => _labelColor ?? SeenlyPalette.paper;
+  final Color? _labelColor;
 
-  const BuildingWidget({
+  BuildingWidget({
     super.key,
     required this.title,
     required this.mediaType,
@@ -66,8 +67,8 @@ class BuildingWidget extends StatelessWidget {
     this.rise = 1.0,
     this.compact = false,
     this.showLabel = false,
-    this.labelColor = SeenlyPalette.paper,
-  });
+    Color? labelColor,
+  }) : _labelColor = labelColor;
 
   Color get _accent => SeenlyPalette.ratingColor(rating);
   Color get _categoryColor => SeenlyPalette.mediaColor(mediaType);

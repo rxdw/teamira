@@ -227,7 +227,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
                       color: SeenlyPalette.paper.withOpacity(0.92),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(accepted ? 'your marathon' : "today's pick",
+                    child: Text((accepted ? 'your marathon' : "today's pick").tr,
                         style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.accent, weight: FontWeight.w700)),
                   ),
                 ),
@@ -250,7 +250,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
                             ),
                             alignment: Alignment.center,
                             child: _shuffling
-                                ? const SizedBox(
+                                ? SizedBox(
                                     width: 11,
                                     height: 11,
                                     child: CircularProgressIndicator(strokeWidth: 1.5, color: SeenlyPalette.paper),
@@ -272,7 +272,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
                             shape: BoxShape.circle,
                           ),
                           alignment: Alignment.center,
-                          child: const Icon(Icons.close, size: 13, color: SeenlyPalette.paper),
+                          child: Icon(Icons.close, size: 13, color: SeenlyPalette.paper),
                         ),
                       ),
                     ],
@@ -319,8 +319,8 @@ class _TodayPickCardState extends State<TodayPickCard> {
                   const SizedBox(height: 6),
                   Text(
                     pick.watchedCount == 0
-                        ? 'none watched yet — first one\'s a click away'
-                        : 'watched ${pick.watchedCount} of ${pick.totalCount}',
+                        ? 'none watched yet — first one\'s a click away'.tr
+                        : '${'watched'.tr} ${pick.watchedCount} ${'of'.tr} ${pick.totalCount}',
                     style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                   ),
                   const SizedBox(height: 10),
@@ -350,7 +350,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
                             color: SeenlyPalette.accent,
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: Text(accepted ? 'keep going' : "I'm in",
+                          child: Text((accepted ? 'keep going' : "I'm in").tr,
                               style: SeenlyText.mono(
                                   size: 11, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w700)),
                         ),

@@ -20,6 +20,7 @@ import 'cinema_log_screen.dart';
 import 'coach_log_screen.dart';
 import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
+import 'shuttle_log_screen.dart';
 import '../../services/app_translations.dart';
 
 String _fmtDuration(int minutes) {
@@ -196,36 +197,47 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
               }()
             : ('opening', 'credits'),
         LogTheme.garden => _hasRealMap ? ('main gate', widget.routeLabel) : ('planted', 'in bloom'),
+        LogTheme.shuttle => _hasRealMap
+            ? () {
+                final parts = widget.routeLabel.split(' → ');
+                return (parts.first, parts.length > 1 ? parts.last : parts.first);
+              }()
+            : ('the pad', 'orbit'),
       };
 
   IconData get _markerIcon => switch (widget.theme) {
         LogTheme.coach => Icons.train,
         LogTheme.garden => Icons.directions_walk,
         LogTheme.ticket => Icons.flight,
+        LogTheme.shuttle => Icons.rocket_launch,
       };
 
   JourneyVehicle get _vehicle => switch (widget.theme) {
         LogTheme.coach => JourneyVehicle.train,
         LogTheme.garden => JourneyVehicle.walk,
         LogTheme.ticket => JourneyVehicle.plane,
+        LogTheme.shuttle => JourneyVehicle.rocket,
       };
 
   Color get _accent => switch (widget.theme) {
         LogTheme.coach => SeenlyPalette.periwinkle,
         LogTheme.garden => SeenlyPalette.sage,
         LogTheme.ticket => SeenlyPalette.coral,
+        LogTheme.shuttle => SeenlyPalette.periwinkle,
       };
 
   String get _headline => switch (widget.theme) {
         LogTheme.coach => 'on the rails'.tr,
         LogTheme.garden => 'out in the garden'.tr,
         LogTheme.ticket => 'in the air'.tr,
+        LogTheme.shuttle => 'in orbit'.tr,
       };
 
   String get _routeNoun => switch (widget.theme) {
         LogTheme.coach => 'the train'.tr,
         LogTheme.garden => 'the walk'.tr,
         LogTheme.ticket => 'the flight'.tr,
+        LogTheme.shuttle => 'the shuttle'.tr,
       };
 
   String get _comparisonTail {
@@ -239,12 +251,14 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
         LogTheme.coach => CoachLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
         LogTheme.ticket => CinemaLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
         LogTheme.garden => GardenLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
+        LogTheme.shuttle => ShuttleLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
       };
 
   String get _cancelPrompt => switch (widget.theme) {
-        LogTheme.coach => 'cancel the trip?',
-        LogTheme.garden => 'turn back at the gate?',
-        LogTheme.ticket => 'cancel the flight?',
+        LogTheme.coach => 'cancel the trip?'.tr,
+        LogTheme.garden => 'turn back at the gate?'.tr,
+        LogTheme.ticket => 'cancel the flight?'.tr,
+        LogTheme.shuttle => 'cancel the launch?'.tr,
       };
 
   // A small "cancel route" tap only opens this sheet — the actual
@@ -261,7 +275,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
           ),
@@ -624,7 +638,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.expand_more, size: 20, color: SeenlyPalette.inkMuted),
+                    icon: Icon(Icons.expand_more, size: 20, color: SeenlyPalette.inkMuted),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   IconButton(
@@ -633,7 +647,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                     onPressed: _togglePause,
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18, color: SeenlyPalette.inkMuted),
+                    icon: Icon(Icons.close_rounded, size: 18, color: SeenlyPalette.inkMuted),
                     onPressed: _confirmCancelRoute,
                   ),
                   const Spacer(),
@@ -836,7 +850,7 @@ class _MapStyleRow extends StatelessWidget {
                         color: SeenlyPalette.ink,
                         weight: selected ? FontWeight.w700 : FontWeight.w400)),
               ),
-              if (selected) const Icon(Icons.check_circle, size: 18, color: SeenlyPalette.accent),
+              if (selected) Icon(Icons.check_circle, size: 18, color: SeenlyPalette.accent),
             ],
           ),
         ),
@@ -1030,7 +1044,7 @@ class _JourneyPathPainter extends CustomPainter {
 
   void _drawLabel(Canvas canvas, String text, Offset center, TextAlign align) {
     final painter = TextPainter(
-      text: TextSpan(text: text, style: const TextStyle(fontSize: 12, color: SeenlyPalette.inkFaint)),
+      text: TextSpan(text: text, style: TextStyle(fontSize: 12, color: SeenlyPalette.inkFaint)),
       textAlign: align,
       textDirection: TextDirection.ltr,
       maxLines: 1,

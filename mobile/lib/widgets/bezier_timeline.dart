@@ -43,10 +43,10 @@ class RewatchTimeline extends StatelessWidget {
   ];
 
   String _describe(DiaryEntry e, int index) {
-    if (index == 0) return 'first watch';
+    if (index == 0) return 'first watch'.tr;
     if (e.note != null && e.note!.trim().isNotEmpty) return e.note!.trim();
     if (e.moodTags.isNotEmpty) return e.moodTags.first;
-    return 'watched again';
+    return 'watched again'.tr;
   }
 
   @override
@@ -89,22 +89,29 @@ class RewatchTimeline extends StatelessWidget {
 class BezierTimeline extends StatelessWidget {
   final List<TimelineItem> items;
   final List<String> monthLabels;
-  final Color lineColor;
-  final Color cardColor;
-  final Color textColor;
-  final Color secondaryTextColor;
+  Color get lineColor => _lineColor ?? SeenlyPalette.accent;
+  final Color? _lineColor;
+  Color get cardColor => _cardColor ?? SeenlyPalette.paper;
+  final Color? _cardColor;
+  Color get textColor => _textColor ?? SeenlyPalette.ink;
+  final Color? _textColor;
+  Color get secondaryTextColor => _secondaryTextColor ?? SeenlyPalette.inkFaint;
+  final Color? _secondaryTextColor;
   final double amplitude;
 
-  const BezierTimeline({
+  BezierTimeline({
     super.key,
     required this.items,
     required this.monthLabels,
-    this.lineColor = SeenlyPalette.accent,
-    this.cardColor = SeenlyPalette.paper,
-    this.textColor = SeenlyPalette.ink,
-    this.secondaryTextColor = SeenlyPalette.inkFaint,
+    Color? lineColor,
+    Color? cardColor,
+    Color? textColor,
+    Color? secondaryTextColor,
     this.amplitude = 52,
-  });
+  })  : _lineColor = lineColor,
+        _cardColor = cardColor,
+        _textColor = textColor,
+        _secondaryTextColor = secondaryTextColor;
 
   static const double _margin = 12;
   static const double _cardPadding = 10;

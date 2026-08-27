@@ -39,7 +39,7 @@ class SeenlyText {
   // upright now regardless of what callers pass here.
   static TextStyle serif({
     double size = 15,
-    Color color = SeenlyPalette.ink,
+    Color? color,
     FontWeight weight = FontWeight.w500,
     bool italic = false,
     bool enforceFloor = true,
@@ -50,7 +50,7 @@ class SeenlyText {
     final builder = isHeading ? GoogleFonts.unbounded : GoogleFonts.comfortaa;
     return builder(
       fontSize: resolvedSize,
-      color: color,
+      color: color ?? SeenlyPalette.ink,
       fontWeight: weight,
       fontStyle: FontStyle.normal,
       height: 1.3,
@@ -60,13 +60,13 @@ class SeenlyText {
 
   static TextStyle mono({
     double size = 12,
-    Color color = SeenlyPalette.inkFaint,
+    Color? color,
     FontWeight weight = FontWeight.w400,
     bool enforceFloor = true,
   }) =>
       GoogleFonts.comfortaa(
         fontSize: (enforceFloor && size < _monoFloor) ? _monoFloor : size,
-        color: color,
+        color: color ?? SeenlyPalette.inkFaint,
         fontWeight: weight,
         height: 1.35,
         decoration: TextDecoration.none,

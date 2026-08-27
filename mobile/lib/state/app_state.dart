@@ -65,10 +65,28 @@ class AppState extends ChangeNotifier {
   // own copy for the level ring.
   int cachedLevel = 1;
 
+  // Set by refreshLevel() when a save just pushed the cached level
+  // higher — consumed once by whichever screen's "keep the stub"-style
+  // button is about to hand off to checkAndCelebrateNewAchievements, so
+  // the person sees the level-up moment in the same breath as any badge
+  // that came with it, without every refreshLevel() call site needing
+  // to thread the result through by hand. Same one-shot
+  // request/consume shape as [pendingProfileTab] below.
+  ProfileLevel? pendingLevelUp;
+
+  ProfileLevel? consumePendingLevelUp() {
+    final level = pendingLevelUp;
+    pendingLevelUp = null;
+    return level;
+  }
+
   Future<void> refreshLevel() async {
     try {
       final level = await profile.level();
       if (cachedLevel == level.level) return;
+      if (level.level > cachedLevel) {
+        pendingLevelUp = level;
+      }
       cachedLevel = level.level;
       notifyListeners();
     } catch (_) {

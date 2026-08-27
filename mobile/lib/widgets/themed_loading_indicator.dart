@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/log_theme_service.dart';
-import '../services/rabbit_mascot_prefs_service.dart';
-import 'rabbit_mascot.dart';
 
 /// The app's one loading spinner, dressed in whichever [LogTheme] is
 /// active — a sprout growing two leaves, a ticket printing out of a
@@ -48,13 +46,6 @@ class _ThemedLoadingIndicatorState extends State<ThemedLoadingIndicator>
   Widget build(BuildContext context) {
     final theme = context.watch<LogThemeService>().theme;
 
-    // Below ~56px the rabbit's detail gets muddy, so small inline
-    // spinners (buttons, list rows) keep the themed motif regardless —
-    // only spinners with room to breathe swap in the mascot.
-    if (widget.size >= 56 && context.watch<RabbitMascotPrefsService>().enabled) {
-      return RabbitMascot(mood: RabbitMood.loading, size: widget.size);
-    }
-
     return SizedBox(
       width: widget.size,
       height: widget.size,
@@ -65,6 +56,7 @@ class _ThemedLoadingIndicatorState extends State<ThemedLoadingIndicator>
             LogTheme.garden => SproutMotionPainter(t: _controller.value),
             LogTheme.coach => CoachWindowMotionPainter(t: _controller.value),
             LogTheme.ticket => TicketPrintMotionPainter(t: _controller.value),
+            LogTheme.shuttle => ShuttlePulseMotionPainter(t: _controller.value),
           };
           return CustomPaint(size: Size(widget.size, widget.size), painter: painter);
         },
@@ -334,4 +326,74 @@ class CoachWindowMotionPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CoachWindowMotionPainter oldDelegate) => oldDelegate.t != t;
+}
+
+/// A small rocket, engines lighting on a steady pulse — the shuttle
+/// theme's loading motif, same "flat shape in the app's own palette"
+/// spirit as the sprout, ticket, and coach window above it.
+class ShuttlePulseMotionPainter extends CustomPainter {
+  final double t; // 0..1, one full pulse per loop
+  const ShuttlePulseMotionPainter({required this.t});
+
+  static const _body = Color(0xFF6E7FB8); // SeenlyPalette.periwinkle
+  static const _flame = Color(0xFFE0A85C); // SeenlyPalette.mustard
+
+  double get _pulse {
+    // eases the flame up, holds briefly, eases back down — same
+    // breathing rhythm as the sprout's growth curve.
+    if (t < 0.5) return Curves.easeOut.transform((t / 0.5).clamp(0.0, 1.0));
+    return 1 - Curves.easeIn.transform(((t - 0.5) / 0.5).clamp(0.0, 1.0));
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    canvas.save();
+    canvas.translate(w / 2, h / 2);
+
+    final bodyPaint = Paint()..color = _body;
+    final body = Path()
+      ..moveTo(0, -h * 0.32)
+      ..quadraticBezierTo(w * 0.22, -h * 0.02, w * 0.15, h * 0.28)
+      ..lineTo(-w * 0.15, h * 0.28)
+      ..quadraticBezierTo(-w * 0.22, -h * 0.02, 0, -h * 0.32)
+      ..close();
+    canvas.drawPath(body, bodyPaint);
+
+    final finPaint = Paint()..color = _body.withOpacity(0.75);
+    canvas.drawPath(
+      Path()
+        ..moveTo(-w * 0.15, h * 0.16)
+        ..lineTo(-w * 0.32, h * 0.34)
+        ..lineTo(-w * 0.14, h * 0.28)
+        ..close(),
+      finPaint,
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(w * 0.15, h * 0.16)
+        ..lineTo(w * 0.32, h * 0.34)
+        ..lineTo(w * 0.14, h * 0.28)
+        ..close(),
+      finPaint,
+    );
+
+    canvas.drawCircle(Offset(0, -h * 0.06), h * 0.06, Paint()..color = Colors.white.withOpacity(0.9));
+
+    // The flame, growing and shrinking on the pulse — the one moving
+    // part, standing in for the spinner's usual rotation.
+    final flameLen = h * (0.14 + 0.22 * _pulse);
+    canvas.drawPath(
+      Path()
+        ..moveTo(-w * 0.1, h * 0.28)
+        ..quadraticBezierTo(0, h * 0.28 + flameLen, w * 0.1, h * 0.28)
+        ..close(),
+      Paint()..color = _flame.withOpacity(0.55 + 0.35 * _pulse),
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant ShuttlePulseMotionPainter oldDelegate) => oldDelegate.t != t;
 }

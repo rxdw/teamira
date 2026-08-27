@@ -1,15 +1,16 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/achievement.dart';
 import '../../services/log_theme_service.dart';
-import '../../services/rabbit_mascot_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/log_theme_copy.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/achievement_badge.dart';
-import '../../widgets/rabbit_mascot.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
 import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
@@ -53,8 +54,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     if (widget.initial != null) _pinnedIds = widget.initial!.pinnedIds;
     _future.then((r) {
       if (mounted) setState(() => _pinnedIds = r.pinnedIds);
+      _checkForNewUnlocks(r);
     });
   }
+
+  /// Delegates to [checkAndCelebrateNewAchievements] — the shared
+  /// diff-and-celebrate check also called right after logging an
+  /// evening (see screens/add_entry/*). Runs here too since this
+  /// screen (or Profile's pinned-badges teaser row, which calls the
+  /// same achievements() endpoint but never checks this) is also
+  /// exactly the moment a newly-unlocked achievement would first
+  /// become visible to someone who unlocked it some other way, or
+  /// simply hasn't opened the app since.
+  Future<void> _checkForNewUnlocks(AchievementsResponse r) =>
+      checkAndCelebrateNewAchievements(context);
 
   Future<AchievementsResponse> _load() => context.read<AppState>().profile.achievements();
 
@@ -63,6 +76,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     setState(() => _future = next);
     final r = await next;
     if (mounted) setState(() => _pinnedIds = r.pinnedIds);
+    _checkForNewUnlocks(r);
   }
 
   /// The whole reason for this screen to exist beyond a grid of shapes —
@@ -120,50 +134,19 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Height is fixed to fit the celebration mascot fully — it used
-            // to be positioned inside a Stack whose own height came only
-            // from the header row (much shorter than the mascot), so the
-            // mascot's bottom hung past the header and painted over the
-            // list content underneath. Reserving its real height here
-            // means nothing needs to overflow to fit.
-            SizedBox(
-              height: 76,
-              child: Stack(
-                clipBehavior: Clip.none,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 20, 4),
+              child: Row(
                 children: [
-                  Positioned.fill(
+                  PressScale(
+                    onTap: () => Navigator.of(context).pop(),
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 20, 4),
-                      child: Row(
-                        children: [
-                          PressScale(
-                            onTap: () => Navigator.of(context).pop(),
-                            child: const Padding(
-                              padding: EdgeInsets.all(8),
-                              child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text('badges'.tr, style: SeenlyText.screenTitle),
-                        ],
-                      ),
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     ),
                   ),
-                  FutureBuilder<AchievementsResponse>(
-                    future: _future,
-                    builder: (context, snapshot) {
-                      final data = snapshot.data;
-                      if (data == null || data.unlockedCount <= 0) return const SizedBox.shrink();
-                      if (!context.watch<RabbitMascotPrefsService>().enabled) {
-                        return const SizedBox.shrink();
-                      }
-                      return const Positioned(
-                        top: 0,
-                        right: 6,
-                        child: RabbitMascot(mood: RabbitMood.celebrating, size: 76),
-                      );
-                    },
-                  ),
+                  const SizedBox(width: 4),
+                  Text('badges'.tr, style: SeenlyText.screenTitle),
                 ],
               ),
             ),
@@ -224,7 +207,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                         Entrance(
                           child: Row(
                             children: [
-                              const Icon(Icons.emoji_events, size: 17, color: SeenlyPalette.mustard),
+                              Icon(Icons.emoji_events, size: 17, color: SeenlyPalette.mustard),
                               const SizedBox(width: 7),
                               Text.rich(
                                 TextSpan(
@@ -239,6 +222,18 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                 ),
                               ),
                             ],
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // A thin overall-collection fill under the raw count —
+                        // the same "count up, don't jump" fill-in Profile's own
+                        // level ring uses (see _LevelRing), just flattened to a
+                        // bar since there's no single "current tier" here to
+                        // ring around, only a running total across every rarity.
+                        Entrance(
+                          delay: const Duration(milliseconds: 30),
+                          child: _CollectionProgressBar(
+                            ratio: data.totalCount == 0 ? 0 : data.unlockedCount / data.totalCount,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -297,51 +292,115 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                         ),
                         const SizedBox(height: 18),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 260),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) => FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
-                                  .animate(animation),
-                              child: child,
+                        // The badge shelf itself sits in its own soft paper
+                        // card rather than floating loose on the screen
+                        // background — the same "cozy object on a surface"
+                        // language the rest of the app uses (see palette's
+                        // own doc comment on `paper`/`cork`), so a wall of
+                        // circles reads as one grouped display case instead
+                        // of scattered dots.
+                        Entrance(
+                          delay: const Duration(milliseconds: 140),
+                          child: Container(
+                            width: double.infinity,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              color: SeenlyPalette.paper,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: SeenlyPalette.border, width: 1),
+                              boxShadow: SeenlyPalette.softShadow,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // A slim accent strip in the active rarity's own
+                                // color across the top of the case — echoes the
+                                // tab that's currently selected, so the case
+                                // below visibly "belongs" to whichever tab is
+                                // lit rather than sitting neutral under all four.
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 260),
+                                  height: 4,
+                                  color: _activeRarity.color,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(14, 20, 14, 24),
+                                  child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 260),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) => FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
+                                    .animate(animation),
+                                child: child,
+                              ),
+                            ),
+                            child: shown.isEmpty
+                                ? Padding(
+                                    key: const ValueKey('empty'),
+                                    padding: const EdgeInsets.symmetric(vertical: 26),
+                                    child: Column(
+                                      children: [
+                                        Icon(Icons.emoji_events_outlined,
+                                            size: 30, color: SeenlyPalette.dashedBorder),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'nothing here yet'.tr,
+                                          textAlign: TextAlign.center,
+                                          style: SeenlyText.serif(
+                                              italic: true, color: SeenlyPalette.placeholder),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                  // A plain SliverGridDelegateWithFixedCrossAxisCount
+                                  // always packs left-to-right, so a final row
+                                  // short of a full 3 (2 left over, or 1) sits
+                                  // stranded on the left. Wrap — sized so each
+                                  // tile is exactly a third of the row, with
+                                  // WrapAlignment.center — reproduces the same
+                                  // tidy 3-across grid for every full row (a
+                                  // full row has zero slack to center within,
+                                  // so this is visually identical to the old
+                                  // grid there) but centers the leftover tiles
+                                  // instead of stranding them for the last,
+                                  // partial one.
+                                  : LayoutBuilder(
+                                      key: ValueKey(_activeRarity),
+                                      builder: (context, constraints) {
+                                        const columns = 3;
+                                        const spacing = 10.0;
+                                        final tileWidth =
+                                            (constraints.maxWidth - spacing * (columns - 1)) /
+                                                columns;
+                                        return Wrap(
+                                          alignment: WrapAlignment.center,
+                                          spacing: spacing,
+                                          runSpacing: 24,
+                                          children: [
+                                            for (int i = 0; i < shown.length; i++)
+                                              SizedBox(
+                                                width: tileWidth,
+                                                child: ScrollRevealEntrance(
+                                                  index: i,
+                                                  child: _BadgeShowcaseTile(
+                                                    achievement: shown[i],
+                                                    pinned: _pinnedIds.contains(shown[i].id),
+                                                    onTap: () => _showBadgeDetail(shown[i]),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                          ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: shown.isEmpty
-                              ? Padding(
-                                  key: const ValueKey('empty'),
-                                  padding: const EdgeInsets.symmetric(vertical: 30),
-                                  child: Text(
-                                    'nothing here yet'.tr,
-                                    textAlign: TextAlign.center,
-                                    style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
-                                  ),
-                                )
-                              : GridView.builder(
-                                  key: ValueKey(_activeRarity),
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  itemCount: shown.length,
-                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    mainAxisSpacing: 22,
-                                    crossAxisSpacing: 8,
-                                    childAspectRatio: 0.74,
-                                  ),
-                                  itemBuilder: (context, i) {
-                                    final a = shown[i];
-                                    return ScrollRevealEntrance(
-                                      index: i,
-                                      child: _BadgeShowcaseTile(
-                                        achievement: a,
-                                        pinned: _pinnedIds.contains(a.id),
-                                        onTap: () => _showBadgeDetail(a),
-                                      ),
-                                    );
-                                  },
-                                ),
                         ),
                       ],
                     ),
@@ -357,10 +416,12 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 }
 
 /// One of the four rarity filter tabs — same underlined-label language as
-/// Profile's watched/plan-to-watch/watching-now row (_TabLabel), just
-/// carrying its own rarity's color for the underline and count instead of
-/// always the app accent, so the tab strip doubles as the legend the old
-/// screen used to show separately.
+/// Profile's watched/plan-to-watch/watching-now row (_TabLabel), lifted a
+/// touch further here: the active tab fills with that rarity's own
+/// [BadgeRarityStyle.gradient] (the exact material its unlocked badges are
+/// made of) rather than a flat tint, and carries a small glyph so the four
+/// tabs read at a glance even before the label's been read — the same
+/// count-as-legend idea the old screen's separate legend used to carry.
 class _RarityTab extends StatelessWidget {
   final BadgeRarity rarity;
   final int count;
@@ -373,6 +434,19 @@ class _RarityTab extends StatelessWidget {
     required this.onTap,
   });
 
+  IconData get _icon {
+    switch (rarity) {
+      case BadgeRarity.habit:
+        return Icons.eco_outlined;
+      case BadgeRarity.devoted:
+        return Icons.favorite_outline;
+      case BadgeRarity.obsession:
+        return Icons.local_fire_department_outlined;
+      case BadgeRarity.legend:
+        return Icons.auto_awesome;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final color = rarity.color;
@@ -380,33 +454,86 @@ class _RarityTab extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
+        child: AnimatedScale(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          margin: const EdgeInsets.symmetric(horizontal: 3),
-          decoration: BoxDecoration(
-            color: active ? color.withOpacity(0.14) : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            border: Border(
-              bottom: BorderSide(color: active ? color : SeenlyPalette.border, width: 2),
+          curve: Curves.easeOutBack,
+          scale: active ? 1.0 : 0.96,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            decoration: BoxDecoration(
+              gradient: active
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [color.withOpacity(0.22), color.withOpacity(0.10)],
+                    )
+                  : null,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: active ? color.withOpacity(0.55) : Colors.transparent,
+                width: 1.2,
+              ),
+              boxShadow: active
+                  ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 10, offset: const Offset(0, 3))]
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_icon, size: 15, color: active ? color : SeenlyPalette.placeholder),
+                const SizedBox(height: 4),
+                Text(
+                  rarity.label,
+                  style: SeenlyText.serif(
+                    italic: true,
+                    size: 12.5,
+                    weight: active ? FontWeight.w600 : FontWeight.w500,
+                    color: active ? SeenlyPalette.ink : SeenlyPalette.placeholder,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text('$count', style: SeenlyText.mono(size: 9.5, color: active ? color : SeenlyPalette.placeholder)),
+              ],
             ),
           ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                rarity.label,
-                style: SeenlyText.serif(
-                  italic: true,
-                  size: 12.5,
-                  weight: active ? FontWeight.w600 : FontWeight.w500,
-                  color: active ? SeenlyPalette.ink : SeenlyPalette.placeholder,
+        ),
+      ),
+    );
+  }
+}
+
+/// The thin "collection so far" fill under the raw unlocked/total count —
+/// animates from empty on first build (same "grows in" spirit as
+/// Profile's own level ring) rather than snapping straight to its target.
+class _CollectionProgressBar extends StatelessWidget {
+  final double ratio;
+  const _CollectionProgressBar({required this.ratio});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: Container(
+        height: 6,
+        color: SeenlyPalette.border,
+        alignment: Alignment.centerLeft,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
+          duration: const Duration(milliseconds: 900),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, _) => FractionallySizedBox(
+            widthFactor: value,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [SeenlyPalette.mustard, SeenlyPalette.accent],
                 ),
               ),
-              const SizedBox(height: 2),
-              Text('$count', style: SeenlyText.mono(size: 9.5, color: active ? color : SeenlyPalette.placeholder)),
-            ],
+            ),
           ),
         ),
       ),
@@ -453,7 +580,6 @@ class _BadgeShowcaseTile extends StatelessWidget {
                   ))
             : null,
         color: unlocked ? null : SeenlyPalette.paper,
-        border: unlocked ? null : Border.all(color: SeenlyPalette.dashedBorder, width: 1.4),
       ),
       alignment: Alignment.center,
       child: Icon(
@@ -502,7 +628,7 @@ class _BadgeShowcaseTile extends StatelessWidget {
             child: Container(
               width: 19,
               height: 19,
-              decoration: const BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
               alignment: Alignment.center,
               child: pinned
                   ? Icon(Icons.push_pin, size: 11, color: SeenlyPalette.accent)
@@ -515,13 +641,45 @@ class _BadgeShowcaseTile extends StatelessWidget {
                         border: Border.all(color: SeenlyPalette.paper, width: 1.4),
                       ),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.check, size: 9, color: SeenlyPalette.paper),
+                      child: Icon(Icons.check, size: 9, color: SeenlyPalette.paper),
                     ),
             ),
           ),
         ],
       );
     }
+
+    // A thin outer gauge instead of the old dashed border sitting right
+    // on the medallion's own edge — locked badges get an honest "how
+    // close am I" ring (empty track when nothing's logged toward it
+    // yet, filled to [Achievement.progressRatio] once something has),
+    // unlocked ones just get the plain glow above. Wrapping every tile
+    // in the same [ringSize] box regardless of state (rather than only
+    // the locked ones) keeps every medallion — locked or unlocked —
+    // sitting at the same visual size in the grid instead of the ring
+    // silently making locked tiles a few pixels wider than unlocked
+    // ones next to them.
+    const ringSize = diameter + 16;
+    medallion = SizedBox(
+      width: ringSize,
+      height: ringSize,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          if (!unlocked)
+            CustomPaint(
+              size: const Size(ringSize, ringSize),
+              painter: _BadgeProgressRingPainter(
+                progress: achievement.progressRatio,
+                trackColor: SeenlyPalette.dashedBorder,
+                progressColor: rarity.color,
+              ),
+            ),
+          medallion,
+        ],
+      ),
+    );
 
     final caption = unlocked
         ? Text(rarity.label,
@@ -555,5 +713,51 @@ class _BadgeShowcaseTile extends StatelessWidget {
     if (onTap == null) return content;
     return PressScale(onTap: onTap, haptics: true, child: content);
   }
+}
+
+/// The locked-badge progress gauge — a rounded-stroke arc over a neutral
+/// track, same drawing approach as Profile's own `_RingArcPainter` for
+/// the level ring, just sized for a small grid tile instead of a header
+/// avatar. Kept local to this file rather than shared: the two draw the
+/// same shape but never need to change in lockstep.
+class _BadgeProgressRingPainter extends CustomPainter {
+  final double progress; // 0..1
+  final Color trackColor;
+  final Color progressColor;
+  const _BadgeProgressRingPainter({
+    required this.progress,
+    required this.trackColor,
+    required this.progressColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 3.0;
+    final rect = (Offset.zero & size).deflate(strokeWidth / 2);
+    final center = rect.center;
+    final radius = rect.width / 2;
+
+    final trackPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
+      ..color = trackColor;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (progress > 0) {
+      final progressPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..color = progressColor;
+      canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * progress.clamp(0.0, 1.0), false, progressPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BadgeProgressRingPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.progressColor != progressColor;
 }
 

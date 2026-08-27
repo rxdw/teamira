@@ -110,7 +110,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
@@ -119,7 +119,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
               ),
             ),
             if (_loading)
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
                 ),
@@ -281,12 +281,12 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.autorenew, size: 16, color: SeenlyPalette.coral),
+                            Icon(Icons.autorenew, size: 16, color: SeenlyPalette.coral),
                             const SizedBox(width: 10),
                             Text('rotate token'.tr, style: SeenlyText.serif(italic: true, color: SeenlyPalette.coral)),
                             const Spacer(),
                             if (_rotating)
-                              const SizedBox(
+                              SizedBox(
                                 width: 13, height: 13,
                                 child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.coral),
                               ),
@@ -413,7 +413,7 @@ class _IntegrationCard extends StatelessWidget {
           for (final step in steps)
             Padding(
               padding: const EdgeInsets.only(bottom: 2),
-              child: Text('· $step',
+              child: Text('· ${step.tr}',
                   style: SeenlyText.serif(size: 11, color: SeenlyPalette.inkMuted)),
             ),
           const SizedBox(height: 10),
@@ -450,7 +450,7 @@ class _CopyRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.copy_outlined, size: 14, color: SeenlyPalette.accent),
+            Icon(Icons.copy_outlined, size: 14, color: SeenlyPalette.accent),
           ],
         ),
       ),

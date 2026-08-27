@@ -193,7 +193,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   if (!widget.isOwn) ...[
@@ -210,7 +210,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
                   ),
                   if (widget.isOwn && _collections != null)
                     IconButton(
-                      icon: const Icon(Icons.add_circle_outline, size: 21, color: SeenlyPalette.accent),
+                      icon: Icon(Icons.add_circle_outline, size: 21, color: SeenlyPalette.accent),
                       tooltip: 'add a favorite'.tr,
                       onPressed: _openAdd,
                     ),
@@ -560,7 +560,7 @@ class _FavoriteListCard extends StatelessWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.star, size: 11, color: SeenlyPalette.mustard),
+                              Icon(Icons.star, size: 11, color: SeenlyPalette.mustard),
                               const SizedBox(width: 4),
                               Text(
                                 topOrder == null ? 'in banner' : 'banner · #$topOrder',

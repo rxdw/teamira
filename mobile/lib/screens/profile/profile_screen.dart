@@ -16,6 +16,7 @@ import '../../models/friend.dart';
 import '../../models/profile_stats.dart';
 import '../../models/watchlist_entry.dart';
 import '../../services/log_theme_service.dart';
+import '../../services/premium_service.dart';
 import '../../services/sources_display_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/log_theme_copy.dart';
@@ -33,6 +34,7 @@ import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/planned_preview_sheet.dart';
 import '../../widgets/planned_random_pick_sheet.dart';
 import '../../widgets/small_pieces.dart';
+import '../premium/premium_screen.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import 'category_watched_screen.dart';
@@ -185,6 +187,13 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
       // its plain look with no top pick highlighted.
     }
     final allEntries = results[2] as List<DiaryEntry>; // already newest-first, see DiaryService.list
+    // Keeps PremiumService's local favorites counter honest against the
+    // real collections data, so the free-tier ceiling check in
+    // FavoriteAddScreen/TitleDetailScreen (see canAddFavorite) reflects
+    // reality even after a hot restart threw the optimistic count away.
+    if (mounted) {
+      context.read<PremiumService>().syncFavoritesCount(_allFavoriteMovies(collections).length);
+    }
     return _ProfileData(
       collections,
       results[1] as ProfileYearStats,
@@ -399,6 +408,19 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                   ),
                 ),
               ),
+              if (!context.watch<PremiumService>().isPremium)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  sliver: SliverToBoxAdapter(
+                    child: ScrollReveal(
+                      delay: nextReveal(),
+                      child: _PremiumBanner(
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const PremiumScreen())),
+                      ),
+                    ),
+                  ),
+                ),
               if (data.wrapped != null)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
@@ -514,7 +536,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                           behavior: HitTestBehavior.opaque,
                           child: Row(
                             children: [
-                              const Icon(Icons.casino_outlined, size: 13, color: SeenlyPalette.accent),
+                              Icon(Icons.casino_outlined, size: 13, color: SeenlyPalette.accent),
                               const SizedBox(width: 4),
                               Text('random'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent)),
                             ],
@@ -875,7 +897,7 @@ class _ProfileHeader extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const SettingsScreen()),
                     ),
-                    child: const Icon(Icons.settings_outlined, size: 17, color: SeenlyPalette.inkMuted),
+                    child: Icon(Icons.settings_outlined, size: 17, color: SeenlyPalette.inkMuted),
                   ),
                 ),
                 Positioned(
@@ -1239,7 +1261,7 @@ class _StoriesBannerState extends State<_StoriesBanner> with SingleTickerProvide
   }
 
   Widget _fallback() => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1269,7 +1291,7 @@ class _Slide extends StatelessWidget {
     final url = entry.backdropUrl ?? entry.posterUrl;
     if (url == null || url.isEmpty) {
       return Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1283,7 +1305,7 @@ class _Slide extends StatelessWidget {
       fit: BoxFit.cover,
       alignment: Alignment.center,
       errorBuilder: (_, __, ___) => Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1437,7 +1459,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
           ),
           const SizedBox(height: 14),
           if (_loading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.symmetric(vertical: 4),
               child: SizedBox(
                 width: 16,
@@ -1499,7 +1521,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.person_add_alt_1_rounded, size: 13, color: SeenlyPalette.accent),
+                    Icon(Icons.person_add_alt_1_rounded, size: 13, color: SeenlyPalette.accent),
                     const SizedBox(width: 6),
                     Text('invite friends'.tr,
                         style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
@@ -1656,7 +1678,7 @@ class _TicketStub extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 26,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: SeenlyPalette.tapeMustard,
         border: Border(right: BorderSide(color: SeenlyPalette.tapeRose, width: 1.5)),
       ),
@@ -1668,7 +1690,9 @@ class _TicketStub extends StatelessWidget {
                   style: SeenlyText.mono(size: 7, color: SeenlyPalette.clay)
                       .copyWith(letterSpacing: 2)),
             )
-          : Icon(Icons.location_on_outlined, size: 13, color: SeenlyPalette.clay),
+          : theme == LogTheme.shuttle
+              ? Icon(Icons.rocket_launch_outlined, size: 13, color: SeenlyPalette.clay)
+              : Icon(Icons.location_on_outlined, size: 13, color: SeenlyPalette.clay),
     );
   }
 }
@@ -2072,7 +2096,7 @@ class _StatsGridCardState extends State<_StatsGridCard>
                       for (final e in rest)
                         Container(
                           padding: const EdgeInsets.only(top: 14),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             border: Border(
                               top: BorderSide(color: SeenlyPalette.border, width: 0.6),
                             ),
@@ -2103,7 +2127,7 @@ class _StatsGridCardState extends State<_StatsGridCard>
           Container(
             margin: const EdgeInsets.only(top: 14),
             padding: const EdgeInsets.only(top: 14),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(top: BorderSide(color: SeenlyPalette.border, width: 0.6)),
             ),
             child: GestureDetector(
@@ -2111,12 +2135,12 @@ class _StatsGridCardState extends State<_StatsGridCard>
                   MaterialPageRoute(builder: (_) => const StatsScreen())),
               child: Row(
                 children: [
-                  const Icon(Icons.bar_chart_rounded, size: 15, color: SeenlyPalette.accent),
+                  Icon(Icons.bar_chart_rounded, size: 15, color: SeenlyPalette.accent),
                   const SizedBox(width: 7),
                   Text('подробная статистика'.tr,
                       style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.accent, weight: FontWeight.w600)),
                   const Spacer(),
-                  const Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.accent),
+                  Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.accent),
                 ],
               ),
             ),
@@ -2167,7 +2191,7 @@ class _CategoryRow extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           child: Row(
             children: [
-              Text(label, style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600, italic: true)),
+              Text(label.tr, style: SeenlyText.serif(size: 14.5, weight: FontWeight.w600, italic: true)),
               const Spacer(),
               CountUpNumber(
                 value: value.toDouble(),
@@ -2413,7 +2437,9 @@ class _ExpandToggle extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              expanded ? 'collapse' : 'show all${remainingCount > 0 ? ' · $remainingCount more' : ''}',
+              expanded
+                  ? 'collapse'.tr
+                  : '${'show all'.tr}${remainingCount > 0 ? ' · ${'$remainingCount ${'more'.tr}'}' : ''}',
               style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w600)
                   .copyWith(letterSpacing: 0.4),
             ),
@@ -2474,7 +2500,7 @@ class _RecentEntryCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: const BorderRadius.horizontal(left: Radius.circular(2), right: Radius.circular(10)),
-          border: const Border(left: BorderSide(color: SeenlyPalette.border, width: 2)),
+          border: Border(left: BorderSide(color: SeenlyPalette.border, width: 2)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2612,13 +2638,13 @@ class _YourListsRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.collections_bookmark_outlined,
+            Icon(Icons.collections_bookmark_outlined,
                 size: 17, color: SeenlyPalette.accent),
             const SizedBox(width: 10),
             Expanded(
               child: Text('your lists'.tr, style: SeenlyText.sectionTitle),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),
@@ -2649,12 +2675,12 @@ class _YourSourcesRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.smart_display_outlined, size: 17, color: SeenlyPalette.accent),
+            Icon(Icons.smart_display_outlined, size: 17, color: SeenlyPalette.accent),
             const SizedBox(width: 10),
             Expanded(
               child: Text('your sources'.tr, style: SeenlyText.sectionTitle),
             ),
-            const Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),
@@ -2746,6 +2772,7 @@ class _WatchingNowTileState extends State<_WatchingNowTile> {
         LogTheme.coach => SeenlyPalette.periwinkle,
         LogTheme.garden => SeenlyPalette.sage,
         LogTheme.ticket => SeenlyPalette.coral,
+        LogTheme.shuttle => SeenlyPalette.periwinkle,
       };
 
   @override
@@ -2867,6 +2894,68 @@ class _WatchingCollectionTileState extends State<_WatchingCollectionTile> {
   }
 }
 
+/// Soft, low-pressure premium plug — sits above the Wrapped teaser,
+/// only for accounts that aren't premium yet (see PremiumService).
+/// Same rounded-card shape as everything else on this screen, warm
+/// gradient rather than a flat accent fill so it reads as an invite
+/// rather than an ad banner.
+class _PremiumBanner extends StatelessWidget {
+  final VoidCallback onTap;
+  const _PremiumBanner({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              SeenlyPalette.mustard.withOpacity(0.85),
+              SeenlyPalette.coral.withOpacity(0.8),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: SeenlyPalette.softShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: SeenlyPalette.accentOnAccent.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.auto_awesome, size: 17, color: SeenlyPalette.accentOnAccent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('go premium'.tr,
+                      style: SeenlyText.serif(
+                          italic: true, size: 15, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent)),
+                  const SizedBox(height: 2),
+                  Text('unlimited ai asks, favorites, and the shuttle theme'.tr,
+                      style: SeenlyText.mono(
+                          size: 9.5, color: SeenlyPalette.accentOnAccent.withOpacity(0.85))),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward, size: 17, color: SeenlyPalette.accentOnAccent),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _WrappedTeaser extends StatelessWidget {
   final WrappedStat wrapped;
   final VoidCallback onTap;
@@ -2896,7 +2985,11 @@ class _WrappedTeaser extends StatelessWidget {
                       color: SeenlyPalette.accentOnAccent.withOpacity(0.16),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text('premium · free in demo'.tr,
+                    // Wrapped is free for everyone now — premium gates
+                    // unlimited AI asks, unlimited favorites, and the
+                    // shuttle theme instead (see PremiumScreen), so this
+                    // badge no longer claims a restriction that isn't real.
+                    child: Text('your year, at a glance'.tr,
                         style: SeenlyText.mono(
                             size: 8, color: SeenlyPalette.accentOnAccent)),
                   ),

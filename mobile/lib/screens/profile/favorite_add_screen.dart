@@ -6,9 +6,12 @@ import 'package:provider/provider.dart';
 import '../../models/media_item.dart';
 import '../../models/profile_stats.dart';
 import '../../models/watchlist_entry.dart';
+import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/heart_burst.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
 
@@ -18,13 +21,13 @@ extension on _AddTab {
   String get label {
     switch (this) {
       case _AddTab.search:
-        return 'search';
+        return 'search'.tr;
       case _AddTab.watched:
-        return 'watched';
+        return 'watched'.tr;
       case _AddTab.planned:
-        return 'plan to watch';
+        return 'plan to watch'.tr;
       case _AddTab.watching:
-        return 'watching now';
+        return 'watching now'.tr;
     }
   }
 }
@@ -114,6 +117,17 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
   }
 
   Future<void> _toggleMedia(MediaItem item, bool nextValue) async {
+    // Free tier: 5 favorite films (see PremiumService) — only checked
+    // when turning a favorite ON, so removing one is never blocked.
+    if (nextValue && !context.read<PremiumService>().canAddFavorite) {
+      showPremiumUpsellSheet(
+        context,
+        icon: Icons.favorite_outline,
+        title: 'достигнут лимит избранного',
+        message: 'на бесплатном тарифе можно сохранить до 5 любимых фильмов — с премиумом лимита нет',
+      );
+      return;
+    }
     setState(() => _overrides[_key(item.source, item.id)] = nextValue);
     try {
       final confirmed = await context.read<AppState>().profile.toggleFavorite(item, nextValue);
@@ -122,6 +136,11 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
         _overrides[_key(item.source, item.id)] = confirmed;
         _changed = true;
       });
+      if (confirmed) {
+        context.read<PremiumService>().noteFavoriteAdded();
+      } else {
+        context.read<PremiumService>().noteFavoriteRemoved();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _overrides[_key(item.source, item.id)] = !nextValue);
@@ -159,7 +178,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(_changed),
                     ),
                     Expanded(
@@ -199,7 +218,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
                     decoration: InputDecoration(
                       hintText: 'search movies…'.tr,
                       hintStyle: SeenlyText.serif(size: 14, color: SeenlyPalette.placeholder),
-                      prefixIcon: const Icon(Icons.search, size: 18, color: SeenlyPalette.inkMuted),
+                      prefixIcon: Icon(Icons.search, size: 18, color: SeenlyPalette.inkMuted),
                       filled: true,
                       fillColor: SeenlyPalette.paper,
                       contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -213,7 +232,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: SeenlyPalette.accent),
+                        borderSide: BorderSide(color: SeenlyPalette.accent),
                       ),
                     ),
                   ),
@@ -378,12 +397,15 @@ class _MediaRow extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: Icon(
-              isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: isFavorite ? SeenlyPalette.pink : SeenlyPalette.inkMuted,
+          HeartBurst(
+            isFavorite: isFavorite,
+            child: IconButton(
+              icon: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? SeenlyPalette.pink : SeenlyPalette.inkMuted,
+              ),
+              onPressed: onToggle,
             ),
-            onPressed: onToggle,
           ),
         ],
       ),

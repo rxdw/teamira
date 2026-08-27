@@ -88,7 +88,7 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
+                    icon: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   Text('choose a city'.tr, style: SeenlyText.serif(italic: true, size: 15)),
@@ -106,7 +106,7 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
+                    Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
@@ -126,7 +126,7 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
                       ),
                     ),
                     if (_searching)
-                      const SizedBox(
+                      SizedBox(
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2, color: SeenlyPalette.inkFaint),

@@ -94,20 +94,25 @@ class _TornShadowPainter extends CustomPainter {
 class TearToConfirm extends StatefulWidget {
   final String label;
   final String confirmedLabel;
-  final Color accent;
-  final Color trackColor;
-  final Color labelColor;
+  Color get accent => _accent ?? SeenlyPalette.coral;
+  final Color? _accent;
+  Color get trackColor => _trackColor ?? SeenlyPalette.background;
+  final Color? _trackColor;
+  Color get labelColor => _labelColor ?? SeenlyPalette.inkMuted;
+  final Color? _labelColor;
   final VoidCallback onConfirmed;
 
-  const TearToConfirm({
+  TearToConfirm({
     super.key,
     required this.label,
     required this.onConfirmed,
     this.confirmedLabel = 'torn',
-    this.accent = SeenlyPalette.coral,
-    this.trackColor = SeenlyPalette.background,
-    this.labelColor = SeenlyPalette.inkMuted,
-  });
+    Color? accent,
+    Color? trackColor,
+    Color? labelColor,
+  })  : _accent = accent,
+        _trackColor = trackColor,
+        _labelColor = labelColor;
 
   @override
   State<TearToConfirm> createState() => _TearToConfirmState();

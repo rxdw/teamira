@@ -69,6 +69,8 @@ class ThemedPosterTile extends StatelessWidget {
               title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
           LogTheme.garden => _GardenPoster(
               title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
+          LogTheme.shuttle => _ShuttlePoster(
+              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
         },
       ),
     );
@@ -496,4 +498,103 @@ class _TagHoleClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(covariant _TagHoleClipper oldClipper) => false;
+}
+
+// ---------------------------------------------------------------------
+// Shuttle (launch ticket)
+// ---------------------------------------------------------------------
+
+/// A launch ticket stub — same family as the coach's boarding-pass
+/// stub (a tear-notch bottom bar over a dashed line), recolored and
+/// re-iconed for orbit: a small rocket instead of a barcode.
+class _ShuttlePoster extends StatelessWidget {
+  final String title;
+  final String? posterUrl;
+  final Color color;
+  final String? mediaType;
+  final Widget? badge;
+  final double parallax;
+
+  const _ShuttlePoster({
+    required this.title,
+    required this.posterUrl,
+    required this.color,
+    this.mediaType,
+    this.badge,
+    this.parallax = 0,
+  });
+
+  static const double _stubH = 14;
+  static const Color _periwinkle = Color(0xFF6E7FB8);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipPath(
+      clipper: const _EdgeNotchClipper(bottomInset: _stubH, notchRadius: 5, cornerRadius: 9),
+      child: Container(
+        color: SeenlyPalette.paper,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: _stubH),
+              child: _posterFill(posterUrl, color, title, mediaType: mediaType, parallax: parallax),
+            ),
+            Positioned(
+              left: 4,
+              right: 4,
+              bottom: _stubH,
+              child: _DashedLine(color: SeenlyPalette.dashedBorder),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: _stubH,
+              child: Container(
+                color: const Color(0xFF171A2E),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                child: Row(
+                  children: [
+                    Icon(Icons.rocket_launch, size: 9, color: _periwinkle),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: CustomPaint(painter: _StarRowPainter(color: _periwinkle.withOpacity(0.7))),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (badge != null) Positioned(top: 6, right: 6, child: badge!),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A quiet row of small dots standing in for the barcode on the
+/// shuttle ticket's stub — a night-sky texture rather than a scan
+/// code, since nothing here actually needs scanning.
+class _StarRowPainter extends CustomPainter {
+  final Color color;
+  const _StarRowPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final r = 7; // deterministic — same dots every rebuild
+    var seed = r;
+    double x = 0;
+    while (x < size.width) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      final radius = 0.6 + (seed % 100) / 100 * 0.7;
+      final dy = (seed ~/ 100 % 100) / 100 * size.height;
+      canvas.drawCircle(Offset(x, dy.clamp(1.0, size.height - 1)), radius, paint);
+      x += 3.5;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarRowPainter oldDelegate) => oldDelegate.color != color;
 }

@@ -13,22 +13,27 @@ import '../theme/text_styles.dart';
 class SlideToConfirm extends StatefulWidget {
   final String label;
   final String confirmedLabel;
-  final Color accent;
-  final Color trackColor;
-  final Color labelColor;
+  Color get accent => _accent ?? SeenlyPalette.coral;
+  final Color? _accent;
+  Color get trackColor => _trackColor ?? SeenlyPalette.background;
+  final Color? _trackColor;
+  Color get labelColor => _labelColor ?? SeenlyPalette.inkMuted;
+  final Color? _labelColor;
   final IconData icon;
   final VoidCallback onConfirmed;
 
-  const SlideToConfirm({
+  SlideToConfirm({
     super.key,
     required this.label,
     required this.onConfirmed,
     this.confirmedLabel = 'done',
-    this.accent = SeenlyPalette.coral,
-    this.trackColor = SeenlyPalette.background,
-    this.labelColor = SeenlyPalette.inkMuted,
+    Color? accent,
+    Color? trackColor,
+    Color? labelColor,
     this.icon = Icons.chevron_right_rounded,
-  });
+  })  : _accent = accent,
+        _trackColor = trackColor,
+        _labelColor = labelColor;
 
   @override
   State<SlideToConfirm> createState() => _SlideToConfirmState();

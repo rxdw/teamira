@@ -473,8 +473,7 @@ async def get_friend_profile(
     who = other.display_name or other.username
     recent_activity = [item_from_event(e, who) for e in activity_events]
 
-    # Pinned badge showcase — always visible (same treatment as the
-    # current-level bunny already shown here), not gated by any of the
+    # Pinned badge showcase — always visible, not gated by any of the
     # shelf privacy settings above since it's a deliberate self-
     # presentation choice, not a log of what they watched.
     pinned_ids = set(_pinned_ids_list(other))

@@ -1,5 +1,3 @@
-import 'dart:io' show Platform;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +12,7 @@ import '../../models/watch_provider.dart';
 import '../../services/api_client.dart';
 import '../../services/locale_service.dart';
 import '../../services/log_theme_service.dart';
+import '../../services/premium_service.dart';
 import '../../services/spoiler_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
@@ -21,6 +20,7 @@ import '../../theme/poster_palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/add_to_list_sheet.dart';
 import '../../widgets/bezier_timeline.dart';
+import '../../widgets/heart_burst.dart';
 import '../../widgets/heart_rating.dart';
 import '../../widgets/poster_lightbox.dart';
 import '../../widgets/region_picker_sheet.dart';
@@ -36,6 +36,7 @@ import '../../widgets/title_share.dart';
 import '../add_entry/watching_choice_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../person/person_detail_screen.dart';
 import 'full_cast_screen.dart';
 import '../../services/app_translations.dart';
@@ -171,6 +172,17 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
   Future<void> _toggleFavorite() async {
     if (_favoriteBusy) return;
     final next = !_isFavorite;
+    // Free tier: 5 favorite films (see PremiumService) — only checked
+    // when turning a favorite ON, so un-favoriting is never blocked.
+    if (next && !context.read<PremiumService>().canAddFavorite) {
+      showPremiumUpsellSheet(
+        context,
+        icon: Icons.favorite_outline,
+        title: 'достигнут лимит избранного',
+        message: 'на бесплатном тарифе можно сохранить до 5 любимых фильмов — с премиумом лимита нет',
+      );
+      return;
+    }
     setState(() {
       _isFavorite = next; // optimistic — this is a one-tap heart, not a form submit
       _favoriteBusy = true;
@@ -183,6 +195,11 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
         _isFavorite = confirmed;
         _favoriteBusy = false;
       });
+      if (confirmed) {
+        context.read<PremiumService>().noteFavoriteAdded();
+      } else {
+        context.read<PremiumService>().noteFavoriteRemoved();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -300,8 +317,13 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
   String _watchRegion() {
     final manual = context.read<LocaleService>().region;
     if (manual != null) return manual;
-    final parts = Platform.localeName.split(RegExp(r'[_-]'));
-    return parts.length > 1 ? parts.last.toUpperCase() : 'US';
+    // Platform.localeName (dart:io) doesn't exist on Flutter Web at all
+    // — it throws "Unsupported operation" the instant this runs there.
+    // PlatformDispatcher's locale works identically everywhere (web,
+    // mobile, desktop) and hands back a proper Locale instead of a raw
+    // string to parse.
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    return locale.countryCode?.toUpperCase() ?? 'US';
   }
 
   /// Human label for whatever [_watchRegion] resolves to right now — "Russia"
@@ -315,7 +337,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
       (o) => o.code == resolved,
       orElse: () => RegionOption(resolved, resolved),
     );
-    return manual != null ? match.label : 'your region ($resolved)';
+    return manual != null ? match.label.tr : '${'your region'.tr} ($resolved)';
   }
 
   Future<void> _changeRegion() async {
@@ -684,7 +706,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                         ],
                         Container(
                           padding: const EdgeInsets.only(top: 4),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             border: Border(
                                 top: BorderSide(
                                     color: SeenlyPalette.dashedBorder, width: 1)),
@@ -855,11 +877,14 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           ),
                           const SizedBox(width: 8),
                         ],
-                        _RoundIconButton(
-                          icon: _isFavorite ? Icons.favorite : Icons.favorite_border,
-                          iconColor: _isFavorite ? SeenlyPalette.pink : null,
-                          onTap: _toggleFavorite,
-                          loading: _favoriteBusy,
+                        HeartBurst(
+                          isFavorite: _isFavorite,
+                          child: _RoundIconButton(
+                            icon: _isFavorite ? Icons.favorite : Icons.favorite_border,
+                            iconColor: _isFavorite ? SeenlyPalette.pink : null,
+                            onTap: _toggleFavorite,
+                            loading: _favoriteBusy,
+                          ),
                         ),
                         const SizedBox(width: 8),
                         _RoundIconButton(
@@ -902,9 +927,10 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                       Expanded(
                         child: LogSubmitButton(
                           label: switch (context.watch<LogThemeService>().theme) {
-                            LogTheme.coach => 'board another evening',
-                            LogTheme.ticket => 'log another evening',
-                            LogTheme.garden => 'plant another evening',
+                            LogTheme.coach => 'board another evening'.tr,
+                            LogTheme.ticket => 'log another evening'.tr,
+                            LogTheme.garden => 'plant another evening'.tr,
+                            LogTheme.shuttle => 'launch another evening'.tr,
                           },
                           onTap: () async {
                             final next = await _nextUnwatchedEpisode();
@@ -1392,7 +1418,7 @@ class _RatingsRow extends StatelessWidget {
                     Icon(Icons.chat_bubble_outline, size: 11, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 6),
                     Text(
-                      ruCount(ratings.reviewsCount, one: 'рецензия', few: 'рецензии', many: 'рецензий', englishOne: 'review', englishOther: 'reviews'),
+                      ruCount(ratings.reviewsCount!, one: 'рецензия', few: 'рецензии', many: 'рецензий', englishOne: 'review', englishOther: 'reviews'),
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                     if (onTapReviews != null) ...[
@@ -1432,7 +1458,7 @@ class _RatingStat extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showStar) ...[
-              const Icon(Icons.star_rounded, size: 15, color: SeenlyPalette.mustard),
+              Icon(Icons.star_rounded, size: 15, color: SeenlyPalette.mustard),
               const SizedBox(width: 3),
             ],
             parsed != null
@@ -1516,13 +1542,13 @@ class _SuggestTonightStrip extends StatelessWidget {
             ),
           ),
           if (busy)
-            const SizedBox(
+            SizedBox(
               width: 13,
               height: 13,
               child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
             )
           else if (!sent)
-            const Icon(Icons.chevron_right, size: 14, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 14, color: SeenlyPalette.inkFaint),
         ],
       ),
     );
@@ -1797,7 +1823,7 @@ class _TrailerTile extends StatelessWidget {
                             BoxShadow(color: Colors.black.withOpacity(0.18), blurRadius: 8),
                           ],
                         ),
-                        child: const Icon(Icons.play_arrow_rounded,
+                        child: Icon(Icons.play_arrow_rounded,
                             size: 17, color: SeenlyPalette.accent),
                       ),
                     ),
@@ -1872,7 +1898,7 @@ class _WhereToWatchSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.public, size: 15, color: SeenlyPalette.inkFaint),
+                Icon(Icons.public, size: 15, color: SeenlyPalette.inkFaint),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -1880,7 +1906,7 @@ class _WhereToWatchSection extends StatelessWidget {
                     style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+                Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
               ],
             ),
           ),
@@ -1904,7 +1930,7 @@ class _WhereToWatchSection extends StatelessWidget {
                   children: [
                     Text(regionLabel, style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                     const SizedBox(width: 2),
-                    const Icon(Icons.expand_more, size: 14, color: SeenlyPalette.inkFaint),
+                    Icon(Icons.expand_more, size: 14, color: SeenlyPalette.inkFaint),
                   ],
                 ),
               ),
@@ -1997,11 +2023,11 @@ class _ProviderChip extends StatelessWidget {
                     ? FadeInNetworkImage(
                         url: provider.logoUrl!,
                         fit: BoxFit.cover,
-                        placeholder: const Center(
+                        placeholder: Center(
                           child: Icon(Icons.live_tv_outlined, size: 18, color: SeenlyPalette.inkFaint),
                         ),
                       )
-                    : const Icon(Icons.live_tv_outlined, size: 18, color: SeenlyPalette.inkFaint),
+                    : Icon(Icons.live_tv_outlined, size: 18, color: SeenlyPalette.inkFaint),
               ),
             ),
             const SizedBox(height: 5),
@@ -2119,7 +2145,7 @@ class _RoundIconButton extends StatelessWidget {
           shape: BoxShape.circle,
         ),
         child: loading
-            ? const Padding(
+            ? Padding(
                 padding: EdgeInsets.all(8),
                 child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
               )
@@ -2151,13 +2177,13 @@ class _PlanToWatchButton extends StatelessWidget {
       child: Container(
         width: 48,
         height: 48,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: SeenlyPalette.paper,
           shape: BoxShape.circle,
         ),
         alignment: Alignment.center,
         child: loading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 16,
                 height: 16,
                 child: ThemedLoadingIndicator(

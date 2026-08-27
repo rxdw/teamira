@@ -25,7 +25,7 @@ import '../theme/text_styles.dart';
 /// coach gets a real train pictogram, ticket a plane, garden a walker —
 /// since all three themes now have two real places to draw a map
 /// between (see journey_select_screen.dart / journey_progress_screen.dart).
-enum JourneyVehicle { train, plane, walk }
+enum JourneyVehicle { train, plane, walk, rocket }
 
 class JourneyRealMap extends StatefulWidget {
   final double originLat;
@@ -172,14 +172,14 @@ class _JourneyRealMapState extends State<JourneyRealMap> {
                       width: 34,
                       height: 34,
                       alignment: Alignment.center,
-                      child: const _StartMarker(color: SeenlyPalette.sage),
+                      child: _StartMarker(color: SeenlyPalette.sage),
                     ),
                     Marker(
                       point: _dest,
                       width: 40,
                       height: 50,
                       alignment: Alignment.bottomCenter,
-                      child: const _DestinationPin(color: SeenlyPalette.coral),
+                      child: _DestinationPin(color: SeenlyPalette.coral),
                     ),
                     Marker(
                       point: _markerPos,
@@ -338,7 +338,7 @@ class _DestinationPin extends StatelessWidget {
             child: Icon(Icons.location_on, size: 40, color: Colors.black.withOpacity(0.22)),
           ),
           Icon(Icons.location_on, size: 40, color: color),
-          const Positioned(
+          Positioned(
             top: 10,
             child: SizedBox(
               width: 12,
@@ -379,6 +379,10 @@ class _TravelMarker extends StatelessWidget {
       // does — footprints read fine upright regardless of which way
       // the path bends, so this one skips the rotation.
       JourneyVehicle.walk => CustomPaint(size: const Size(40, 34), painter: _WalkerGlyphPainter(accent: color)),
+      // Same as the walker — a rocket on the pad reads as "about to go
+      // up," not "leaning toward the next waypoint," so this skips the
+      // heading rotation too.
+      JourneyVehicle.rocket => CustomPaint(size: const Size(40, 40), painter: _RocketGlyphPainter(accent: color)),
     };
   }
 }
@@ -511,6 +515,51 @@ class _WalkerGlyphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _WalkerGlyphPainter oldDelegate) => oldDelegate.accent != accent;
+}
+
+/// A simple upright rocket glyph — a paper-white disc (matching the
+/// walker's) with a small rocket silhouette centered on it, same
+/// "circle backdrop so the marker reads at any zoom" shape as every
+/// other vehicle glyph on this map.
+class _RocketGlyphPainter extends CustomPainter {
+  final Color accent;
+  const _RocketGlyphPainter({required this.accent});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.translate(size.width / 2, size.height / 2);
+
+    canvas.drawCircle(const Offset(0, 2), 15, Paint()..color = SeenlyPalette.paper);
+    canvas.drawCircle(
+      const Offset(0, 2),
+      15,
+      Paint()
+        ..color = accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+
+    final bodyPaint = Paint()..color = accent;
+    final body = Path()
+      ..moveTo(0, -9)
+      ..quadraticBezierTo(6, -1, 4, 8)
+      ..lineTo(-4, 8)
+      ..quadraticBezierTo(-6, -1, 0, -9)
+      ..close();
+    canvas.drawPath(body, bodyPaint);
+
+    final finPaint = Paint()..color = accent.withOpacity(0.75);
+    canvas.drawPath(Path()..moveTo(-4, 6)..lineTo(-9, 11)..lineTo(-4, 9)..close(), finPaint);
+    canvas.drawPath(Path()..moveTo(4, 6)..lineTo(9, 11)..lineTo(4, 9)..close(), finPaint);
+
+    canvas.drawCircle(const Offset(0, -2), 1.6, Paint()..color = SeenlyPalette.paper);
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _RocketGlyphPainter oldDelegate) => oldDelegate.accent != accent;
 }
 
 /// Draws the train itself, in a local coordinate space centered on the

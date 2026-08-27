@@ -133,8 +133,8 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                      child: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                      child: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 12),

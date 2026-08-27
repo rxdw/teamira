@@ -52,7 +52,7 @@ class CoViewDecideCard extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: const Icon(Icons.how_to_vote_outlined, size: 20, color: SeenlyPalette.accent),
+            child: Icon(Icons.how_to_vote_outlined, size: 20, color: SeenlyPalette.accent),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -76,7 +76,7 @@ class CoViewDecideCard extends StatelessWidget {
           IconButton(
             tooltip: 'pick for us'.tr,
             onPressed: () => _openRandom(context),
-            icon: const Icon(Icons.casino_outlined, size: 19, color: SeenlyPalette.accent),
+            icon: Icon(Icons.casino_outlined, size: 19, color: SeenlyPalette.accent),
           ),
         ],
       ),

@@ -202,7 +202,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 children: [
                   PressScale(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(8),
                       child: Icon(Icons.arrow_back, size: 18, color: SeenlyPalette.ink),
                     ),
@@ -415,7 +415,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             boxShadow: [BoxShadow(color: SeenlyPalette.ink.withOpacity(0.2), blurRadius: 5, offset: const Offset(0, 2))],
                           ),
                           alignment: Alignment.center,
-                          child: const Icon(Icons.more_horiz, size: 16, color: SeenlyPalette.inkMuted),
+                          child: Icon(Icons.more_horiz, size: 16, color: SeenlyPalette.inkMuted),
                         ),
                       ),
               ));
@@ -489,7 +489,7 @@ class _PolaroidCard extends StatelessWidget {
     this.cardWidth = 164,
   });
 
-  static const _tapeColors = [SeenlyPalette.tapeRose, SeenlyPalette.tapeSage, SeenlyPalette.tapeMustard];
+  static final _tapeColors = [SeenlyPalette.tapeRose, SeenlyPalette.tapeSage, SeenlyPalette.tapeMustard];
   // Original photo was 148x168 inside a 164-wide card (16px of horizontal
   // padding either side of it). Kept as a ratio so the two-up grid can
   // hand this card whatever width fits the screen and the photo scales
@@ -635,7 +635,7 @@ Widget _cornerStamp({required VoidCallback? onTap, required IconData icon, requi
       height: 28,
       decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle, border: Border.all(color: SeenlyPalette.paper, width: 2)),
       alignment: Alignment.center,
-      child: const SizedBox(width: 12, height: 12, child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
+      child: SizedBox(width: 12, height: 12, child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent)),
     );
   }
   return PressScale(
@@ -677,7 +677,7 @@ class _InviteRow extends StatelessWidget {
               height: 30,
               decoration: BoxDecoration(color: SeenlyPalette.accent.withOpacity(0.14), shape: BoxShape.circle),
               alignment: Alignment.center,
-              child: const Icon(Icons.person_add_alt_1_rounded, size: 15, color: SeenlyPalette.accent),
+              child: Icon(Icons.person_add_alt_1_rounded, size: 15, color: SeenlyPalette.accent),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -691,7 +691,7 @@ class _InviteRow extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),
@@ -723,7 +723,7 @@ class _SearchResultRow extends StatelessWidget {
             child: Text(result.nameForDisplay, style: SeenlyText.serif(size: 13.5, weight: FontWeight.w600)),
           ),
           if (busy)
-            const SizedBox(
+            SizedBox(
                 width: 16, height: 16, child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent))
           else
             _statusPill(),

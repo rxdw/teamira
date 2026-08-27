@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../models/active_journey.dart';
 import '../screens/add_entry/journey_progress_screen.dart';
+import '../services/app_translations.dart';
 import '../services/log_theme_service.dart';
 import '../state/app_state.dart';
 import '../theme/palette.dart';
@@ -21,6 +22,7 @@ String _fmtElapsed(Duration d) {
       LogTheme.coach => (Icons.train, SeenlyPalette.periwinkle, 'still on the road'),
       LogTheme.garden => (Icons.directions_walk, SeenlyPalette.sage, 'still out in the garden'),
       LogTheme.ticket => (Icons.flight, SeenlyPalette.coral, 'still in the air'),
+      LogTheme.shuttle => (Icons.rocket_launch, SeenlyPalette.periwinkle, 'still in orbit'),
     };
 
 /// Reopens a journey's full "in progress" screen — the same push both
@@ -113,7 +115,7 @@ class _ActiveJourneyBadgeState extends State<ActiveJourneyBadge> {
                     ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 150),
                       child: Text(
-                        '${journey.isPaused ? 'paused'.tr : label} · ${journey.item.title.display}',
+                        '${journey.isPaused ? 'paused'.tr : label.tr} · ${journey.item.title.display}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.paper, weight: FontWeight.w600),

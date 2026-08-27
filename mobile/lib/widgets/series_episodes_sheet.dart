@@ -322,7 +322,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                             width: 26,
                             height: 26,
                             decoration: BoxDecoration(color: SeenlyPalette.background, shape: BoxShape.circle),
-                            child: const Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
+                            child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkMuted),
                           ),
                         ),
                       ],
@@ -348,7 +348,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                                   : Container(
                                       color: SeenlyPalette.mediaColor(widget.mediaType),
                                       alignment: Alignment.center,
-                                      child: const Icon(Icons.movie_creation_outlined,
+                                      child: Icon(Icons.movie_creation_outlined,
                                           color: SeenlyPalette.paper, size: 28),
                                     ),
                             ),
@@ -365,7 +365,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                                 border: Border.all(color: SeenlyPalette.paper, width: 2.5),
                                 boxShadow: SeenlyPalette.softShadow,
                               ),
-                              child: const Icon(Icons.open_in_new, size: 14, color: SeenlyPalette.accentOnAccent),
+                              child: Icon(Icons.open_in_new, size: 14, color: SeenlyPalette.accentOnAccent),
                             ),
                           ),
                         ],
@@ -391,7 +391,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                           value: total == 0 ? 0.0 : watched / total,
                           minHeight: 5,
                           backgroundColor: SeenlyPalette.border,
-                          valueColor: const AlwaysStoppedAnimation(SeenlyPalette.accent),
+                          valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
                         ),
                       ),
                     ],
@@ -401,7 +401,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                     ],
                     if (_loading) ...[
                       const SizedBox(height: 40),
-                      const ThemedLoadingIndicator(color: SeenlyPalette.accent),
+                      ThemedLoadingIndicator(color: SeenlyPalette.accent),
                       const SizedBox(height: 24),
                     ] else if (_failed || episodes == null || episodes.seasons.isEmpty) ...[
                       const SizedBox(height: 28),
@@ -480,7 +480,7 @@ class _SeriesReviewCard extends StatelessWidget {
               GestureDetector(
                 onTap: onEdit,
                 behavior: HitTestBehavior.opaque,
-                child: const Icon(Icons.edit_outlined, size: 13, color: SeenlyPalette.inkMuted),
+                child: Icon(Icons.edit_outlined, size: 13, color: SeenlyPalette.inkMuted),
               ),
             ],
           ),
@@ -582,7 +582,7 @@ class _NextEpisodeButton extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.play_arrow_rounded, size: 15, color: SeenlyPalette.accent),
+            Icon(Icons.play_arrow_rounded, size: 15, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
             Text('${'watch'.tr} S${season}E$episode',
                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
@@ -634,7 +634,7 @@ class _WatchingNowStrip extends StatelessWidget {
             Text(h > 0 ? '$h:$m in' : '${elapsed.inMinutes}m in',
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+            Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
           ],
         ),
       ),

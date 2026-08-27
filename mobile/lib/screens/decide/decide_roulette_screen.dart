@@ -433,10 +433,10 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                   Container(
                     width: 32,
                     height: 32,
-                    decoration: const BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
                     child: IconButton(
                       padding: EdgeInsets.zero,
-                      icon: const Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
+                      icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
@@ -624,7 +624,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                     PrimaryButton(label: 'open'.tr, onTap: _open),
                   ] else
                     PrimaryButton(
-                      label: _phase == _Phase.spinning ? 'rolling…' : 'spin',
+                      label: (_phase == _Phase.spinning ? 'rolling…' : 'spin').tr,
                       loading: _phase == _Phase.spinning,
                       onTap: _phase == _Phase.spinning ? null : _spin,
                     ),
@@ -661,7 +661,7 @@ class _SecondaryButton extends StatelessWidget {
             border: Border.all(color: SeenlyPalette.border),
           ),
           child: loading
-              ? const Center(
+              ? Center(
                   child: SizedBox(
                     width: 16,
                     height: 16,

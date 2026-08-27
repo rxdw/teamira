@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../services/app_translations.dart';
 import '../models/watchlist_entry.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
@@ -78,10 +79,10 @@ class FavoritesShowcaseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trailing = !visible
-        ? trailingPrivate
+        ? trailingPrivate.tr
         : entries.isEmpty
-            ? trailingEmpty
-            : 'see all ${entries.length} ›';
+            ? trailingEmpty.tr
+            : '${'see all'.tr} ${entries.length} ›';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(0, 0, 0, 0),
@@ -97,9 +98,9 @@ class FavoritesShowcaseRow extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.favorite, size: 13, color: SeenlyPalette.pink),
+                    Icon(Icons.favorite, size: 13, color: SeenlyPalette.pink),
                     const SizedBox(width: 7),
-                    Text(title, style: SeenlyText.serif(italic: true, size: 15.5, weight: FontWeight.w600)),
+                    Text(title.tr, style: SeenlyText.serif(italic: true, size: 15.5, weight: FontWeight.w600)),
                   ],
                 ),
                 Container(
@@ -115,9 +116,9 @@ class FavoritesShowcaseRow extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           if (!visible)
-            _PrivateShelf(text: bodyPrivateText)
+            _PrivateShelf(text: bodyPrivateText.tr)
           else if (entries.isEmpty)
-            _EmptyShelf(text: bodyEmptyText, onTap: onSeeAll)
+            _EmptyShelf(text: bodyEmptyText.tr, onTap: onSeeAll)
           else
             SizedBox(
               height: 150,

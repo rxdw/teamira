@@ -162,11 +162,11 @@ class _MoodTagPickerState extends State<MoodTagPicker> {
               child: Container(
                 width: 36,
                 height: 36,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: SeenlyPalette.accent,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.add,
+                child: Icon(Icons.add,
                     size: 18, color: SeenlyPalette.accentOnAccent),
               ),
             ),
