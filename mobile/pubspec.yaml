@@ -62,7 +62,7 @@ dependencies:
   # and, since the localization migration, the runtime ICU plural/message
   # engine that lib/l10n/app_localizations.dart (generated from
   # lib/l10n/*.arb — see l10n.yaml) is built on.
-  intl: 0.20.2
+  intl: ^0.20.3
 
   # Framework-level localized strings — date pickers, the system share
   # sheet, "OK"/"Cancel" on native dialogs — so they read in Russian when
