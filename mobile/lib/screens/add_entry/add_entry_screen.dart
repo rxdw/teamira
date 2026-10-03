@@ -1,3 +1,4 @@
+import '../partner/room/together_verdict_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -13,9 +14,12 @@ import '../../widgets/heart_rating.dart';
 import '../../widgets/level_up_celebration.dart';
 import '../../widgets/log_ritual.dart';
 import '../../widgets/mood_tag_picker.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 import '../../services/app_translations.dart';
+import '../../widgets/saved_celebration.dart';
+import '../../theme/clay_kit.dart';
 
 enum _WhenChoice { today, yesterday, custom }
 
@@ -88,7 +92,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await context.read<AppState>().diary.logEntry(
+      final entry = await context.read<AppState>().diary.logEntry(
             item: widget.item,
             rating: _rating > 0 ? _rating : null,
             note: _noteController.text.trim().isEmpty
@@ -104,6 +108,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       // screens do right after their own save. Best-effort, never blocks.
       unawaited(context.read<AppState>().refreshLevel());
       if (mounted) {
+        showSincerityToasts(context, entry.sincerityAwarded);
         // The seat/page-picking and the ticket/stamp itself are the
         // confirmation — no snackbar needed on top of either. Which one
         // plays is whatever's set in Settings; picking first is pure
@@ -125,6 +130,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             runtimeMinutes: widget.item.runtimeMinutes,
           );
         }
+        if (mounted && _watchedWithPartner) {
+          // The shared rating, live, while the screen is still up — it opens
+          // right here if the others have rated, or waits sealed if not.
+          await showTogetherVerdictSheet(context, widget.item);
+        }
         if (mounted) {
           // Right as the log drop finishes and before actually closing
           // out — the same beat the themed ritual screens give this
@@ -137,7 +147,20 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             await checkAndCelebrateNewAchievements(context);
           }
         }
-        if (mounted) Navigator.of(context).pop(true);
+        if (mounted) {
+          showSavedCelebration(
+            context,
+            kind: SavedKind.logged,
+            title: widget.item.title.display,
+            posterUrl: widget.item.posterUrl,
+            mediaType: widget.item.mediaType,
+            rating: _rating > 0 ? _rating : null,
+            partnerName: _watchedWithPartner ? _partnerUsername : null,
+            compact: true,
+            haptics: false,
+          );
+          Navigator.of(context).pop(true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -190,7 +213,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                   Entrance(
                     child: Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
+                      decoration: ClayBoxDecoration(
+                        boxShadow: SeenlyPalette.flatCardShadow,
                         color: SeenlyPalette.paper,
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -333,7 +357,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                     delay: const Duration(milliseconds: 290),
                     riseBy: 14,
                     child: Container(
-                      decoration: BoxDecoration(
+                      decoration: ClayBoxDecoration(
+                        boxShadow: SeenlyPalette.flatCardShadow,
                         color: SeenlyPalette.paper,
                         borderRadius: BorderRadius.circular(10),
                       ),

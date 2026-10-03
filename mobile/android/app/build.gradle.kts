@@ -4,6 +4,24 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Push notifications (audit 4.4.1) — google-services.json is a real
+// Firebase project's config, which nothing in this repo can generate on
+// its own (see docs/push_notifications_setup.md for the one-time manual
+// step of dropping it in here). The google-services Gradle plugin
+// itself throws a hard build failure — "File google-services.json is
+// missing from module root folder" — the moment it's *applied* against
+// a module that doesn't have one, well before firebase_core's own Dart-
+// side init() ever gets a chance to run and degrade gracefully (see
+// PushNotificationManager.init's own try/catch on that). Declaring it
+// in the `plugins {}` block above like the two plugins before it would
+// apply it unconditionally and break every build on this machine until
+// that file exists — conditional `apply()` here instead, guarded on the
+// file actually being present, so a checkout with no Firebase project
+// configured yet still builds and runs (just without push).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.example.seenly"
     // Pinned explicitly rather than left as `flutter.compileSdkVersion` —

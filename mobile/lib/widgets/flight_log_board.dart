@@ -9,6 +9,7 @@ import 'heart_rating.dart';
 import 'scroll_reveal.dart';
 import 'watched_preview_sheet.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the "shuttle" theme — a small patch
 /// of night sky that fills in with stars as evenings get logged, then
@@ -71,7 +72,7 @@ class _FlightLogBoardState extends State<FlightLogBoard> with SingleTickerProvid
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(24),
           boxShadow: SeenlyPalette.softShadow,
@@ -90,7 +91,7 @@ class _FlightLogBoardState extends State<FlightLogBoard> with SingleTickerProvid
             Text(
               isEmpty
                   ? 'an empty sky, waiting'.tr
-                  : '${ruCount(widget.entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')}, ${'charted'.tr}',
+                  : '${nCount('nEvenings', widget.entries.length)}, ${'charted'.tr}',
               style: SeenlyText.serif(italic: true, size: 19),
             ),
             const SizedBox(height: 5),
@@ -256,7 +257,7 @@ class FlightLogScreen extends StatelessWidget {
                         Text(
                           entries.isEmpty
                               ? 'nothing launched yet'.tr
-                              : '${ruCount(entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')} ${'logged'.tr}',
+                              : '${nCount('nEvenings', entries.length)} ${'logged'.tr}',
                           style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.paper.withOpacity(0.6)),
                         ),
                       ],
@@ -266,7 +267,7 @@ class FlightLogScreen extends StatelessWidget {
                       child: Container(
                         width: 32,
                         height: 32,
-                        decoration: BoxDecoration(
+                        decoration: ClayBoxDecoration(
                             color: SeenlyPalette.paper, shape: BoxShape.circle, boxShadow: SeenlyPalette.softShadow),
                         child: Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
                       ),
@@ -350,7 +351,7 @@ class _LaunchCard extends StatelessWidget {
             onTap: () => _openLaunch(context, entry),
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: SeenlyPalette.softShadow,

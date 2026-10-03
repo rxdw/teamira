@@ -10,6 +10,7 @@ import '../theme/text_styles.dart';
 import 'spoiler_veil.dart';
 import 'themed_loading_indicator.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// Opened by tapping the "N reviews" line under a title's ratings —
 /// written reviews come from TMDB and Trakt (see
@@ -76,7 +77,8 @@ class _ReviewsSheetState extends State<_ReviewsSheet> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
         ),

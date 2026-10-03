@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import logging
 import math
+import threading
 import time
 from typing import List, Optional, Sequence
 
@@ -44,6 +45,23 @@ _MODEL_NAME = "intfloat/multilingual-e5-small"
 
 _model = None
 _last_load_attempt: Optional[float] = None
+# Guards the load itself, not _model/_last_load_attempt as plain
+# variables — embed_query/embed_passage(s) reach _get_model() via
+# asyncio.to_thread (see app/routers/ai.py), so on a cold cache several
+# concurrent Ask Teamira requests can each land in a *different* worker
+# thread of the same process at once, all seeing `_model is None`
+# together. Without this, each of them independently calls
+# `TextEmbedding.add_custom_model` + constructs its own `TextEmbedding`
+# — a second, wasted ~120MB ONNX load stacked on top of the first for
+# every thread that raced in, right when the process is already under
+# a burst of cold-start traffic. A `threading.Lock` (not `asyncio.Lock`
+# — these calls aren't on the event loop, they're on to_thread's worker
+# threads, which an asyncio.Lock doesn't coordinate) makes every thread
+# but one block instead, and the double-checked `if _model is not None`
+# right after acquiring it means only the genuinely first caller pays
+# the load cost — everyone who waited on the lock finds the model
+# already there once they get in.
+_load_lock = threading.Lock()
 # If the very first load fails (most commonly: the Dockerfile's build-time
 # pre-download — see backend/Dockerfile — had no network access either,
 # so nothing ever got baked into the image, AND this container's own
@@ -62,13 +80,28 @@ def _get_model():
     on the first request that actually needs it, not at import time
     (so a deployment without fastembed installed, or one that never
     calls Ask Teamira, never pays the load cost at all)."""
-    global _model, _last_load_attempt
+    global _last_load_attempt
     if _model is not None:
         return _model
-    now = time.monotonic()
-    if _last_load_attempt is not None and now - _last_load_attempt < _RETRY_COOLDOWN_SECONDS:
-        return None
-    _last_load_attempt = now
+    with _load_lock:
+        # Someone else may have finished loading it (or exhausted the
+        # retry cooldown check below) while this thread was waiting for
+        # the lock — re-check before doing any of this again.
+        if _model is not None:
+            return _model
+        now = time.monotonic()
+        if _last_load_attempt is not None and now - _last_load_attempt < _RETRY_COOLDOWN_SECONDS:
+            return None
+        _last_load_attempt = now
+        return _load_model_locked()
+
+
+def _load_model_locked():
+    """The actual load — split out from _get_model only so its `return`
+    statements don't need to duplicate "release the lock first" logic;
+    every path back to _get_model above already exits the `with` block
+    on the way out. Always called with _load_lock held."""
+    global _model
     try:
         from fastembed import TextEmbedding
     except Exception:

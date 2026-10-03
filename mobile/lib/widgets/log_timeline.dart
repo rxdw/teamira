@@ -178,7 +178,7 @@ class LogDayGroup extends StatelessWidget {
                   // rather than its vertical center.
                   padding: const EdgeInsets.only(top: 0, bottom: 12),
                   child: Text(dayLabel,
-                      style: SeenlyText.serif(size: 17, weight: FontWeight.w700, color: accent)),
+                      style: SeenlyText.diaryDate(size: 17, color: accent)),
                 ),
                 for (int i = 0; i < entries.length; i++)
                   Padding(

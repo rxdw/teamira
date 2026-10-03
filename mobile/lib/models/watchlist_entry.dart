@@ -88,6 +88,29 @@ class WatchlistEntry {
         status: json['status'] as String,
         isFavorite: json['is_favorite'] as bool? ?? false,
       );
+
+  /// Mirrors [fromJson] — added for the on-device watchlist cache (see
+  /// `services/local_json_cache.dart`), not for talking to the backend.
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'media_id': mediaId,
+        'media_type': mediaType,
+        'source': source,
+        'title_ru': titleRu,
+        'title_en': titleEn,
+        'poster_url': posterUrl,
+        'backdrop_url': backdropUrl,
+        'year': year,
+        'genres': genres,
+        'rating': rating,
+        'user_rating': userRating,
+        'note': note,
+        'mood_tags': moodTags,
+        'favorite_cast': favoriteCast.map((c) => c.toJson()).toList(),
+        'watched_at': watchedAt?.toIso8601String(),
+        'status': status,
+        'is_favorite': isFavorite,
+      };
 }
 
 /// Mirrors `FriendCollectionsOut` — same three shelves as
@@ -174,4 +197,12 @@ class ProfileCollections {
             .map((e) => WatchlistEntry.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+
+  /// Mirrors [fromJson] — added for the on-device watchlist cache (see
+  /// `services/local_json_cache.dart`), not for talking to the backend.
+  Map<String, dynamic> toJson() => {
+        'watch_later': watchLater.map((e) => e.toJson()).toList(),
+        'watching': watching.map((e) => e.toJson()).toList(),
+        'watched': watched.map((e) => e.toJson()).toList(),
+      };
 }

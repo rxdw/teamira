@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/wow_motion.dart' show PressScale;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -9,6 +10,10 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
+import '../../widgets/settings_motion.dart';
+import '../../widgets/decide_motion.dart' show BouncingDots;
+import '../../widgets/soft_motion.dart';
+import '../../theme/clay_kit.dart';
 
 /// Settings > Integrations — everything needed to hook up automatic watch
 /// tracking: Plex/Jellyfin webhooks (paste one URL, done), Kodi and the
@@ -118,15 +123,22 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                 ],
               ),
             ),
-            if (_loading)
-              Expanded(
-                child: Center(
+            Expanded(
+              // Loading, the error and the settled page glide into one
+              // another instead of cutting.
+              child: SoftSwap(
+                expand: true,
+                alignment: Alignment.topCenter,
+                rise: 0.015,
+                duration: const Duration(milliseconds: 280),
+                child: KeyedSubtree(
+                  key: ValueKey<String>(_loading ? 'loading' : (_token == null ? 'error' : 'list')),
+                  child: _loading
+                      ? Center(
                   child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
-                ),
-              )
-            else if (_token == null)
-              Expanded(
-                child: Center(
+                )
+                      : _token == null
+                          ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(28),
                     child: Column(
@@ -139,13 +151,10 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       ],
                     ),
                   ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView(
+                )
+                          : ListView(
                   padding: const EdgeInsets.fromLTRB(22, 6, 22, 28),
-                  children: [
+                  children: staggerChildren([
                     Text(
                       'normally you log something by opening the app yourself. auto-tracking flips that around: you connect one thing below, one time, and after that, finishing an episode or a movie somewhere else logs it here on its own — no app, no remembering.'.tr,
                       style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
@@ -155,7 +164,8 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     const SizedBox(height: 14),
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
+                      decoration: ClayBoxDecoration(
+                        boxShadow: SeenlyPalette.flatCardShadow,
                         color: SeenlyPalette.paper,
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -206,7 +216,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                     _IntegrationCard(
                       title: 'Kodi addon',
                       steps: const [
-                        'install the teamira Scrobbler addon (see integrations/kodi in the project)',
+                        'install the tanè Scrobbler addon (see integrations/kodi in the project)',
                         'open its settings and paste both values below',
                       ],
                       child: Column(
@@ -270,11 +280,12 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    GestureDetector(
+                    PressScale(
                       onTap: _rotating ? null : _rotate,
                       child: Container(
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
+                        decoration: ClayBoxDecoration(
+                          boxShadow: SeenlyPalette.flatCardShadow,
                           color: SeenlyPalette.paper,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: SeenlyPalette.coral.withOpacity(0.4)),
@@ -286,10 +297,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                             Text('rotate token'.tr, style: SeenlyText.serif(italic: true, color: SeenlyPalette.coral)),
                             const Spacer(),
                             if (_rotating)
-                              SizedBox(
-                                width: 13, height: 13,
-                                child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.coral),
-                              ),
+                              BouncingDots(color: SeenlyPalette.coral, dotSize: 4),
                           ],
                         ),
                       ),
@@ -304,9 +312,11 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                           child: _EventRow(event: e),
                         ),
                     ],
-                  ],
+                  ]),
+                ),
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -382,7 +392,7 @@ class _PickHintRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: SeenlyText.serif(size: 12, weight: FontWeight.w600)),
+          Text(label.toLowerCase(), style: SeenlyText.serif(size: 12, weight: FontWeight.w600)),
           Text(detail, style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
         ],
       ),
@@ -401,7 +411,8 @@ class _IntegrationCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(14),
       ),
@@ -431,7 +442,7 @@ class _CopyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onCopy,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -466,7 +477,8 @@ class _EventRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(10),
       ),

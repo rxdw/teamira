@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/achievement.dart';
+import '../../services/app_translations.dart';
+import '../../services/error_text.dart';
 import '../../services/log_theme_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/log_theme_copy.dart';
@@ -12,11 +14,12 @@ import '../../theme/text_styles.dart';
 import '../../widgets/achievement_badge.dart';
 import '../../widgets/achievement_unlock_overlay.dart';
 import '../../widgets/scroll_reveal.dart';
+import '../../widgets/spend_confirm_sheet.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
-import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
-const _kMaxPinned = 3;
+const _kMaxPinned = 3; // fallback only, before the first response loads — see _maxPinned below
 
 /// The full badge showcase — everything on this screen is computed from
 /// the person's own logged rows (see backend/app/routers/profile.py
@@ -45,15 +48,44 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
   bool _pinning = false;
   BadgeRarity _activeRarity = BadgeRarity.habit;
 
+  // Mirrors AchievementsResponse.maxPinned/bonusPinSlots (see that
+  // model's own docstring) — read from every response rather than
+  // hardcoded, so a purchase (or a slot bought from another device)
+  // shows up without an app update. _kMaxPinned above is only the
+  // pre-first-response fallback.
+  int _maxPinned = _kMaxPinned;
+  int _bonusPinSlots = 0;
+  bool _buyingSlot = false;
+
+  // Mirrors backend/app/sincerity.py::MAX_BONUS_PIN_SLOTS/PIN_SLOT_COST —
+  // small and stable enough that duplicating them here (rather than a
+  // round trip just to read them) is the simpler tradeoff, same
+  // reasoning as co_view_hub_screen.dart's own _spoilerUnlockCost.
+  static const _maxBonusPinSlots = 3;
+  static const _pinSlotCost = 4;
+
+  void _applyMeta(AchievementsResponse r) {
+    _maxPinned = r.maxPinned;
+    _bonusPinSlots = r.bonusPinSlots;
+  }
+
   @override
   void initState() {
     super.initState();
     _future = widget.initial != null
         ? Future.value(widget.initial)
         : _load();
-    if (widget.initial != null) _pinnedIds = widget.initial!.pinnedIds;
+    if (widget.initial != null) {
+      _pinnedIds = widget.initial!.pinnedIds;
+      _applyMeta(widget.initial!);
+    }
     _future.then((r) {
-      if (mounted) setState(() => _pinnedIds = r.pinnedIds);
+      if (mounted) {
+        setState(() {
+          _pinnedIds = r.pinnedIds;
+          _applyMeta(r);
+        });
+      }
       _checkForNewUnlocks(r);
     });
   }
@@ -75,7 +107,12 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final next = _load();
     setState(() => _future = next);
     final r = await next;
-    if (mounted) setState(() => _pinnedIds = r.pinnedIds);
+    if (mounted) {
+      setState(() {
+        _pinnedIds = r.pinnedIds;
+        _applyMeta(r);
+      });
+    }
     _checkForNewUnlocks(r);
   }
 
@@ -99,12 +136,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     if (next.contains(a.id)) {
       next.remove(a.id);
     } else {
-      if (next.length >= _kMaxPinned) {
+      if (next.length >= _maxPinned) {
+        final canBuyMore = _bonusPinSlots < _maxBonusPinSlots;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           backgroundColor: SeenlyPalette.ink,
           behavior: SnackBarBehavior.floating,
-          content: Text('${'you can showcase up to'.tr} $_kMaxPinned ${'badges — unpin one first'.tr}',
+          content: Text('${'you can showcase up to'.tr} $_maxPinned ${'badges — unpin one first'.tr}',
               style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper)),
+          action: canBuyMore
+              ? SnackBarAction(
+                  label: '${'ещё слот'.tr} · −$_pinSlotCost',
+                  textColor: SeenlyPalette.mustard,
+                  onPressed: _buySlot,
+                )
+              : null,
         ));
         return;
       }
@@ -116,12 +161,48 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     });
     try {
       final updated = await context.read<AppState>().profile.pinAchievements(next);
-      if (mounted) setState(() => _pinnedIds = updated.pinnedIds);
+      if (mounted) {
+        setState(() {
+          _pinnedIds = updated.pinnedIds;
+          _applyMeta(updated);
+        });
+      }
     } catch (_) {
       // Best-effort — roll the optimistic update back on failure.
       if (mounted) setState(() => _pinnedIds = List<String>.from(_pinnedIds)..remove(a.id));
     } finally {
       if (mounted) setState(() => _pinning = false);
+    }
+  }
+
+  /// One more permanent showcase slot for sincerity.PIN_SLOT_COST — see
+  /// backend/app/routers/profile.py::buy_pin_slot. Reached only from the
+  /// "showcase full" snackbar above, since that's the one moment buying
+  /// a slot actually solves a problem the person just ran into, rather
+  /// than being a button sitting around asking to be noticed.
+  Future<void> _buySlot() async {
+    if (_buyingSlot) return;
+    final confirmed = await SpendConfirmSheet.show(
+      context,
+      title: 'ещё слот в витрине?'.tr,
+      body: 'разово и навсегда — сможешь показывать ${_maxPinned + 1} наград вместо $_maxPinned.'.tr,
+      cost: _pinSlotCost,
+      confirmLabel: 'купить'.tr,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _buyingSlot = true);
+    try {
+      final updated = await context.read<AppState>().profile.buyPinSlot();
+      if (!mounted) return;
+      setState(() {
+        _pinnedIds = updated.pinnedIds;
+        _applyMeta(updated);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(describeError(e))));
+    } finally {
+      if (mounted) setState(() => _buyingSlot = false);
     }
   }
 
@@ -304,7 +385,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                           child: Container(
                             width: double.infinity,
                             clipBehavior: Clip.antiAlias,
-                            decoration: BoxDecoration(
+                            decoration: ClayBoxDecoration(
                               color: SeenlyPalette.paper,
                               borderRadius: BorderRadius.circular(22),
                               border: Border.all(color: SeenlyPalette.border, width: 1),
@@ -349,8 +430,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                                         Text(
                                           'nothing here yet'.tr,
                                           textAlign: TextAlign.center,
-                                          style: SeenlyText.serif(
-                                              italic: true, color: SeenlyPalette.placeholder),
+                                          style: SeenlyText.emptyState(),
                                         ),
                                       ],
                                     ),
@@ -695,7 +775,7 @@ class _BadgeShowcaseTile extends StatelessWidget {
         medallion,
         const SizedBox(height: 9),
         Text(
-          achievement.title,
+          achievement.title.tr,
           textAlign: TextAlign.center,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/co_view_entry.dart';
 import '../models/diary_entry.dart';
 import '../models/media_item.dart' show CastMember;
+import '../models/shared_diary.dart';
 import '../models/watchlist_entry.dart';
 import '../screens/title/title_detail_screen.dart';
 import '../theme/palette.dart';
@@ -15,7 +16,9 @@ import 'review_composer.dart';
 import 'share_card.dart';
 import 'share_sheet.dart';
 import 'source_video_link.dart';
+import 'wow_motion.dart' show PressScale;
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// Everything [WatchedPreviewCard] needs to draw itself, gathered from
 /// whichever shelf the person tapped into — the diary log, a "route"/
@@ -220,6 +223,60 @@ class WatchedPreviewData {
       shareCard: EveningShareCard(entry: asDiary, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       shareFileName: 'seenly-${entry.id}',
       shareText: 'watched "${entry.displayTitle}" together — logged in seenly',
+    );
+  }
+
+  /// A card from the couple's shared diary (the "дневник" tab in
+  /// CoView) — opens the same sheet the personal diary already uses on
+  /// tap, so a shared evening gets the same edit/share affordances
+  /// instead of jumping straight to the title page. The shared card
+  /// merges everyone's side of the evening onto one row (see
+  /// [SharedDiaryItem]), but there's only ever one diary row that
+  /// *this* account can actually edit — their own (see
+  /// [SharedDiaryItem.me]) — so that's what feeds the rating/note/edit
+  /// button here; a partner's side stays visible only through
+  /// [watchedWithUsername], same as it does on the personal diary's own
+  /// "watched with" rows.
+  factory WatchedPreviewData.fromSharedDiaryItem(SharedDiaryItem item, {required bool ru}) {
+    final mine = item.me;
+    final others = item.others;
+    final title = item.title(ru);
+    final watchedWith = item.watchedTogether && others.isNotEmpty ? others.first.name : null;
+    final asDiary = DiaryEntry(
+      id: mine?.entryId ?? item.mediaId,
+      mediaId: item.mediaId,
+      mediaType: item.mediaType,
+      source: item.source,
+      titleRu: item.titleRu,
+      titleEn: item.titleEn,
+      posterUrl: item.posterUrl,
+      rating: mine?.rating,
+      note: mine?.note,
+      watchedWithUsername: watchedWith,
+      isRewatch: false,
+      watchedAt: mine?.watchedAt ?? item.watchedAt ?? DateTime.now(),
+      createdAt: mine?.watchedAt ?? item.watchedAt ?? DateTime.now(),
+    );
+    return WatchedPreviewData(
+      mediaId: item.mediaId,
+      source: item.source,
+      mediaType: item.mediaType,
+      title: title,
+      posterUrl: item.posterUrl,
+      rating: mine?.rating,
+      note: mine?.note,
+      date: mine?.watchedAt ?? item.watchedAt,
+      watchedWithUsername: watchedWith,
+      shareCard: EveningShareCard(entry: asDiary, fallbackColor: SeenlyPalette.mediaColor(item.mediaType)),
+      shareFileName: 'seenly-${mine?.entryId ?? item.mediaId}',
+      shareText: item.watchedTogether
+          ? 'watched "$title" together — logged in seenly'
+          : 'watched "$title" — logged in seenly',
+      // Only set when this account actually has its own row on this
+      // card — a title shared by the partner alone has nothing here to
+      // edit, so the sheet's edit button stays hidden for it, same as
+      // it does for a friend's activity row.
+      entryId: mine?.entryId,
     );
   }
 }
@@ -437,7 +494,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                           child: Container(
                             width: 30,
                             height: 30,
-                            decoration: BoxDecoration(
+                            decoration: ClayBoxDecoration(
                               color: SeenlyPalette.accent,
                               shape: BoxShape.circle,
                               border: Border.all(color: SeenlyPalette.paper, width: 2.5),
@@ -594,25 +651,37 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                   ],
                   const SizedBox(height: 18),
                   if (data.showShareButton)
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                        showShareCardSheet(
-                          context,
-                          card: data.shareCard,
-                          fileName: data.shareFileName,
-                          shareText: data.shareText,
-                        );
-                      },
-                      icon: Icon(Icons.ios_share, size: 15, color: SeenlyPalette.accent),
-                      label: Text('share this evening'.tr,
-                          style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accent)),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        side: BorderSide(color: SeenlyPalette.border),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  // Filled and accent-tinted rather than the quiet outline
+                  // this used to be — sharing is a first-class action here,
+                  // not an afterthought below the review, so it needs to
+                  // actually read as tappable at a glance.
+                  PressScale(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      showShareCardSheet(
+                        context,
+                        card: data.shareCard,
+                        fileName: data.shareFileName,
+                        shareText: data.shareText,
+                        rewardKey: data.shareFileName,
+                      );
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: SeenlyPalette.accent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: SeenlyPalette.accent.withOpacity(0.35), width: 1.2),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.ios_share_rounded, size: 18, color: SeenlyPalette.accent),
+                          const SizedBox(width: 8),
+                          Text('share this evening'.tr,
+                              style: SeenlyText.serif(size: 14.5, weight: FontWeight.w700, color: SeenlyPalette.accent)),
+                        ],
                       ),
                     ),
                   ),

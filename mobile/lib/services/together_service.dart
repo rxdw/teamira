@@ -1,5 +1,7 @@
 import '../models/together_session.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
+import 'realtime_socket.dart';
 
 class TogetherService {
   final ApiClient _client;
@@ -21,6 +23,10 @@ class TogetherService {
       'genres': genres,
       'sync_to_own_list': syncToOwnList,
     }) as Map<String, dynamic>;
+    Analytics.instance.track('together_created', {
+      'type_filter': typeFilter,
+      'genres_count': genres.length,
+    });
     return TogetherSession.fromJson(json);
   }
 
@@ -30,6 +36,7 @@ class TogetherService {
       'code': code.trim().toUpperCase(),
       'sync_to_own_list': syncToOwnList,
     }) as Map<String, dynamic>;
+    Analytics.instance.track('together_joined');
     return TogetherSession.fromJson(json);
   }
 
@@ -38,6 +45,19 @@ class TogetherService {
   Future<TogetherSession> poll(String sessionId) async {
     final json = await _client.get('/together/$sessionId') as Map<String, dynamic>;
     return TogetherSession.fromJson(json);
+  }
+
+  /// Pushed updates for an open session — replaces calling [poll] on a
+  /// `Timer.periodic`. Fires the moment a partner joins, a swipe lands,
+  /// or a match happens, instead of waiting for the next tick. Caller
+  /// owns the returned socket and must call [RealtimeSocket.close]
+  /// (e.g. from `State.dispose`).
+  RealtimeSocket<TogetherSession> watch(String sessionId) {
+    return RealtimeSocket<TogetherSession>(
+      path: '/together/$sessionId/ws',
+      fromJson: TogetherSession.fromJson,
+      client: _client,
+    );
   }
 
   Future<TogetherSession> swipe(

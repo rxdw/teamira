@@ -14,6 +14,7 @@ import '../../services/series_route_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../theme/notebook_paper.dart';
 import '../../widgets/journey_real_map.dart';
 import '../../widgets/tear_ticket_confirm.dart';
 import 'cinema_log_screen.dart';
@@ -22,6 +23,7 @@ import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
 import 'shuttle_log_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -82,6 +84,11 @@ class JourneyProgressScreen extends StatefulWidget {
   // episode: it's what gets saved as the next episode's transfer point
   // once this leg finishes (see _imBack and SeriesRouteState).
   final String? destMatchKey;
+  // See WatchingChoiceScreen's own doc comment — carried through the
+  // whole "watching now" leg so the rating screen at the end of the
+  // journey starts with the same pre-checked toggle the "already
+  // watched" path gets.
+  final bool initialWatchedWithPartner;
   const JourneyProgressScreen({
     super.key,
     required this.item,
@@ -96,6 +103,7 @@ class JourneyProgressScreen extends StatefulWidget {
     this.season,
     this.episode,
     this.destMatchKey,
+    this.initialWatchedWithPartner = false,
   });
 
   @override
@@ -248,10 +256,26 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
   }
 
   Widget _ratingScreen() => switch (widget.theme) {
-        LogTheme.coach => CoachLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
-        LogTheme.ticket => CinemaLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
-        LogTheme.garden => GardenLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
-        LogTheme.shuttle => ShuttleLogScreen(item: widget.item, season: widget.season, episode: widget.episode),
+        LogTheme.coach => CoachLogScreen(
+            item: widget.item,
+            season: widget.season,
+            episode: widget.episode,
+            initialWatchedWithPartner: widget.initialWatchedWithPartner),
+        LogTheme.ticket => CinemaLogScreen(
+            item: widget.item,
+            season: widget.season,
+            episode: widget.episode,
+            initialWatchedWithPartner: widget.initialWatchedWithPartner),
+        LogTheme.garden => GardenLogScreen(
+            item: widget.item,
+            season: widget.season,
+            episode: widget.episode,
+            initialWatchedWithPartner: widget.initialWatchedWithPartner),
+        LogTheme.shuttle => ShuttleLogScreen(
+            item: widget.item,
+            season: widget.season,
+            episode: widget.episode,
+            initialWatchedWithPartner: widget.initialWatchedWithPartner),
       };
 
   String get _cancelPrompt => switch (widget.theme) {
@@ -275,7 +299,8 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Container(
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
           ),
@@ -584,11 +609,11 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                   const SizedBox(height: 10),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
+                    child: RuledProgressBar(
                       value: _progress,
                       minHeight: 3,
                       backgroundColor: SeenlyPalette.paper.withOpacity(0.28),
-                      valueColor: AlwaysStoppedAnimation(_accent),
+                      valueColor: _accent,
                     ),
                   ),
                   const SizedBox(height: 9),
@@ -717,11 +742,11 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                         const SizedBox(height: 6),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(3),
-                          child: LinearProgressIndicator(
+                          child: RuledProgressBar(
                             value: _progress,
                             minHeight: 5,
                             backgroundColor: SeenlyPalette.background,
-                            valueColor: AlwaysStoppedAnimation(_accent),
+                            valueColor: _accent,
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -782,7 +807,8 @@ class _MapStyleSheet extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.all(14),
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(22),
         ),

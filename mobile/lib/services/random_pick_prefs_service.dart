@@ -1,4 +1,4 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'persisted_pref.dart';
 
 /// Remembers which content types the "random pick" card on Home should
 /// draw from — same device-only [SharedPreferences] pattern as
@@ -11,15 +11,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// filter chosen" — callers should treat that as "all types", not "show
 /// nothing".
 class RandomPickPrefsService {
-  static const _typesKey = 'seenly_random_pick_types';
+  final _types = PersistedPref.stringSet('seenly_random_pick_types');
 
   Future<Set<String>> loadTypes() async {
-    final prefs = await SharedPreferences.getInstance();
-    return (prefs.getStringList(_typesKey) ?? const []).toSet();
+    await _types.load();
+    return _types.value;
   }
 
   Future<void> saveTypes(Set<String> types) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList(_typesKey, types.toList());
+    await _types.save(types);
   }
 }

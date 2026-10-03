@@ -27,26 +27,40 @@ a phrase like that and the whole request 404s with "couldn't find a
 good match for that" even though semantic scoring below would happily
 rank real titles against it, if only it had something to rank. See
 `_broad_pool` for how that's covered.
+
+Games are their own pipeline (see `_game_candidates`). IGDB's `search`
+only matches names, so a *description* of a game ("co-op game for two")
+used to come back as whatever obscure entry had one of those words in its
+title. Play-mode words are now parsed (app/game_intent.py) into a real
+IGDB `game_modes` filter, genres/themes/eras go to IGDB as filters too,
+and every candidate has to clear a quality gate (cover, audience, rating
+— IgdbAdapter.discover) before it's ranked at all.
 """
 
 import asyncio
+import logging
+import math
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from datetime import timedelta
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from app import cache, embeddings, ru_morph
+from app import cache, embeddings, game_intent, models, ru_morph
 from app.config import settings
-from app.database import get_db
-from app.schemas import AiAskRequest, AiAskResponse, AiMatchOut, MediaItem
-from app.adapters.igdb import IgdbAdapter
+from app.database import SessionLocal
+from app.deps import get_current_user
+from app.rate_limit import ai_ask_limiter
+from app.schemas import AiAskRequest, AiAskResponse, AiMatchOut, MediaItem, TimeBudgetOut
+from app.adapters.igdb import GameHit, IgdbAdapter
 from app.adapters.google_books import GoogleBooksAdapter
 from app.adapters.shikimori import ShikimoriMangaAdapter
 from app.adapters.tmdb import TmdbAdapter
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+logger = logging.getLogger("seenly.ai")
 
 _games = IgdbAdapter()
 _tmdb = TmdbAdapter()
@@ -54,7 +68,7 @@ _books = GoogleBooksAdapter()
 _manga = ShikimoriMangaAdapter()
 
 
-async def _broad_pool(db: Session) -> List[MediaItem]:
+async def _broad_pool(db: Optional[Session]) -> List[MediaItem]:
     """The same wide movie/tv/game/book/manga pool GET /feed shows on
     Home — cached under the same "feed:discover" key (see
     app/routers/feed.py::get_feed) and refreshed once every 24h, so this
@@ -100,12 +114,12 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
         "kw": ["fantasy", "фэнтези", "фэнтэзи", "магия", "волшебств",
                "dragon", "дракон", "elves", "эльф"],
         "movie": ["Fantasy"], "tv": ["Sci-Fi & Fantasy"],
-        "game": ["role-playing"],
+        "game": ["role-playing", "fantasy"],
     },
     "action": {
         "kw": ["action", "экшн", "боевик", "combat", "битв"],
         "movie": ["Action"], "tv": ["Action & Adventure"],
-        "game": ["shooter", "hack and slash", "fighting", "tactical"],
+        "game": ["shooter", "hack and slash", "fighting", "tactical", "action"],
     },
     "adventure": {
         "kw": ["adventure", "приключен"],
@@ -115,7 +129,7 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
     "comedy": {
         "kw": ["comedy", "комеди", "смешн", "funny", "юмор"],
         "movie": ["Comedy"], "tv": ["Comedy"],
-        "game": [],
+        "game": ["comedy"],
     },
     "drama": {
         "kw": ["drama", "драм"],
@@ -125,7 +139,7 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
     "horror": {
         "kw": ["horror", "ужас", "страшн", "хоррор"],
         "movie": ["Horror"], "tv": [],
-        "game": ["survival"],
+        "game": ["survival", "horror"],
     },
     "thriller": {
         "kw": ["thriller", "триллер", "напряж"],
@@ -135,13 +149,13 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
     "romance": {
         "kw": ["romance", "romantic", "мелодрам", "романтик", "любов"],
         "movie": ["Romance"], "tv": [],
-        "game": [],
+        "game": ["romance"],
     },
     "mystery": {
         "kw": ["mystery", "detective", "детектив", "тайн", "расследован",
                "investigat"],
         "movie": ["Mystery"], "tv": ["Mystery"],
-        "game": ["point-and-click", "puzzle"],
+        "game": ["point-and-click", "puzzle", "mystery"],
     },
     "crime": {
         "kw": ["crime", "криминал", "преступ", "mafia", "мафи"],
@@ -157,7 +171,7 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
     "war": {
         "kw": ["war", "война", "военн"],
         "movie": ["War"], "tv": ["War & Politics"],
-        "game": ["strategy"],
+        "game": ["strategy", "warfare"],
     },
     "western": {
         "kw": ["western", "вестерн", "ковбо"],
@@ -172,7 +186,7 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
     "family": {
         "kw": ["family", "семейн", "детск", "kids"],
         "movie": ["Family"], "tv": ["Family"],
-        "game": [],
+        "game": ["kids"],
     },
     "rpg": {
         "kw": ["rpg", "ролев", "role-playing", "roleplaying"],
@@ -244,6 +258,36 @@ _CONCEPTS: Dict[str, Dict[str, List[str]]] = {
 
 _MOOD_CONCEPTS = {"sad", "feelgood", "dark", "feelgood_nostalgic"}
 
+# IGDB ids for the server-side half of game discovery — the counterpart of
+# the "game" keyword lists above, which are matched against a returned
+# game's own genre/theme *names* when scoring. Ids are IGDB reference data
+# (api-docs.igdb.com/#genre, /#theme), stable like the genre ids
+# igdb.py's Collections shelves already hard-code. Themes matter: IGDB
+# files "Science fiction", "Horror", "Fantasy", "Comedy" under `themes`,
+# not `genres`, so a genre-only filter could never answer "sci-fi game".
+# A concept with several ids is OR-matched (any of them qualifies);
+# concepts absent here (drama, crime, the mood buckets…) simply don't
+# narrow the IGDB query and are ranked semantically instead.
+_GAME_FILTERS: Dict[str, Dict[str, List[int]]] = {
+    "scifi": {"themes": [18]},
+    "fantasy": {"genres": [12], "themes": [17]},
+    "action": {"genres": [5, 25, 4, 24], "themes": [1]},
+    "adventure": {"genres": [31]},
+    "comedy": {"themes": [27]},
+    "horror": {"themes": [19, 21]},
+    "thriller": {"genres": [24], "themes": [23]},
+    "romance": {"themes": [44]},
+    "mystery": {"genres": [2, 9], "themes": [43]},
+    "war": {"genres": [15], "themes": [39]},
+    "family": {"themes": [35]},
+    "rpg": {"genres": [12]},
+    "strategy": {"genres": [15, 11, 16]},
+    "shooter": {"genres": [5]},
+    "racing": {"genres": [10]},
+    "sport": {"genres": [14]},
+    "puzzle": {"genres": [9]},
+}
+
 _MOVIE_KW = ["movie", "movies", "film", "фильм", "кино", "картин"]
 _TV_KW = ["series", "show", "tv show", "сериал", "шоу"]
 _GAME_KW = ["game", "games", "видеоигр", "игр"]
@@ -266,9 +310,209 @@ _STOPWORDS = {
 # aka. \u0400-\u04FF covers the Cyrillic Unicode block.
 _CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 
+# ---------------------------------------------------------------------------
+# "Сколько у тебя времени сегодня" — the evening-shaped half of Ask tanè.
+#
+# This is a ranking signal, not a filter, and that distinction is the whole
+# design. A hard filter on runtime produces an empty screen far too often:
+# runtime is only ever populated by GET /media/detail (see MediaItem's own
+# docstring), so most candidates in any freshly-built pool have no runtime
+# at all. Filtering on a field that's usually null would silently throw away
+# the good answers and keep only the handful that happen to have been opened
+# before.
+#
+# So instead: titles that comfortably fit the budget get a real boost,
+# titles that overrun it get a real penalty that scales with how badly, and
+# titles with no runtime on file are left exactly where they were. Someone
+# who says "у меня 40 минут" gets episodes and short films at the top and a
+# three-hour epic pushed to the bottom — but never an empty result, and
+# never a shortlist that's empty of everything the catalog didn't happen to
+# have measured.
+# ---------------------------------------------------------------------------
+
+# Spoken time budgets, in the order they're tried. Russian first (this is
+# the app's primary audience) and both "полтора часа" and "1.5 часа" have
+# to work, because people type both.
+_TIME_PATTERNS: List[Tuple[re.Pattern, float]] = [
+    # "полтора часа" / "полторы серии" — worth a special case, since it's
+    # the single most common way to say 90 minutes in Russian and no
+    # numeric pattern will ever catch it.
+    (re.compile(r"\bполтор[ая]\s*час"), 90.0),
+    (re.compile(r"\bпол\s*час"), 30.0),
+    (re.compile(r"\bhalf\s+an\s+hour\b"), 30.0),
+    # "2 часа", "2.5 часа", "1,5 ч"
+    (re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:час|ч\b|hours?\b|hrs?\b|h\b)"), 60.0),
+    # "40 минут", "40 мин", "40 minutes"
+    (re.compile(r"(\d+)\s*(?:минут|мин\b|minutes?\b|mins?\b|m\b)"), 1.0),
+    # Inverted Russian word order — "часа два", "минут сорок", "минут 45".
+    # This is how people actually say an approximate amount out loud, and
+    # it's the shape every number-first pattern above misses entirely.
+    # Listed last so an exact "2 часа" is always matched by the precise
+    # pattern above before this looser one gets a look.
+    (re.compile(r"\bчас[аов]*\s*(\d+(?:[.,]\d+)?)"), 60.0),
+    (re.compile(r"\bмин(?:ут[ыу]?)?\s*(\d+)"), 1.0),
+]
+
+# Spelled-out numbers, for the "минут сорок" / "часа полтора" case where
+# there's no digit to capture at all. Deliberately stops at twelve plus
+# the round tens — past that nobody says it in words.
+_SPELLED_NUMBERS: Dict[str, float] = {
+    "один": 1, "одна": 1, "полтора": 1.5, "полторы": 1.5, "полутора": 1.5, "два": 2, "две": 2, "три": 3,
+    "четыре": 4, "пять": 5, "шесть": 6, "семь": 7, "восемь": 8, "девять": 9,
+    "десять": 10, "одиннадцать": 11, "двенадцать": 12, "пятнадцать": 15,
+    "двадцать": 20, "тридцать": 30, "сорок": 40, "пятьдесят": 50,
+    "шестьдесят": 60, "девяносто": 90,
+}
+
+_SPELLED_PATTERNS: List[Tuple[re.Pattern, float]] = [
+    (
+        re.compile(
+            r"\bчас[аов]*\s+(" + "|".join(_SPELLED_NUMBERS) + r")\b"
+        ),
+        60.0,
+    ),
+    (
+        re.compile(
+            r"\b(" + "|".join(_SPELLED_NUMBERS) + r")\s+час"
+        ),
+        60.0,
+    ),
+    (
+        re.compile(
+            r"\bмин(?:ут[ыу]?)?\s+(" + "|".join(_SPELLED_NUMBERS) + r")\b"
+        ),
+        1.0,
+    ),
+    (
+        re.compile(
+            r"\b(" + "|".join(_SPELLED_NUMBERS) + r")\s+минут"
+        ),
+        1.0,
+    ),
+]
+
+
+def _parse_spoken_budget(q: str) -> Optional[int]:
+    """Pulls a time budget out of the free text, for someone who typed it
+    instead of tapping a chip ("есть часа полтора, что посмотреть").
+
+    Returns None rather than guessing when there's no time language at
+    all — a bare number in "три мушкетёра" must not become a three-minute
+    budget, which is why every pattern here requires an explicit unit.
+    """
+    for pattern, multiplier in _TIME_PATTERNS:
+        match = pattern.search(q)
+        if not match:
+            continue
+        if not match.groups():
+            return int(multiplier)
+        try:
+            value = float(match.group(1).replace(",", "."))
+        except (TypeError, ValueError):
+            continue
+        minutes = int(round(value * multiplier))
+        # Same sanity window as AiAskRequest.minutes_available — a parsed
+        # "2000 минут" is far likelier to be a year or a typo than a
+        # genuine 33-hour evening.
+        if 10 <= minutes <= 720:
+            return minutes
+
+    # Nothing with a digit in it — try the spelled-out forms.
+    for pattern, multiplier in _SPELLED_PATTERNS:
+        match = pattern.search(q)
+        if not match:
+            continue
+        value = _SPELLED_NUMBERS.get(match.group(1))
+        if value is None:
+            continue
+        minutes = int(round(value * multiplier))
+        if 10 <= minutes <= 720:
+            return minutes
+    return None
+
+
+def _budget_shape(minutes: int) -> str:
+    """What a given budget is most likely asking for, for the caption
+    only. The boundaries are deliberately fuzzy and overlapping-ish: 70
+    minutes is comfortably an episode or two, 100 is a short film, and
+    pretending there's a sharp line between them would make the caption
+    wrong about half the time."""
+    if minutes <= 70:
+        return "episode"
+    if minutes >= 100:
+        return "movie"
+    return "either"
+
+
+# How far over budget a title can run before it stops being penalised
+# further — past roughly double, it's equally impossible and there's no
+# point ranking one impossible option above another.
+_OVERRUN_CAP = 2.0
+
+
+def _time_fit_bonus(item: MediaItem, minutes: int) -> float:
+    """Score adjustment for one candidate against the evening's budget.
+
+    Returns 0.0 for anything with no runtime on file — the "leave it
+    exactly where it was" case that keeps this a signal rather than a
+    filter. See this section's own comment above.
+
+    The shape: a full bonus for titles that fit with a little room to
+    spare, a smaller one for titles that fit exactly (finishing at the
+    last possible minute is still a fit, just a tighter one), and a
+    penalty proportional to the overrun for anything longer.
+    """
+    runtime = item.runtime_minutes
+    if not runtime or runtime <= 0:
+        return 0.0
+    ratio = runtime / minutes
+    if ratio <= 0.55:
+        # Much shorter than the budget — fits, but leaves most of the
+        # evening unspent. Worth surfacing (two episodes!), not worth as
+        # much as something that fills the time.
+        return 6.0
+    if ratio <= 1.0:
+        # The sweet spot: fills the evening without running over.
+        return 14.0
+    overrun = min(ratio, _OVERRUN_CAP) - 1.0
+    return -22.0 * (overrun / (_OVERRUN_CAP - 1.0))
+
+
+def _time_reasoning(item: MediaItem, minutes: int, lang_ru: bool) -> Optional[str]:
+    """One short line explaining the fit, appended to whatever reasoning
+    the rule-based layer already produced. Only ever written when there's
+    a real runtime to talk about."""
+    runtime = item.runtime_minutes
+    if not runtime or runtime <= 0:
+        return None
+    if runtime <= minutes:
+        left = minutes - runtime
+        if left >= 20:
+            return (
+                f"{runtime} мин — останется ещё {left}"
+                if lang_ru
+                else f"{runtime} min — {left} to spare"
+            )
+        return f"{runtime} мин — как раз" if lang_ru else f"{runtime} min — just fits"
+    over = runtime - minutes
+    return (
+        f"{runtime} мин — на {over} дольше, чем есть"
+        if lang_ru
+        else f"{runtime} min — {over} over"
+    )
+
+
 
 def _matched_concepts(q: str) -> List[str]:
     return [key for key, spec in _CONCEPTS.items() if any(kw in q for kw in spec["kw"])]
+
+
+# A verb can say what kind of thing is wanted even when no noun does:
+# "что посмотреть вечером" is never a game ask, "something to play
+# tonight" never a film. Only consulted when no explicit kind word was
+# used, so it can only narrow the "search everywhere" default.
+_WATCH_RE = re.compile(r"\bwatch(?:ing)?\b|\bпосмотр\w*|\bсмотр\w*")
+_PLAY_RE = re.compile(r"\bplay(?:ing)?\b|\bпоигра\w*|\bсыгра\w*")
 
 
 def _media_kinds(q: str) -> Set[str]:
@@ -279,7 +523,13 @@ def _media_kinds(q: str) -> Set[str]:
         kinds.add("tv")
     if any(kw in q for kw in _GAME_KW):
         kinds.add("game")
-    return kinds or {"movie", "tv", "game"}  # unspecified -> search everywhere
+    if kinds:
+        return kinds
+    if _WATCH_RE.search(q) and not _PLAY_RE.search(q):
+        return {"movie", "tv"}
+    if _PLAY_RE.search(q) and not _WATCH_RE.search(q):
+        return {"game"}
+    return {"movie", "tv", "game"}  # unspecified -> search everywhere
 
 
 def _explicit_kind(q: str) -> bool:
@@ -435,21 +685,43 @@ _SEMANTIC_BROAD_POOL_MIN_COSINE = 0.78  # pre-filter for `_broad_pool`
                                         # pass), not a genuine last resort.
 
 
-def _embedding_passage(item: MediaItem) -> str:
+def _embedding_passage(item: MediaItem, extra_terms: Sequence[str] = ()) -> str:
     """The text a title is embedded from — title, genres, and the first
     chunk of its description, i.e. everything Ask Teamira already has
     cached for it. Mirrors _content_words' 40-word description cap
     below in spirit: enough text for the model to place the title
     semantically, without diluting a short title+genre signal in a much
-    longer synopsis."""
+    longer synopsis.
+
+    Games additionally carry their IGDB themes (`extra_terms` — "Horror",
+    "Science fiction"…) and play modes ("Co-operative", "Split screen"):
+    an IGDB summary is often two sentences that never mention either, and
+    "co-op game for two" has nothing else to match a co-op title on."""
     title = _display(item.title)
     desc = _display(item.description)
     desc_snippet = " ".join(desc.split()[:60])
-    genres = ", ".join(item.genres)
+    genres = ", ".join([*item.genres, *extra_terms])
+    if item.media_type == "game" and item.game_modes:
+        return f"{title}. {genres}. {', '.join(item.game_modes)}. {desc_snippet}".strip()
     return f"{title}. {genres}. {desc_snippet}".strip()
 
 
-async def _semantic_raw_scores(db: Session, query_text: str, items: List[MediaItem]) -> Dict[str, float]:
+def _embedding_cache_source(item: MediaItem) -> str:
+    """The `source` half of an embedding's cache key. Games are stored
+    under a versioned source because their passage changed shape (themes
+    + play modes were added — see _embedding_passage): vectors cached
+    from the old title/genres/summary text stay valid for what they
+    embedded but would quietly ignore the new signal forever, since
+    embeddings are cached with no expiry."""
+    return f"{item.source}:v2" if item.media_type == "game" else item.source
+
+
+async def _semantic_raw_scores(
+    db: Optional[Session],
+    query_text: str,
+    items: List[MediaItem],
+    extra_terms: Optional[Dict[str, List[str]]] = None,
+) -> Dict[str, float]:
     """Absolute cosine per "source:id" key — the shared embedding/caching
     machinery, split out from the pool-relative normalization in
     _semantic_scores below so a caller that needs an absolute floor
@@ -467,28 +739,34 @@ async def _semantic_raw_scores(db: Session, query_text: str, items: List[MediaIt
     if query_vector is None:
         return {}
 
+    extra_terms = extra_terms or {}
     by_key: Dict[str, MediaItem] = {f"{item.source}:{item.id}": item for item in items}
     vectors: Dict[str, List[float]] = {}
     missing: List[Tuple[str, MediaItem]] = []
     for key, item in by_key.items():
-        cached_vector = cache.get_embedding(db, item.id, item.source)
+        cached_vector = cache.get_embedding(db, item.id, _embedding_cache_source(item))
         if cached_vector is not None:
             vectors[key] = cached_vector
         else:
             missing.append((key, item))
 
     if missing:
-        passages = [_embedding_passage(item) for _, item in missing]
+        passages = [_embedding_passage(item, extra_terms.get(key, ())) for key, item in missing]
         computed = await asyncio.to_thread(embeddings.embed_passages, passages)
         for (key, item), vector in zip(missing, computed):
             if vector is not None:
                 vectors[key] = vector
-                cache.set_embedding(db, item.id, item.source, vector)
+                cache.set_embedding(db, item.id, _embedding_cache_source(item), vector)
 
     return {key: embeddings.cosine(query_vector, vector) for key, vector in vectors.items()}
 
 
-async def _semantic_scores(db: Session, query_text: str, items: List[MediaItem]) -> Dict[str, float]:
+async def _semantic_scores(
+    db: Optional[Session],
+    query_text: str,
+    items: List[MediaItem],
+    extra_terms: Optional[Dict[str, List[str]]] = None,
+) -> Dict[str, float]:
     """Pool-relative semantic score per "source:id" key, normalized to
     0..1 by min-max over just this request's own candidates — not an
     absolute cosine threshold. e5 cosine similarities are compressed
@@ -505,7 +783,7 @@ async def _semantic_scores(db: Session, query_text: str, items: List[MediaItem])
     BEFORE this, specifically to `_broad_pool`-sourced candidates — this
     function still just normalizes whatever it's handed.
     """
-    raw_scores = await _semantic_raw_scores(db, query_text, items)
+    raw_scores = await _semantic_raw_scores(db, query_text, items, extra_terms)
     if not raw_scores:
         return {}
 
@@ -516,15 +794,312 @@ async def _semantic_scores(db: Session, query_text: str, items: List[MediaItem])
     return {key: (value - lo) / spread for key, value in raw_scores.items()}
 
 
+# ---------------------------------------------------------------------------
+# Games — candidate generation and ranking. See the module docstring, and
+# IgdbAdapter.discover for the quality gate everything below sits on.
+# ---------------------------------------------------------------------------
+
+# Discovery results are stable for hours and the same few asks ("co-op game
+# for two", "horror game") are repeated by many people, so they're cached by
+# their *filters* (never by free text — that's unbounded). IGDB is also the
+# flakiest dependency here; a warm cache keeps Ask answering through a blip.
+_GAME_DISCOVER_TTL = timedelta(hours=6)
+_GAME_BROAD_TTL = timedelta(hours=24)
+# Below this many candidates, filters get relaxed step by step (see
+# _relaxation_ladder) rather than answering from a near-empty bench. Kept
+# low on purpose: for games a short list of real matches beats padding it
+# with near-misses, and whatever relaxation does add is ranked below
+# genuine matches (see _GAME_GENRE_MISS_PENALTY).
+_GAME_POOL_MIN = 6
+# Applied to a game that matched none of the genres/themes the ask named —
+# only reachable through relaxation. Keeps padding under the real matches
+# even when its semantic score happens to be higher.
+_GAME_GENRE_MISS_PENALTY = 30.0
+_BROAD_GAME_CACHE_KEY = "ask:games:v1:broad"
+
+
+class _EmptyDiscovery(Exception):
+    """Raised inside a cache fetch so an empty IGDB answer — which can't be
+    told apart from a swallowed failure — is never stored for hours."""
+
+
+def _game_cache_key(mode_ids, genre_ids, theme_ids, year_from, year_to) -> str:
+    def j(values) -> str:
+        return ".".join(str(v) for v in sorted(set(values)))
+    return (
+        f"ask:games:v1:m{j(mode_ids)}:g{j(genre_ids)}:t{j(theme_ids)}"
+        f":y{year_from or ''}-{year_to or ''}"
+    )
+
+
+async def _cached_game_discover(
+    *,
+    mode_ids: Sequence[int] = (),
+    genre_ids: Sequence[int] = (),
+    theme_ids: Sequence[int] = (),
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
+    want: int = 30,
+    limit_each: int = 50,
+    cache_key: Optional[str] = None,
+    ttl: timedelta = _GAME_DISCOVER_TTL,
+) -> List[GameHit]:
+    def _direct():
+        return _games.discover(
+            mode_ids=mode_ids, genre_ids=genre_ids, theme_ids=theme_ids,
+            year_from=year_from, year_to=year_to, want=want, limit_each=limit_each,
+        )
+
+    async def _fetch() -> List[GameHit]:
+        hits = await _direct()
+        if not hits:
+            raise _EmptyDiscovery()
+        return hits
+
+    key = cache_key or _game_cache_key(mode_ids, genre_ids, theme_ids, year_from, year_to)
+    try:
+        payload = await cache.cached_dynamic(None, key, _fetch, ttl=ttl)
+    except _EmptyDiscovery:
+        return []
+    except Exception:  # noqa: BLE001 — cache trouble must not cost the answer
+        logger.warning("game discovery cache failed for %s; querying IGDB directly", key, exc_info=True)
+        return await _direct()
+    return TypeAdapter(List[GameHit]).validate_json(payload)
+
+
+async def _broad_game_pool() -> List[GameHit]:
+    """A wide, quality-gated slice of the game catalog (most-rated plus
+    best-rated) for asks that describe a mood rather than name a genre,
+    mode or era — the games counterpart of `_broad_pool`. Deliberately not
+    `_broad_pool` itself: that one's game half is IGDB's top-rated list
+    with no audience floor, i.e. one-vote 100s."""
+    return await _cached_game_discover(
+        want=150, limit_each=80, cache_key=_BROAD_GAME_CACHE_KEY, ttl=_GAME_BROAD_TTL,
+    )
+
+
+# Words that carry no information about *which game* — stripped before
+# deciding whether what's left could be a title.
+_TITLE_FLUFF = {
+    "about", "where", "that", "this", "with", "want", "some", "something", "anything",
+    "good", "best", "great", "fun", "nice", "cool", "new", "old", "play", "played",
+    "playing", "recommend", "suggest", "give", "find", "show", "like", "similar",
+    "tonight", "today", "please", "need", "looking", "for", "not", "too", "very",
+    "really", "just", "what", "which", "have", "from", "into", "your", "you", "are",
+    "can", "get", "хочу", "хочется", "что", "нибудь", "какую", "какой", "какая",
+    "игру", "игры", "игра", "посоветуй", "подскажи", "порекомендуй", "найди",
+    "хорошую", "хороший", "хорошая", "интересную", "интересный", "новую", "вечер",
+    "сегодня", "чтобы", "который", "которая", "которую", "где", "есть", "для", "про",
+    "или", "это",
+}
+
+
+def _title_tokens(text: str) -> List[str]:
+    return [
+        w for w in re.findall(r"[a-zа-яё0-9']{3,}", (text or "").lower())
+        if w not in _STOPWORDS and w not in _TITLE_FLUFF
+    ]
+
+
+def _game_title_query(freetext: str) -> Optional[str]:
+    """What's left of the ask once genre/mode/kind words are gone, if it
+    could plausibly be (part of) a game's name: one to five informative
+    words. A long remainder is a description, and description-vs-title
+    matching is exactly what produced junk before."""
+    tokens = _title_tokens(freetext)
+    if not tokens or len(tokens) > 5:
+        return None
+    return " ".join(tokens)
+
+
+def _title_hit_relevant(tokens: List[str], item: MediaItem) -> bool:
+    """A title-search hit is only kept when at least half of what was
+    searched for literally appears in the title — IGDB's search is fuzzy,
+    and a fuzzy hit that shares nothing readable with the ask is noise."""
+    if not tokens:
+        return False
+    words = re.findall(r"[a-zа-яё0-9']+", _display(item.title).lower())
+    covered = sum(1 for t in tokens if any(w == t or w.startswith(t) for w in words))
+    return covered / len(tokens) >= 0.5
+
+
+def _relaxation_ladder(mode_ids, genre_ids, theme_ids, year_from, year_to) -> List[dict]:
+    """Filter sets to try in order when the strictest one is thin. The play
+    mode is never dropped (it's what the person actually asked for and is
+    re-checked per game anyway); the era goes first, then genre/theme."""
+    full = dict(mode_ids=tuple(mode_ids), genre_ids=tuple(genre_ids), theme_ids=tuple(theme_ids),
+                year_from=year_from, year_to=year_to)
+    steps = [full]
+    if year_from is not None or year_to is not None:
+        steps.append({**full, "year_from": None, "year_to": None})
+    if mode_ids and (genre_ids or theme_ids):
+        steps.append({**full, "genre_ids": (), "theme_ids": (), "year_from": None, "year_to": None})
+    unique, seen = [], set()
+    for step in steps:
+        marker = tuple(sorted((k, repr(v)) for k, v in step.items()))
+        if marker not in seen:
+            seen.add(marker)
+            unique.append(step)
+    return unique
+
+
+async def _drop_unrelated_games(hits: List[GameHit], query_text: str) -> List[GameHit]:
+    """For the broad (mood-only) pool: keep only games whose *absolute*
+    cosine to the ask clears the same floor `_broad_pool` uses. Without a
+    floor, min-max normalization would crown the least-unrelated game in a
+    pile of unrelated ones. If the model isn't available there's nothing
+    to judge relevance with, and "the most popular games regardless of
+    what you asked" is worse than saying nothing matched."""
+    if not hits or not query_text.strip():
+        return []
+    extra = {f"{h.item.source}:{h.item.id}": h.themes for h in hits}
+    raw = await _semantic_raw_scores(None, query_text, [h.item for h in hits], extra)
+    return [
+        h for h in hits
+        if raw.get(f"{h.item.source}:{h.item.id}", 0.0) >= _SEMANTIC_BROAD_POOL_MIN_COSINE
+    ]
+
+
+async def _game_candidates(
+    *,
+    query_text: str,
+    intent: "game_intent.GameIntent",
+    genre_ids: Sequence[int],
+    theme_ids: Sequence[int],
+    year_from: Optional[int],
+    year_to: Optional[int],
+    title_text: Optional[str],
+) -> List[GameHit]:
+    """Every game that could answer this ask — all already through
+    IgdbAdapter.discover's quality gate.
+
+    - Anything structured in the ask (play mode, genre/theme, era) becomes
+      an IGDB filter; thin results relax step by step (_relaxation_ladder).
+    - A pure mood ask gets the broad quality pool, cut down by absolute
+      semantic relevance.
+    - Whatever remains of the ask, if it could be a title, also gets a
+      title lookup — kept only where the title really shares its words.
+    """
+    mode_ids = tuple(sorted(intent.required_modes))
+    era = year_from is not None or year_to is not None
+    structured = bool(mode_ids or genre_ids or theme_ids or era)
+
+    async def _title_lookup() -> List[GameHit]:
+        if not title_text:
+            return []
+        try:
+            return await _games.discover(text=title_text)
+        except Exception:  # noqa: BLE001
+            logger.warning("game title lookup failed", exc_info=True)
+            return []
+
+    collected: Dict[str, GameHit] = {}
+
+    def _take(hits: List[GameHit]) -> None:
+        for hit in hits:
+            collected.setdefault(hit.item.id, hit)
+
+    if structured:
+        ladder = _relaxation_ladder(mode_ids, genre_ids, theme_ids, year_from, year_to)
+        first, title_hits = await asyncio.gather(_cached_game_discover(**ladder[0]), _title_lookup())
+        _take(first)
+        for step in ladder[1:]:
+            if len(collected) >= _GAME_POOL_MIN:
+                break
+            _take(await _cached_game_discover(**step))
+    else:
+        broad, title_hits = await asyncio.gather(_broad_game_pool(), _title_lookup())
+        _take(await _drop_unrelated_games(broad, query_text))
+
+    tokens = _title_tokens(title_text or "")
+    _take([h for h in title_hits if _title_hit_relevant(tokens, h.item)])
+    return list(collected.values())
+
+
+def _game_quality_bonus(item: MediaItem, hit: Optional[GameHit]) -> float:
+    """0..12 — a tiebreaker among games that already passed the gate and
+    fit the ask: how many people rated it (1000+ ratings = full marks) and
+    how well (60 -> 0, 90 -> full). Small next to semantic closeness and
+    mode/genre fit on purpose; it decides "which of two equally relevant
+    games first", never "relevant vs. not"."""
+    bonus = 0.0
+    if hit is not None and hit.rating_count > 0:
+        bonus += min(1.0, math.log10(hit.rating_count) / 3.0) * 6.0
+    if item.rating:
+        bonus += max(0.0, min(1.0, (item.rating * 10 - 60) / 30.0)) * 6.0
+    return bonus
+
+
+def _franchise_key(title: str) -> str:
+    """"Borderlands 3" / "Borderlands: The Pre-Sequel" -> "borderlands";
+    "Left 4 Dead 2" / "Left 4 Dead" -> "left 4 dead". Enough to stop one
+    series from filling a shortlist, without pretending to be a real
+    franchise database."""
+    t = (title or "").lower()
+    t = re.split(r"\s*:\s+|\s+[-\u2013\u2014]\s+", t)[0]
+    t = re.sub(r"[\s\W]+(?:\d+|[ivx]{1,5})\s*$", "", t)
+    key = re.sub(r"\W+", " ", t).strip()
+    return key or (title or "").lower()
+
+
+def _pick_top(rows: list, limit: int = 24, franchise_cap: int = 2) -> list:
+    """The first `limit` rows of an already-sorted shortlist, letting any
+    one game franchise take at most `franchise_cap` places. Only games are
+    capped (row[3] is the MediaItem); movies/series pass straight through
+    exactly as before."""
+    picked, counts = [], {}
+    for row in rows:
+        item = row[3]
+        if item.media_type == "game":
+            key = _franchise_key(_display(item.title))
+            if counts.get(key, 0) >= franchise_cap:
+                continue
+            counts[key] = counts.get(key, 0) + 1
+        picked.append(row)
+        if len(picked) >= limit:
+            break
+    return picked
+
+
 @router.post("/ask", response_model=AiAskResponse)
-async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
+async def ask_ai(
+    payload: AiAskRequest,
+    current_user: models.User = Depends(get_current_user),
+):
     """"Ask Teamira" on Home — a free-text description in, a ranked
     shortlist out. Mock only in the sense that there's no model call
     behind it (see module docstring); the catalog hits and scores are
     real, not randomly picked, which is why this doesn't cache the
     response the way the old single-pick version did — arbitrary user
     text isn't a repeatable cache key any more than /media/search's is.
+
+    Requires a signed-in account and a generous per-account hourly cap
+    (see rate_limit.ai_ask_limiter) — this used to accept anyone,
+    signed in or not, with no limit at all, which meant the embedding
+    work below (real local compute — see app/embeddings.py) had no
+    real ceiling on it. This is NOT the app's actual "3 free asks a
+    month" premium limit — that one is checked separately, by the
+    client calling POST /premium/ai-ask before it calls this endpoint
+    (see routers/premium.py) — this cap exists purely so this endpoint
+    specifically can't be hammered by a signed-in-but-abusive script; it
+    isn't a monetization control on its own.
+
+    No `db: Session = Depends(get_db)` for the whole request here —
+    same reasoning as routers/media.py::search_media and this module's
+    other fan-out-shaped endpoints. Everything below that touches `db`
+    (the broad-pool cache, per-item embedding cache reads/writes) is
+    passed `db=None` and opens its own short-lived session per touch
+    (see app/cache.py's `_session`) rather than holding one pooled
+    connection for this whole request — which, unlike a typical route,
+    can run a genuinely long chain of TMDB/IGDB calls plus CPU-bound
+    embedding work (each individually dispatched via asyncio.to_thread,
+    see app/embeddings.py) before it's done. The one genuinely
+    transactional DB use here — the rate-limit check itself, an atomic
+    UPSERT — gets its own short-lived session right at the top instead,
+    before any of that starts.
     """
+    with SessionLocal() as rl_db:
+        ai_ask_limiter.check(rl_db, current_user.id)
     raw_query = payload.query.strip()
     if not raw_query:
         raise HTTPException(status_code=400, detail="query is empty")
@@ -536,12 +1111,25 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
             detail="No catalog sources are configured yet (need TMDB_API_KEY and/or IGDB_CLIENT_ID/SECRET)",
         )
 
-    concepts = _matched_concepts(q)
+    # How a game should be *played* ("co-op", "for two", "split screen") is
+    # its own kind of signal, parsed before anything genre-shaped so those
+    # words neither leak into genre/title matching ("мультиплеер" starts
+    # with "мульт" — an animation keyword) nor get lost: they become an
+    # IGDB game-mode filter below. See app/game_intent.py.
+    intent = game_intent.parse(q, games_explicit=any(kw in q for kw in _GAME_KW))
+    q_topic = game_intent.strip(q) if intent.active else q
+
+    concepts = _matched_concepts(q_topic)
     kinds = _media_kinds(q)
+    if intent.strong and not _explicit_kind(q):
+        kinds = {"game"}  # "co-op for two" can only be about games
     exact_year, decade = _extract_year_and_decade(q)
-    reference_title = _extract_reference(q)
-    freetext = _freetext_remainder(raw_query, concepts, reference_title)
-    query_words = _content_words(freetext or raw_query)
+    reference_title = _extract_reference(q_topic)
+    freetext = _freetext_remainder(q_topic if intent.active else raw_query, concepts, reference_title)
+    # With play-mode words removed, an empty remainder must stay empty:
+    # falling back to the raw query would hand words like "game" to the
+    # text-overlap scorer and boost every title that happens to contain it.
+    query_words = _content_words(freetext or ("" if intent.active else raw_query))
     tmdb_language = "ru-RU" if _CYRILLIC_RE.search(q) else None
 
     movie_genre_targets = sorted({g for c in concepts for g in _CONCEPTS[c]["movie"]})
@@ -560,6 +1148,9 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
     movie_pool: List[MediaItem] = []
     tv_pool: List[MediaItem] = []
     game_pool: List[MediaItem] = []
+    # Per-game extras from IGDB discovery (rating count, themes), by
+    # "source:id" — see GameHit.
+    game_hits: Dict[str, GameHit] = {}
 
     if reference_title:
         # Try the query's own language first, then the other one — a
@@ -590,6 +1181,11 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
                     break
             if hits:
                 break
+        # "games like Portal" resolves against TMDB, which has no games — it
+        # finds a *film* called Portal. Treating that as the reference
+        # would pull films into a games-only ask, so it isn't one.
+        if hits and kinds == {"game"} and hits[0].media_type != "game":
+            hits = []
         if hits:
             reference_item = hits[0]
             if not _explicit_kind(q):
@@ -678,21 +1274,19 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
     if ("movie" in kinds or "tv" in kinds) and freetext:
         tasks.append(("tmdb_text", _tmdb.catalog_search(freetext, language=tmdb_language)))
     if "game" in kinds:
-        if game_kw_targets:
-            # A genre ask ("sci-fi game", "стратегия") has no game title in
-            # it at all — searching IGDB's name field for the genre words
-            # themselves (the old `game_query` here) essentially never
-            # matches a real game and silently comes back empty. Pull
-            # IGDB's top-rated pool instead — same "no query" branch
-            # IgdbAdapter.search already has for Collections — narrowed to
-            # the requested era when one was given, and let the per-item
-            # genre/year scoring below do the actual filtering, same as
-            # the movie/tv genre-discover calls above.
-            year_from = decade if decade is not None else (exact_year - 2 if exact_year is not None else None)
-            year_to = (decade + 9) if decade is not None else (exact_year + 2 if exact_year is not None else None)
-            tasks.append(("game", _games.search("", year_from=year_from, year_to=year_to)))
-        else:
-            tasks.append(("game", _games.search(freetext or raw_query)))
+        game_genre_ids = sorted({i for c in concepts for i in _GAME_FILTERS.get(c, {}).get("genres", [])})
+        game_theme_ids = sorted({i for c in concepts for i in _GAME_FILTERS.get(c, {}).get("themes", [])})
+        game_year_from = decade if decade is not None else (exact_year - 2 if exact_year is not None else None)
+        game_year_to = (decade + 9) if decade is not None else (exact_year + 2 if exact_year is not None else None)
+        tasks.append(("game", _game_candidates(
+            query_text=raw_query,
+            intent=intent,
+            genre_ids=game_genre_ids,
+            theme_ids=game_theme_ids,
+            year_from=game_year_from,
+            year_to=game_year_to,
+            title_text=_game_title_query(freetext),
+        )))
 
     if tasks:
         gathered = await asyncio.gather(*(t[1] for t in tasks), return_exceptions=True)
@@ -708,7 +1302,9 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
                 for item in items:
                     (movie_pool if item.media_type == "movie" else tv_pool).append(item)
             elif label == "game":
-                game_pool.extend(result)
+                for hit in result:
+                    game_hits[f"{hit.item.source}:{hit.item.id}"] = hit
+                    game_pool.append(hit.item)
 
     # A pure mood/vibe query — no recognized genre word, no reference
     # title, nothing for any of the genre-discover/title-search calls
@@ -732,13 +1328,20 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
     # Only the pool refreshing every 24h (see _broad_pool) reintroduces
     # a handful of new titles worth embedding; it's never the same
     # multi-hundred-item cold start twice.
-    if not concepts and reference_item is None and not movie_genre_calls and not tv_genre_calls and not game_kw_targets:
-        broad = await _broad_pool(db)
+    #
+    # Movies/series only: games have their own broad pool (see
+    # _game_candidates) with an audience floor this feed pool lacks, and a
+    # games-only ask shouldn't pay for the ~85-call TMDB mixed pool at all.
+    if (
+        not concepts and reference_item is None and not movie_genre_calls
+        and not tv_genre_calls and not game_kw_targets
+        and ("movie" in kinds or "tv" in kinds)
+    ):
+        broad = await _broad_pool(None)
         broad = [
             item for item in broad
             if (item.media_type == "movie" and "movie" in kinds)
             or (item.media_type in ("series", "anime") and "tv" in kinds)
-            or (item.media_type == "game" and "game" in kinds)
         ]
         # Pre-filter by an ABSOLUTE cosine floor before this pool ever
         # reaches the pool-relative normalization in _semantic_scores.
@@ -764,7 +1367,7 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
         # gatekeeper the way it is for a pure vibe query with nothing
         # else to go on.
         if broad and raw_query.strip() and embeddings.available():
-            broad_raw = await _semantic_raw_scores(db, raw_query, broad)
+            broad_raw = await _semantic_raw_scores(None, raw_query, broad)
             broad = [
                 item for item in broad
                 if broad_raw.get(f"{item.source}:{item.id}", 0.0) >= _SEMANTIC_BROAD_POOL_MIN_COSINE
@@ -774,16 +1377,16 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
                 movie_pool.append(item)
             elif item.media_type in ("series", "anime"):
                 tv_pool.append(item)
-            elif item.media_type == "game":
-                game_pool.append(item)
 
-    def _reasoning(matched_genres: List[str], year_hit: bool, via_reference: bool, semantic_hit: bool) -> Optional[str]:
+    def _reasoning(matched_genres: List[str], year_hit: bool, via_reference: bool, semantic_hit: bool, mode_labels: Sequence[str] = ()) -> Optional[str]:
         bits = []
         if via_reference and reference_item is not None:
             ref_title = _display(reference_item.title) or "your reference"
             bits.append(f"similar to {ref_title}")
         if matched_genres:
             bits.append("genres: " + ", ".join(matched_genres[:3]))
+        if mode_labels:
+            bits.append("modes: " + ", ".join(mode_labels))
         if year_hit:
             bits.append("era matches")
         if semantic_hit:
@@ -816,13 +1419,13 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
     scored: List[Tuple[float, float, int, MediaItem, Optional[str]]] = []
     seen: Set[str] = set()
 
-    def _add(item: MediaItem, raw_score: float, matched: List[str], year_hit: bool, via_reference: bool, semantic_hit: bool = False, semantic_component: float = 0.0):
+    def _add(item: MediaItem, raw_score: float, matched: List[str], year_hit: bool, via_reference: bool, semantic_hit: bool = False, semantic_component: float = 0.0, mode_labels: Sequence[str] = ()):
         key = f"{item.source}:{item.id}"
         if key in seen:
             return
         seen.add(key)
         display_score = max(30, min(98, round(raw_score)))
-        scored.append((raw_score, semantic_component, display_score, item, _reasoning(matched, year_hit, via_reference, semantic_hit)))
+        scored.append((raw_score, semantic_component, display_score, item, _reasoning(matched, year_hit, via_reference, semantic_hit, mode_labels)))
 
     # A bonus for a title TMDB itself flagged as similar to the
     # reference — real similarity data, not a genre guess, so it still
@@ -851,7 +1454,10 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
         + [i for i in tv_pool if i.media_type in ("series", "anime")]
         + game_pool
     )
-    semantic_scores = await _semantic_scores(db, semantic_query_text, all_candidates)
+    semantic_scores = await _semantic_scores(
+        None, semantic_query_text, all_candidates,
+        {key: hit.themes for key, hit in game_hits.items()},
+    )
     # Normalized (pool-relative, see _semantic_scores) — only the
     # top slice of this query's own candidates counts as a genuine
     # semantic hit worth mentioning in `reasoning`, not merely "better
@@ -886,14 +1492,39 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
         raw_score = genre_score + ys + _text_overlap_score(query_words, item) + bonus + semantic_bonus
         _add(item, raw_score, matched, ys > 0, via_ref, semantic_hit, semantic_bonus)
 
+    # Genre fit is per *concept* ("sci-fi", "shooter"), not per keyword: a
+    # concept lists several alternative spellings/tags and any one of them
+    # counts — dividing by the keyword count instead meant a perfect
+    # sci-fi game could never score above half. Terms are the game's genre
+    # AND theme names (IGDB keeps sci-fi/horror/fantasy under themes).
+    game_concepts = [c for c in concepts if _CONCEPTS[c]["game"]]
     for item in game_pool:
-        item_genres_lower = [g.lower() for g in item.genres]
-        matched = [kw for kw in game_kw_targets if any(kw in g for g in item_genres_lower)]
-        genre_score = (len(matched) / len(game_kw_targets)) * 60 if game_kw_targets else 0
+        hit = game_hits.get(f"{item.source}:{item.id}")
+        # The play mode is a hard requirement, not a vibe: a game that
+        # isn't co-op is not an answer to a co-op ask, however similar its
+        # description reads. (And an MMO isn't an answer to "for two".)
+        mode_fit = intent.evaluate(item.game_modes)
+        if mode_fit is None:
+            continue
+        terms = [t.lower() for t in [*item.genres, *(hit.themes if hit else [])]]
+        matched_concepts = [
+            c for c in game_concepts
+            if any(kw in term for kw in _CONCEPTS[c]["game"] for term in terms)
+        ]
+        matched = [
+            name for name in [*item.genres, *(hit.themes if hit else [])]
+            if any(kw in name.lower() for c in matched_concepts for kw in _CONCEPTS[c]["game"])
+        ]
+        genre_score = (len(matched_concepts) / len(game_concepts)) * 60 if game_concepts else 0
+        if game_concepts and not matched_concepts:
+            genre_score -= _GAME_GENRE_MISS_PENALTY
         ys = _year_score(item.year, exact_year, decade)
         semantic_bonus, semantic_hit = _semantic_bonus(item)
-        raw_score = genre_score + ys + _text_overlap_score(query_words, item) + semantic_bonus
-        _add(item, raw_score, matched, ys > 0, False, semantic_hit, semantic_bonus)
+        raw_score = (
+            genre_score + ys + _text_overlap_score(query_words, item) + semantic_bonus
+            + mode_fit.bonus + _game_quality_bonus(item, hit)
+        )
+        _add(item, raw_score, matched, ys > 0, False, semantic_hit, semantic_bonus, mode_fit.labels)
 
     # The referenced title is what the person described their taste *by*,
     # not a recommendation of it back to them.
@@ -926,9 +1557,15 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
         # trying the lemmatized form directly against /search here too.
         if reference_title and _CYRILLIC_RE.search(fallback_query):
             fallback_query = ru_morph.normalize_to_nominative(fallback_query) or fallback_query
+        async def _no_games() -> List[GameHit]:
+            return []
+
+        # Same quality-gated lookup as the main path (not the raw fuzzy
+        # `search`), and only when games were asked for at all — a movie
+        # ask used to fall back to whatever game had a similar name.
         fallback_tasks = [
             _tmdb.catalog_search(fallback_query, language=tmdb_language),
-            _games.search(fallback_query),
+            _games.discover(text=fallback_query) if "game" in kinds else _no_games(),
         ]
         fallback_results = await asyncio.gather(*fallback_tasks, return_exceptions=True)
         fallback_words = _content_words(fallback_query)
@@ -937,7 +1574,10 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
         if not isinstance(tmdb_fallback, Exception):
             fallback_items.extend(tmdb_fallback[0])
         if not isinstance(games_fallback, Exception):
-            fallback_items.extend(games_fallback)
+            for hit in games_fallback:
+                if intent.evaluate(hit.item.game_modes) is None:
+                    continue  # wrong play mode for what was asked
+                fallback_items.append(hit.item)
 
         # Same semantic pass as the main path, but this branch only ever
         # runs when literal text/genre matching found NOTHING — exactly
@@ -957,11 +1597,11 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
             overlap = _text_overlap_score(fallback_words, item)
             semantic_cosine = 0.0
             if fallback_query_vector is not None:
-                item_vector = cache.get_embedding(db, item.id, item.source)
+                item_vector = cache.get_embedding(None, item.id, _embedding_cache_source(item))
                 if item_vector is None:
                     item_vector = await asyncio.to_thread(embeddings.embed_passage, _embedding_passage(item))
                     if item_vector is not None:
-                        cache.set_embedding(db, item.id, item.source, item_vector)
+                        cache.set_embedding(None, item.id, _embedding_cache_source(item), item_vector)
                 if item_vector is not None:
                     semantic_cosine = embeddings.cosine(fallback_query_vector, item_vector)
             semantic_hit = semantic_cosine >= _SEMANTIC_FALLBACK_MIN_COSINE
@@ -986,6 +1626,34 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
     # Sort by the raw (unclamped) score first, semantic_component second
     # as an explicit tiebreaker — see `scored`'s definition above for why
     # neither is the same number shown to the user as the match %.
+    #
+    # The time budget, when there is one, is folded into the raw score
+    # here rather than earlier — everything above is about *what* the
+    # person wants, and this is about whether it fits tonight. Keeping the
+    # two separate means a query with no budget takes a code path that is
+    # byte-for-byte what it was before this existed.
+    budget_minutes = payload.minutes_available or _parse_spoken_budget(q)
+    budget_source = "chip" if payload.minutes_available else "text"
+    time_budget_out = None
+    time_budget_relaxed = False
+
+    if budget_minutes:
+        lang_ru = bool(_CYRILLIC_RE.search(raw_query))
+        adjusted = []
+        for raw_score, semantic_component, display_score, item, reasoning in scored:
+            bonus = _time_fit_bonus(item, budget_minutes)
+            line = _time_reasoning(item, budget_minutes, lang_ru)
+            merged = reasoning
+            if line:
+                merged = f"{reasoning} · {line}" if reasoning else line
+            adjusted.append((raw_score + bonus, semantic_component, display_score, item, merged))
+        scored = adjusted
+        time_budget_out = TimeBudgetOut(
+            minutes=budget_minutes,
+            source=budget_source,
+            shape=_budget_shape(budget_minutes),
+        )
+
     scored.sort(key=lambda row: (row[0], row[1]), reverse=True)
     # Was capped at 12 — too tight once a query has a genuinely deep
     # bench of good matches (e.g. a mood/genre query against a wide
@@ -994,9 +1662,26 @@ async def ask_ai(payload: AiAskRequest, db: Session = Depends(get_db)):
     # isn't a principled number either, just a wider shelf; nothing
     # downstream (schema, mobile list rendering) assumes a fixed count,
     # so this is the only place list length is decided.
-    top = scored[:24]
+    top = _pick_top(scored, limit=24)
+
+    if budget_minutes:
+        # Honesty check on the shortlist actually being returned: if none
+        # of the top few fit the stated budget, say so rather than let
+        # someone with forty minutes scroll a list of three-hour films
+        # wondering whether the app heard them.
+        head = top[:6]
+        time_budget_relaxed = not any(
+            item.runtime_minutes and item.runtime_minutes <= budget_minutes
+            for _r, _s, _d, item, _reason in head
+        )
+
     results = [
         AiMatchOut(item=item, match=display_score, reasoning=reasoning)
         for _raw_score, _semantic_component, display_score, item, reasoning in top
     ]
-    return AiAskResponse(results=results, is_mock=True)
+    return AiAskResponse(
+        results=results,
+        is_mock=True,
+        time_budget=time_budget_out,
+        time_budget_relaxed=time_budget_relaxed,
+    )

@@ -53,10 +53,10 @@ class LogThemeCopy {
   /// streak" figure everywhere else on Profile — see
   /// ProfileYearStats.streakDays), just dressed in the theme's own words.
   static String streakHeadline(LogTheme theme, int count) => switch (theme) {
-        LogTheme.garden => '${ruCount(count, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'growing'.tr}',
-        LogTheme.coach => '${ruCount(count, one: 'остановка', few: 'остановки', many: 'остановок', englishOne: 'stop', englishOther: 'stops')} ${'so far'.tr}',
-        LogTheme.ticket => '${ruCount(count, one: 'ночь', few: 'ночи', many: 'ночей', englishOne: 'night', englishOther: 'nights')} ${'running'.tr}',
-        LogTheme.shuttle => '${ruCount(count, one: 'запуск', few: 'запуска', many: 'запусков', englishOne: 'launch', englishOther: 'launches')} ${'so far'.tr}',
+        LogTheme.garden => '${nCount('nDays', count)} ${'growing'.tr}',
+        LogTheme.coach => '${nCount('nStops', count)} ${'so far'.tr}',
+        LogTheme.ticket => '${nCount('nNights', count)} ${'running'.tr}',
+        LogTheme.shuttle => '${nCount('nLaunches', count)} ${'so far'.tr}',
       };
 
   /// Profile streak card, small line underneath — only ever shown when a
@@ -132,24 +132,26 @@ class LogThemeCopy {
         LogTheme.shuttle => '${'level'.tr} $level ${'in orbit'.tr}',
       };
 
-  /// Honesty note under the xp bar on the level detail sheet — same
-  /// reasoning as achievementsHonesty above: xp is computed fresh from
-  /// real logged rows (watched titles, reviews, rewatches, genres
-  /// explored, longest streak), never a counter that can drift or be
-  /// bought.
-  static String levelXpNote(LogTheme theme) => switch (theme) {
+  /// Honesty note under the points bar on the level detail sheet — same
+  /// reasoning as achievementsHonesty above, updated for the merged
+  /// sincerity system (see backend/app/sincerity.py's module docstring):
+  /// points are earned once, for real logged activity (watched titles,
+  /// reviews, rewatches, genres explored, streaks) and a short list of
+  /// rarer honest acts — never a counter that can drift or be bought.
+  static String levelPointsNote(LogTheme theme) => switch (theme) {
         LogTheme.garden =>
-          'xp grows from what you actually plant here — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
+          'points grow from what you actually plant here — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
         LogTheme.coach =>
-          'xp comes from the miles you\'ve actually driven — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
+          'points come from the miles you\'ve actually driven — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
         LogTheme.ticket =>
-          'xp comes from what\'s actually played on the reel — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
+          'points come from what\'s actually played on the reel — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
         LogTheme.shuttle =>
-          'xp comes from what you\'ve actually launched — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
+          'points come from what you\'ve actually launched — logged evenings, reviews, rewatches, streaks, and genres explored'.tr,
       };
 
-  /// Row labels for the xp breakdown on the full-screen level detail page —
-  /// one per well levelXpNote already names, dressed in the theme's words.
+  /// Row labels for the activity breakdown on the full-screen level
+  /// detail page — one per well levelPointsNote already names, dressed
+  /// in the theme's words.
   static String levelBreakdownLabel(LogTheme theme, String key) => switch ((theme, key)) {
         (LogTheme.garden, 'watched') => 'evenings planted'.tr,
         (LogTheme.coach, 'watched') => 'evenings driven'.tr,

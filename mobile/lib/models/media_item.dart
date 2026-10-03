@@ -99,7 +99,12 @@ class MediaItem {
 
   // Populated only by MediaService.detail() (GET /media/detail) — every
   // search/feed/collections-sourced MediaItem leaves these null.
-  final String? tagline;
+  final String? _taglineBase; // the source's own tagline (English, or language-agnostic for non-tmdb sources)
+  // TMDB's Russian-localized tagline, when TMDB actually has one for
+  // this title (see backend app/adapters/tmdb.py::full_detail) —
+  // populated only for source=="tmdb", same "second field, client
+  // picks" convention as [posterUrlRu] above.
+  final String? taglineRu;
   final int? runtimeMinutes;
   final String? certification;
   final String? releaseDate;
@@ -156,6 +161,15 @@ class MediaItem {
   /// instead of a blank tile.
   String? get posterUrlFallback => _posterUrlBase;
 
+  /// The tagline every screen actually renders. Prefers [taglineRu] when
+  /// the device is set to Russian and TMDB actually had a Russian
+  /// tagline for this title; falls back to the source's own tagline
+  /// otherwise — same reasoning and shape as [posterUrl] above.
+  String? get tagline =>
+      (LocaleService.contentPrefersRussian && (taglineRu?.trim().isNotEmpty ?? false))
+          ? taglineRu
+          : _taglineBase;
+
   const MediaItem({
     required this.id,
     required this.mediaType,
@@ -169,7 +183,8 @@ class MediaItem {
     this.genres = const [],
     this.rating,
     required this.source,
-    this.tagline,
+    String? tagline,
+    this.taglineRu,
     this.runtimeMinutes,
     this.certification,
     this.releaseDate,
@@ -187,7 +202,8 @@ class MediaItem {
     this.isbn,
     this.volumes,
     this.chapters,
-  }) : _posterUrlBase = posterUrl;
+  }) : _posterUrlBase = posterUrl,
+       _taglineBase = tagline;
 
   /// Builds just enough of a MediaItem to round-trip through
   /// POST /profile/favorites/toggle for a title that's already on one of
@@ -228,6 +244,7 @@ class MediaItem {
         rating: (json['rating'] as num?)?.toDouble(),
         source: json['source'] as String,
         tagline: json['tagline'] as String?,
+        taglineRu: json['tagline_ru'] as String?,
         runtimeMinutes: json['runtime_minutes'] as int?,
         certification: json['certification'] as String?,
         releaseDate: json['release_date'] as String?,

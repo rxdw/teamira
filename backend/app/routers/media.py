@@ -3,14 +3,16 @@ import difflib
 import json
 import logging
 import re
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, HTTPException, Depends, Request
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
 from app import cache
 from app.database import get_db
+from app.deps import get_current_user_id
+from app.rate_limit import media_read_limiter, client_key
 from app.schemas import (
     MediaItem, MediaDetailOut, EpisodesOut, PersonDetailOut,
 )
@@ -67,7 +69,7 @@ _EPISODES_CACHE_SOURCE = "tmdb-episodes-v1"
 _PERSON_CACHE_SOURCE = "tmdb-person-v1"
 
 
-async def _apply_shikimori_ru(db: Session, item: MediaItem, match_title: str) -> bool:
+async def _apply_shikimori_ru(db: Optional[Session], item: MediaItem, match_title: str) -> bool:
     """Overlays title.ru/description.ru/poster_url_ru on an anime `item`
     from Shikimori, overriding whatever TMDB's own (usually thinner, for
     anime) ru text already set — see app/adapters/shikimori.py's module
@@ -185,7 +187,7 @@ _CYRILLIC_RE = re.compile(r"[\u0400-\u04FF]")
 _GB_RU_SOURCE = "gb-ru-book-v1"
 
 
-async def _enrich_books_with_ru(db: Session, items: List[MediaItem]) -> None:
+async def _enrich_books_with_ru(db: Optional[Session], items: List[MediaItem]) -> None:
     """Fills in title.ru/description.ru/poster_url_ru on Google Books
     search hits — see GoogleBooksAdapter.ru_supplement's docstring for
     why this is still best-effort (a genuinely separate Russian edition
@@ -271,12 +273,13 @@ def _match_score(query: str, item: MediaItem) -> float:
 
 @router.get("/search", response_model=List[MediaItem])
 async def search_media(
+    request: Request,
     q: str = Query(..., min_length=1),
     include_games: bool = Query(True),
     include_books: bool = Query(True),
     include_manga: bool = Query(True),
     lang: str = Query("en"),  # "en" | "ru" — client's content-language setting
-    db: Session = Depends(get_db),
+    _user_id: str = Depends(get_current_user_id),
 ):
     """
     Movies/series/anime all come straight from TMDB now (see
@@ -310,22 +313,46 @@ async def search_media(
     multi-request keystroke, a filter-tab re-trigger, or a user re-opening
     the same search within a few seconds shouldn't mean paying for the
     exact same TMDB round trip more than once.
+
+    No `db: Session = Depends(get_db)` here on purpose, unlike most
+    routes in this file — this endpoint's *only* database use is through
+    cache.py's get_static_title/set_static_title/cached_dynamic, all
+    called below with `db=None` so each cache touch opens and closes its
+    own short-lived session instead. That matters specifically here: this
+    is exactly the endpoint database.py's own docstring names as the
+    cause of a real pool-exhaustion incident (a burst of ~26 concurrent
+    onboarding searches), because the old `Depends(get_db)` pattern held
+    one pooled connection per request for the *entire* fan-out below —
+    TMDB, then Shikimori for every anime hit, then Google Books/IGDB —
+    not just the moments actually touching Postgres. Dropping the
+    dependency here means a burst of concurrent searches no longer eats
+    into the pool at all beyond the brief, separate moments each cache
+    read/write actually needs a connection.
+
+    Requires a logged-in caller (get_current_user_id — DB-free token
+    check, see its own docstring for why not the full get_current_user)
+    and an IP rate limit (media_read_limiter, `db=None` for the same
+    pool-exhaustion reason as above) — this endpoint fans out to TMDB,
+    Shikimori, IGDB and Google Books on every uncached call, all paid/
+    quota-limited third-party APIs; left open, anyone who finds this
+    server's address gets a free, unmetered proxy to that quota.
     """
+    media_read_limiter.check(None, client_key(request))
     cache_key = (
         f"search:{lang}:{include_games}:{include_books}:{include_manga}:"
         f"{q.strip().casefold()}"
     )
     payload_json = await cache.cached_dynamic(
-        db,
+        None,
         cache_key,
-        lambda: _fetch_search_results(db, q, include_games, include_books, include_manga, lang),
+        lambda: _fetch_search_results(None, q, include_games, include_books, include_manga, lang),
         ttl=cache.SEARCH_TTL,
     )
     return TypeAdapter(List[MediaItem]).validate_json(payload_json)
 
 
 async def _fetch_search_results(
-    db: Session,
+    db: Optional[Session],
     q: str,
     include_games: bool,
     include_books: bool,
@@ -375,10 +402,12 @@ async def _fetch_search_results(
 
 @router.get("/detail", response_model=MediaDetailOut)
 async def media_detail(
+    request: Request,
     media_id: str = Query(...),
     media_type: str = Query(...),  # "movie" | "series" | "anime" | "game" | "book" | "manga"
     source: str = Query(...),
     db: Session = Depends(get_db),
+    _user_id: str = Depends(get_current_user_id),
 ):
     """Everything the title screen needs beyond what search/feed already
     gave it: runtime/certification/status, ratings, cast/director,
@@ -390,7 +419,13 @@ async def media_detail(
     Cached forever per (media_id, source) once resolved — see
     app/cache.py — so a cache hit here means zero outbound calls at all
     for the single most-visited screen after Home.
+
+    Requires a logged-in caller and an IP rate limit (media_read_limiter)
+    — same reasoning as search_media above: an uncached call here is a
+    real TMDB/IGDB/Google Books round trip, and this is otherwise the
+    single most-visited screen after Home.
     """
+    media_read_limiter.check(db, client_key(request))
     if source not in ("igdb", "google_books", "shikimori_manga", "tmdb"):
         raise HTTPException(status_code=404, detail="Extended detail is not available for this source")
 
@@ -461,9 +496,11 @@ async def media_detail(
 
 @router.get("/episodes", response_model=EpisodesOut)
 async def media_episodes(
+    request: Request,
     media_id: str = Query(...),
     source: str = Query(...),
     db: Session = Depends(get_db),
+    _user_id: str = Depends(get_current_user_id),
 ):
     """A series' season/episode structure, grouped for the title screen's
     tracker — straight from TMDB now (see
@@ -475,7 +512,9 @@ async def media_episodes(
     ourselves.
 
     Cached forever per (media_id, source), same reasoning as /media/detail.
+    Same auth + IP rate limit as /media/detail, same reasoning.
     """
+    media_read_limiter.check(db, client_key(request))
     if source != "tmdb" or not media_id.startswith("tmdb-"):
         return EpisodesOut(seasons=[])
 
@@ -492,8 +531,10 @@ async def media_episodes(
 
 @router.get("/person", response_model=PersonDetailOut)
 async def media_person(
+    request: Request,
     person_id: str = Query(...),
     db: Session = Depends(get_db),
+    _user_id: str = Depends(get_current_user_id),
 ):
     """What a tapped cast tile or "directed by ___" name opens — bio,
     photo, and a filmography grid, straight from TMDB (see
@@ -505,7 +546,9 @@ async def media_person(
     Cached forever per person_id, same reasoning as /media/detail — a
     person's bio/photo/filmography doesn't change meaningfully often
     enough to re-fetch past the first open.
+    Same auth + IP rate limit as /media/detail, same reasoning.
     """
+    media_read_limiter.check(db, client_key(request))
     cached = cache.get_static_title(db, person_id, _PERSON_CACHE_SOURCE)
     if cached is not None:
         return PersonDetailOut.model_validate_json(cached)

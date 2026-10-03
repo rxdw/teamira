@@ -47,6 +47,8 @@ from sqlalchemy.orm import Session
 from app import cache, models
 from app.database import get_db
 from app.adapters.tmdb import TmdbAdapter
+from app.deps import get_current_user_id
+from app.rate_limit import client_key, watch_out_limiter, watch_providers_limiter
 from app.schemas import WatchProviderOut, WatchProvidersOut
 
 router = APIRouter(prefix="/media", tags=["watch-providers"])
@@ -101,12 +103,19 @@ async def watch_providers(
     tmdb_id: Optional[str] = Query(None),
     country: str = Query("US"),
     db: Session = Depends(get_db),
+    _user_id: str = Depends(get_current_user_id),
 ):
     """Empty (not an error) whenever there's simply nothing to show: no
     tmdb_id at all (games, books, or manga), or TMDB/JustWatch just has
     no listing for this title in this country — both very ordinary, not
     failures.
+
+    Requires a logged-in caller and an IP rate limit
+    (watch_providers_limiter) — an uncached call here is a real TMDB
+    round trip, unlike /media/watch-out below, which stays unauthenticated
+    on purpose (see its own docstring).
     """
+    watch_providers_limiter.check(db, client_key(request))
     if not tmdb_id or media_type not in ("movie", "series", "anime"):
         return WatchProvidersOut(country=country, providers=[])
 
@@ -141,6 +150,7 @@ async def watch_providers(
 
 @router.get("/watch-out")
 def watch_out(
+    request: Request,
     media_id: str = Query(...),
     source: str = Query(...),
     media_type: str = Query(...),
@@ -157,7 +167,14 @@ def watch_out(
     click first regardless of payout status, then redirects to whatever
     `affiliate_providers` currently has configured for this provider,
     falling back to TMDB's combined watch page, and finally to a plain web
-    search if even that's missing."""
+    search if even that's missing.
+
+    Doesn't proxy a paid API itself (no TMDB call happens here), so it
+    doesn't get the same auth requirement as the rest of this file — but
+    it still writes an OutboundClick row and does a redirect on every hit,
+    so it gets an IP rate limit (watch_out_limiter) against someone
+    hammering it to spam clicks/log rows."""
+    watch_out_limiter.check(db, client_key(request))
     media_type_value = media_type if media_type in _VALID_MEDIA_TYPES else models.MediaType.movie.value
 
     provider = db.get(models.AffiliateProvider, provider_key)

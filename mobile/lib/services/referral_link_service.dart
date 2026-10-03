@@ -38,8 +38,13 @@ class ReferralLinkService {
   static String? extractFromUri(Uri uri) {
     final fromQuery = uri.queryParameters['code'];
     if (fromQuery != null && fromQuery.isNotEmpty) return fromQuery;
-    if (uri.pathSegments.length >= 2 && uri.pathSegments[uri.pathSegments.length - 2] == 'i') {
-      final code = uri.pathSegments.last;
+    // Filter out empty segments — a trailing slash on the https App Link
+    // (`.../i/XXX/`) otherwise leaves an empty string as the last
+    // segment, which shifts 'i' out of the length-2 position and makes
+    // this silently fail to extract a code that's genuinely there.
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.length >= 2 && segments[segments.length - 2] == 'i') {
+      final code = segments.last;
       if (code.isNotEmpty) return code;
     }
     return null;

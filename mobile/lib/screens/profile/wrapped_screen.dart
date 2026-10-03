@@ -9,40 +9,93 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../models/profile_stats.dart';
+import '../../models/saved_wrapped_period.dart';
+import '../../services/api_client.dart';
 import '../../services/app_translations.dart';
+import '../../services/custom_wrapped_service.dart';
 import '../../services/locale_service.dart';
+import '../../services/partner_compare_service.dart';
+import '../../services/premium_service.dart';
+import '../../services/shared_diary_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../widgets/wow_motion.dart' show PressScale, Entrance, Breathe;
+import '../../widgets/wow_effects.dart' show GoldRayBurst;
+import '../premium/keepsake_export_screen.dart';
+import '../premium/saved_periods_screen.dart';
+import '../../theme/notebook_paper.dart';
+import '../../theme/clay_kit.dart';
 
 /// Profile -> Wrapped: the full "envelope -> cards -> letter -> receipt"
 /// recap flow, for whichever period the person picks — this month, this
-/// year, any earlier month/year they've actually logged something in, or
-/// their whole history. Every number on every card comes straight off one
-/// WrappedSummary fetch (see ProfileService.wrappedSummary) — nothing
-/// here is computed client-side, and every label uses the app's own
-/// fonts (see theme/text_styles.dart) rather than anything bespoke.
+/// year, any earlier month/year they've actually logged something in,
+/// their whole history, or (premium) a custom-titled date range they
+/// pick themselves. Every number on every card comes straight off one
+/// WrappedSummary — for the built-in periods that's one fetch (see
+/// ProfileService.wrappedSummary); for a custom range there's no
+/// matching backend endpoint, so [CustomWrappedService] computes the
+/// same shape locally instead (see its own doc comment for exactly
+/// which fields that can and can't fill in with real data). Every label
+/// uses the app's own fonts (see theme/text_styles.dart) rather than
+/// anything bespoke. The carousel's own export icon (see
+/// _WrappedCarouselState._openKeepsake) hands whatever summary is on
+/// screen straight to [KeepsakeExportScreen] — the only way to turn a
+/// custom range into a PDF, since that summary exists only in memory.
 class WrappedScreen extends StatefulWidget {
-  final String initialScope; // "month" | "year" | "all"
+  final String initialScope; // "month" | "year" | "all" | "custom"
   final int? initialYear;
   final int? initialMonth;
+  // Only meaningful when initialScope == "custom" — see
+  // SavedPeriodsScreen and CustomWrappedSetupScreen, the only places
+  // that set these.
+  final String? customTitle;
+  final DateTimeRange? customRange;
+  // "наш враппед" — the co-viewing circle's own wrapped instead of this
+  // account's personal one. Swaps the data source (GET
+  // /partner/shared/wrapped/* instead of /profile/wrapped/*, see
+  // _loadSummary/_openPicker below) and switches a handful of card
+  // captions from "ты"-phrasing to "вы"-phrasing (see each affected
+  // card's own `couple` param); every other card, and every animation,
+  // is the exact same code path either way. Custom ranges and the
+  // partner-compare card don't apply here (see _loadPartnerCompare and
+  // PeriodPickerSheet's showCustom) — a couple's own wrapped has no
+  // second "compare yourself to your partner" card to show inside it.
+  final bool isCouple;
   const WrappedScreen({
     super.key,
     this.initialScope = 'year',
     this.initialYear,
     this.initialMonth,
+    this.customTitle,
+    this.customRange,
+    this.isCouple = false,
   });
 
   @override
   State<WrappedScreen> createState() => _WrappedScreenState();
 }
 
+/// [WrappedScreen]'s combined fetch result — bundling the partner
+/// comparison in here too (rather than a second, independent
+/// FutureBuilder) so the carousel's page list can be built once,
+/// correctly including or omitting PartnerCompareCard from the start,
+/// instead of the page count changing under someone mid-scroll.
+class _WrappedLoad {
+  final WrappedSummary summary;
+  final PartnerCompareData? partnerCompare;
+  const _WrappedLoad(this.summary, this.partnerCompare);
+}
+
 class _WrappedScreenState extends State<WrappedScreen> {
-  late Future<WrappedSummary> _future;
+  late Future<_WrappedLoad> _future;
   late String _scope;
   int? _year;
   int? _month;
+  String? _customTitle;
+  DateTimeRange? _customRange;
   bool _opened = false;
   Future<WrappedPeriods>? _periodsFuture;
 
@@ -52,39 +105,111 @@ class _WrappedScreenState extends State<WrappedScreen> {
     _scope = widget.initialScope;
     _year = widget.initialYear;
     _month = widget.initialMonth;
+    _customTitle = widget.customTitle;
+    _customRange = widget.customRange;
     _future = _load();
   }
 
-  Future<WrappedSummary> _load() =>
-      context.read<AppState>().profile.wrappedSummary(scope: _scope, year: _year, month: _month);
+  Future<_WrappedLoad> _load() async {
+    final summary = await _loadSummary();
+    final compare = await _loadPartnerCompare();
+    return _WrappedLoad(summary, compare);
+  }
+
+  Future<WrappedSummary> _loadSummary() async {
+    if (_scope == 'custom' && _customTitle != null && _customRange != null) {
+      final entries = await context.read<AppState>().diary.list();
+      return CustomWrappedService.build(title: _customTitle!, range: _customRange!, allEntries: entries);
+    }
+    if (widget.isCouple) {
+      return SharedDiaryService(ApiClient.instance).wrappedSummary(scope: _scope, year: _year, month: _month);
+    }
+    return context.read<AppState>().profile.wrappedSummary(scope: _scope, year: _year, month: _month);
+  }
+
+  /// null whenever there's nothing to compare — not linked to anyone,
+  /// the fetch itself failed (never lets a co-viewing hiccup take down
+  /// the whole Wrapped), or this already IS the couple's own wrapped
+  /// (widget.isCouple) — comparing yourself to your partner has no
+  /// place inside a deck that's already about the two of you together.
+  /// Fetched regardless of premium status — PartnerCompareCard is what
+  /// actually gates the reveal on PremiumService.isPremium, same
+  /// "compute it, gate the render" shape as the rest of Wrapped's cards.
+  Future<PartnerCompareData?> _loadPartnerCompare() async {
+    if (widget.isCouple) return null;
+    try {
+      final app = context.read<AppState>();
+      final status = await app.partner.status();
+      if (!status.linked || status.members.length < 2) return null;
+      final list = await app.partner.coViewing();
+      return PartnerCompareService.build(
+        myUsername: list.myUsername,
+        otherUsernames: list.otherUsernames,
+        watched: list.watched,
+        planned: list.planned,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   void _switchTo(String scope, {int? year, int? month}) {
     setState(() {
       _scope = scope;
       _year = year;
       _month = month;
+      _customTitle = null;
+      _customRange = null;
       _future = _load();
     });
   }
 
   Future<void> _openPicker(WrappedSummary current) async {
-    _periodsFuture ??= context.read<AppState>().profile.wrappedPeriods();
+    _periodsFuture ??= widget.isCouple
+        ? SharedDiaryService(ApiClient.instance).wrappedPeriods()
+        : context.read<AppState>().profile.wrappedPeriods();
     final periods = await _periodsFuture!;
     if (!mounted) return;
+    final isPremium = context.read<PremiumService>().isPremium;
     await showModalBottomSheet(
       context: context,
       backgroundColor: SeenlyPalette.paper,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _PeriodPickerSheet(
+      builder: (_) => PeriodPickerSheet(
         periods: periods,
         currentScope: _scope,
         currentYear: _year,
         currentMonth: _month,
+        isPremium: isPremium,
+        showCustom: !widget.isCouple,
         onSelect: (scope, year, month) {
           Navigator.of(context).pop();
           _switchTo(scope, year: year, month: month);
+        },
+        onCustom: () async {
+          Navigator.of(context).pop();
+          if (!isPremium) {
+            showPremiumUpsellSheet(
+              context,
+              triggerSource: 'custom_wrapped',
+              icon: Icons.calendar_month_outlined,
+              title: 'свой итог — премиум-функция'.tr,
+              message: 'назови любой период — поездку, сезон, отношения — и получи полноценный итог по нему'.tr,
+            );
+            return;
+          }
+          final period = await Navigator.of(context)
+              .push<SavedWrappedPeriod>(MaterialPageRoute(builder: (_) => const SavedPeriodsScreen()));
+          if (period == null || !context.mounted) return;
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => WrappedScreen(
+              initialScope: 'custom',
+              customTitle: period.title,
+              customRange: period.range,
+            ),
+          ));
         },
       ),
     );
@@ -98,7 +223,7 @@ class _WrappedScreenState extends State<WrappedScreen> {
       // background can run truly edge-to-edge (behind the status bar and
       // home indicator too) — every other state here still gets the plain
       // outer SafeArea since it has no full-bleed art to protect.
-      body: FutureBuilder<WrappedSummary>(
+      body: FutureBuilder<_WrappedLoad>(
         future: _future,
         builder: (context, snapshot) {
           if (!snapshot.hasData && !snapshot.hasError) {
@@ -112,7 +237,8 @@ class _WrappedScreenState extends State<WrappedScreen> {
               ),
             );
           }
-          final summary = snapshot.data!;
+          final summary = snapshot.data!.summary;
+          final partnerCompare = snapshot.data!.partnerCompare;
           if (summary.totalLogged == 0) {
             return SafeArea(
               child: _MessageScreen(
@@ -125,16 +251,31 @@ class _WrappedScreenState extends State<WrappedScreen> {
             );
           }
           if (!_opened) {
-            return SafeArea(
-              child: _EnvelopeScreen(
-                onOpen: () => setState(() => _opened = true),
-                onClose: () => Navigator.of(context).pop(),
-              ),
+            // Same night-sky stage the carousel opens onto (see
+            // _WrappedNightBackdrop below) — the envelope used to sit on
+            // the app's plain everyday paper background, a flat, static
+            // beat before the actual "wow" of the deck. Setting the scene
+            // here instead means Wrapped feels like one continuous
+            // occasion from the very first frame, not a plain screen that
+            // suddenly turns fancy once you tap through it.
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                const Positioned.fill(child: _WrappedNightBackdrop()),
+                SafeArea(
+                  child: _EnvelopeScreen(
+                    onOpen: () => setState(() => _opened = true),
+                    onClose: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ],
             );
           }
           return _WrappedCarousel(
             summary: summary,
+            partnerCompare: partnerCompare,
             onPickPeriod: () => _openPicker(summary),
+            couple: widget.isCouple,
           );
         },
       ),
@@ -143,21 +284,35 @@ class _WrappedScreenState extends State<WrappedScreen> {
 }
 
 /// Bottom sheet listing every period the account actually has entries in
-/// — "этот месяц"/"этот год"/"за всё время" up top, then every earlier
-/// month and year with real data underneath. Never offers an empty period.
-class _PeriodPickerSheet extends StatelessWidget {
+/// — "этот месяц"/"этот год"/"за всё время"/"свой период" up top, then
+/// every earlier month and year with real data underneath. Never offers
+/// an empty built-in period. Public (not `_`-prefixed) so
+/// [KeepsakeExportScreen]'s Wrapped tab can reuse the exact same picker
+/// rather than re-implementing it.
+class PeriodPickerSheet extends StatelessWidget {
   final WrappedPeriods periods;
   final String currentScope;
   final int? currentYear;
   final int? currentMonth;
+  final bool isPremium;
   final void Function(String scope, int? year, int? month) onSelect;
+  final VoidCallback onCustom;
+  // false for the couple wrapped (WrappedScreen.isCouple) — a custom
+  // named range is a personal keepsake-export feature (see
+  // CustomWrappedService's own doc comment: it reads this account's
+  // own diary, not the shared one), so it has no couple equivalent to
+  // offer here.
+  final bool showCustom;
 
-  const _PeriodPickerSheet({
+  const PeriodPickerSheet({
     required this.periods,
     required this.currentScope,
     required this.currentYear,
     required this.currentMonth,
+    required this.isPremium,
     required this.onSelect,
+    required this.onCustom,
+    this.showCustom = true,
   });
 
   static const _monthNames = [
@@ -201,31 +356,54 @@ class _PeriodPickerSheet extends StatelessWidget {
             const SizedBox(height: 16),
             Text('выбрать период'.tr, style: SeenlyText.sectionTitle),
             const SizedBox(height: 12),
-            _PeriodTile(
+            PeriodTile(
               label: 'этот месяц'.tr,
               active: isCurrentMonth,
               onTap: () => onSelect('month', now.year, now.month),
             ),
-            _PeriodTile(
+            PeriodTile(
               label: 'этот год'.tr,
               active: isCurrentYear,
               onTap: () => onSelect('year', now.year, null),
             ),
-            _PeriodTile(
+            PeriodTile(
               label: 'за всё время'.tr,
               active: isAll,
               onTap: () => onSelect('all', null, null),
             ),
+            if (showCustom)
+              PeriodTile(
+                label: 'свой период'.tr,
+                active: currentScope == 'custom',
+                trailing: isPremium
+                    ? null
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: SeenlyPalette.mustard.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, size: 11, color: SeenlyPalette.clay),
+                            const SizedBox(width: 3),
+                            Text('premium'.tr, style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.clay)),
+                          ],
+                        ),
+                      ),
+                onTap: onCustom,
+              ),
             if (otherYears.isNotEmpty || otherMonths.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Divider(color: SeenlyPalette.dashedBorder, height: 1),
+              CozyDivider(color: SeenlyPalette.dashedBorder, height: 1),
               const SizedBox(height: 10),
             ],
             if (otherYears.isNotEmpty) ...[
               Text('годы'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.placeholder)),
               const SizedBox(height: 4),
               for (final y in otherYears)
-                _PeriodTile(
+                PeriodTile(
                   label: '$y',
                   active: currentScope == 'year' && currentYear == y,
                   onTap: () => onSelect('year', y, null),
@@ -242,7 +420,7 @@ class _PeriodPickerSheet extends StatelessWidget {
                   itemCount: otherMonths.length,
                   itemBuilder: (context, i) {
                     final p = otherMonths[i];
-                    return _PeriodTile(
+                    return PeriodTile(
                       label: '${(LocaleService.appIsRussian ? _monthNames : _monthNamesEn)[p.month]} ${p.year}',
                       active: currentScope == 'month' && currentYear == p.year && currentMonth == p.month,
                       onTap: () => onSelect('month', p.year, p.month),
@@ -258,11 +436,12 @@ class _PeriodPickerSheet extends StatelessWidget {
   }
 }
 
-class _PeriodTile extends StatelessWidget {
+class PeriodTile extends StatelessWidget {
   final String label;
   final bool active;
+  final Widget? trailing;
   final VoidCallback onTap;
-  const _PeriodTile({required this.label, required this.active, required this.onTap});
+  const PeriodTile({required this.label, required this.active, this.trailing, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +457,8 @@ class _PeriodTile extends StatelessWidget {
                   style: SeenlyText.serif(size: 14, color: active ? SeenlyPalette.accent : SeenlyPalette.ink,
                       weight: active ? FontWeight.w600 : FontWeight.w400)),
             ),
-            if (active) Icon(Icons.check, size: 16, color: SeenlyPalette.accent),
+            if (trailing != null) trailing!
+            else if (active) Icon(Icons.check, size: 16, color: SeenlyPalette.accent),
           ],
         ),
       ),
@@ -337,10 +517,71 @@ class _MessageScreen extends StatelessWidget {
 // Envelope
 // ---------------------------------------------------------------------------
 
-class _EnvelopeScreen extends StatelessWidget {
+class _EnvelopeScreen extends StatefulWidget {
   final VoidCallback onOpen;
   final VoidCallback onClose;
   const _EnvelopeScreen({required this.onOpen, required this.onClose});
+
+  @override
+  State<_EnvelopeScreen> createState() => _EnvelopeScreenState();
+}
+
+/// The envelope used to just sit there — a static painting, a tap, an
+/// instant cut to the carousel. Now the tap actually *breaks the seal*:
+/// the wax cracks and flings away, the flap swings open on a real 3D
+/// hinge, warm light spills out from underneath, and the whole thing
+/// lifts away to reveal the deck — the same "spin, bloom, land" language
+/// as the achievement/level-up moments elsewhere in the app (see
+/// level_up_celebration.dart), just staged inline instead of as a
+/// full-screen dialog, since this *is* the screen.
+class _EnvelopeScreenState extends State<_EnvelopeScreen> with SingleTickerProviderStateMixin {
+  static const _envelopeSize = 220.0;
+
+  late final AnimationController _open = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 950),
+  );
+  bool _tapped = false;
+  bool _crackHaptic = false;
+  bool _landHaptic = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _open.addListener(_onTick);
+  }
+
+  void _onTick() {
+    final t = _open.value;
+    if (!_crackHaptic && t > 0.12) {
+      _crackHaptic = true;
+      HapticFeedback.lightImpact();
+    }
+    if (!_landHaptic && t > 0.5) {
+      _landHaptic = true;
+      HapticFeedback.mediumImpact();
+    }
+  }
+
+  @override
+  void dispose() {
+    _open.removeListener(_onTick);
+    _open.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    if (_tapped) return;
+    _tapped = true;
+    HapticFeedback.selectionClick();
+    setState(() {}); // stop the idle Breathe the instant the seal starts to crack
+    _open.forward().whenComplete(widget.onOpen);
+  }
+
+  double _interval(double start, double end, {Curve curve = Curves.linear}) {
+    final raw = ((_open.value - start) / (end - start)).clamp(0.0, 1.0);
+    return curve.transform(raw);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -348,28 +589,132 @@ class _EnvelopeScreen extends StatelessWidget {
       children: [
         Align(
           alignment: Alignment.topLeft,
-          child: IconButton(
-            icon: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
-            onPressed: onClose,
+          child: PressScale(
+            haptics: true,
+            onTap: widget.onClose,
+            child: Container(
+              margin: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+              child: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
+            ),
           ),
         ),
         Expanded(
           child: GestureDetector(
-            onTap: onOpen,
+            onTap: _handleTap,
             behavior: HitTestBehavior.opaque,
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    width: 220,
-                    height: 220,
-                    child: CustomPaint(painter: _EnvelopePainter()),
-                  ),
-                  const SizedBox(height: 28),
-                  Text('запечатано · тапни, чтобы открыть'.tr,
-                      style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
-                ],
+              child: AnimatedBuilder(
+                animation: _open,
+                builder: (context, _) {
+                  // Seal: presses in for an instant, then pops and
+                  // evaporates — the moment the wax actually "breaks".
+                  final sealT = _interval(0.0, 0.26, curve: Curves.easeIn);
+                  // Flap: swings open on its own hinge along the crease,
+                  // well past the halfway point so it reads as fully
+                  // open rather than just ajar.
+                  final flapT = _interval(0.16, 0.62, curve: Curves.easeInOutCubic);
+                  // Warm light blooming from underneath as the flap
+                  // lifts, then settling — same bloom-then-fade envelope
+                  // the level-up ray burst uses.
+                  final burstWindow = _interval(0.2, 0.9);
+                  final burstEnvelope = math.sin(burstWindow.clamp(0.0, 1.0) * math.pi);
+                  // The whole thing lifting off screen once it's open,
+                  // handing off to the carousel's own fade-in.
+                  final exitT = _interval(0.66, 1.0, curve: Curves.easeIn);
+                  // A quick nervous wobble the instant it's tapped,
+                  // before the seal actually gives way — an anticipation
+                  // beat rather than a dead cut straight to "opening".
+                  final wobbleT = _interval(0.0, 0.16);
+                  final wobble = _tapped ? math.sin(wobbleT * math.pi * 3) * (1 - wobbleT) * 0.05 : 0.0;
+
+                  return Opacity(
+                    opacity: 1 - exitT,
+                    child: Transform.translate(
+                      offset: Offset(0, -exitT * 26),
+                      child: Transform.scale(
+                        scale: 1 + exitT * 0.06,
+                        child: Transform.rotate(
+                          angle: wobble,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: _envelopeSize,
+                                height: _envelopeSize,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    IgnorePointer(
+                                      child: OverflowBox(
+                                        maxWidth: _envelopeSize * 1.7,
+                                        maxHeight: _envelopeSize * 1.7,
+                                        child: GoldRayBurst(
+                                          t: burstEnvelope,
+                                          color: SeenlyPalette.accent,
+                                          size: _envelopeSize * 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      width: _envelopeSize,
+                                      height: _envelopeSize,
+                                      child: CustomPaint(painter: _EnvelopeBodyPainter()),
+                                    ),
+                                    // The flap, hinged at the crease where
+                                    // it meets the body, swinging open on
+                                    // a real perspective transform rather
+                                    // than a flat fade — see the class
+                                    // doc above.
+                                    Positioned(
+                                      left: 0,
+                                      top: 0,
+                                      width: _envelopeSize,
+                                      height: _envelopeSize * 0.32,
+                                      child: Transform(
+                                        alignment: Alignment.bottomCenter,
+                                        transform: Matrix4.identity()
+                                          ..setEntry(3, 2, 0.0024)
+                                          ..rotateX(-flapT * math.pi * 0.82),
+                                        child: const CustomPaint(painter: _EnvelopeFlapPainter()),
+                                      ),
+                                    ),
+                                    Opacity(
+                                      opacity: 1 - Curves.easeIn.transform(sealT),
+                                      child: Transform.scale(
+                                        scale: 1 + sealT * 0.45,
+                                        child: const SizedBox(
+                                          width: _envelopeSize,
+                                          height: _envelopeSize,
+                                          child: CustomPaint(painter: _EnvelopeSealPainter()),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 28),
+                              Opacity(
+                                opacity: _tapped ? (1 - Curves.easeIn.transform(_interval(0.0, 0.28))) : 1,
+                                child: _tapped
+                                    ? Text('запечатано · тапни, чтобы открыть'.tr,
+                                        style: SeenlyText.mono(size: 12, color: Colors.white.withOpacity(0.6)))
+                                    : Breathe(
+                                        period: const Duration(milliseconds: 2600),
+                                        minOpacity: 0.55,
+                                        child: Text('запечатано · тапни, чтобы открыть'.tr,
+                                            style: SeenlyText.mono(size: 12, color: Colors.white.withOpacity(0.6))),
+                                      ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -379,28 +724,60 @@ class _EnvelopeScreen extends StatelessWidget {
   }
 }
 
-class _EnvelopePainter extends CustomPainter {
+class _EnvelopeBodyPainter extends CustomPainter {
+  const _EnvelopeBodyPainter();
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     final bodyTop = h * 0.32;
-    final flapPaint = Paint()..color = SeenlyPalette.cork;
     final bodyPaint = Paint()..color = SeenlyPalette.paper;
+    final bodyRect = Rect.fromLTWH(w * 0.06, bodyTop, w * 0.88, h * 0.62);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bodyRect, const Radius.circular(10)),
+      bodyPaint,
+    );
+  }
 
+  @override
+  bool shouldRepaint(covariant _EnvelopeBodyPainter oldDelegate) => false;
+}
+
+/// Just the flap triangle, painted in a box sized to only the flap's own
+/// (shorter) region — see the `Positioned` height in
+/// [_EnvelopeScreenState.build], which is set to exactly match `bodyTop`
+/// below so this box's own top-left lines up with the full envelope's,
+/// letting the same proportions apply unchanged. That box height is
+/// what [Transform]'s `alignment: Alignment.bottomCenter` hinges on, so
+/// the flap swings open around the real crease instead of some
+/// arbitrary point.
+class _EnvelopeFlapPainter extends CustomPainter {
+  const _EnvelopeFlapPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    const h = _EnvelopeScreenState._envelopeSize;
+    final w = size.width;
+    final bodyTop = h * 0.32;
+    final flapPaint = Paint()..color = SeenlyPalette.cork;
     final flapPath = Path()
       ..moveTo(w * 0.06, bodyTop)
       ..lineTo(w * 0.5, h * 0.02)
       ..lineTo(w * 0.94, bodyTop)
       ..close();
     canvas.drawPath(flapPath, flapPaint);
+  }
 
-    final bodyRect = Rect.fromLTWH(w * 0.06, bodyTop, w * 0.88, h * 0.62);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(bodyRect, const Radius.circular(10)),
-      bodyPaint,
-    );
+  @override
+  bool shouldRepaint(covariant _EnvelopeFlapPainter oldDelegate) => false;
+}
 
+class _EnvelopeSealPainter extends CustomPainter {
+  const _EnvelopeSealPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final bodyTop = h * 0.32;
     final sealPaint = Paint()..color = SeenlyPalette.accent;
     final sealCenter = Offset(w * 0.5, bodyTop + h * 0.22);
     canvas.drawCircle(sealCenter, w * 0.13, sealPaint);
@@ -423,7 +800,7 @@ class _EnvelopePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _EnvelopePainter oldDelegate) => false;
+  bool shouldRepaint(covariant _EnvelopeSealPainter oldDelegate) => false;
 }
 
 // ---------------------------------------------------------------------------
@@ -432,8 +809,15 @@ class _EnvelopePainter extends CustomPainter {
 
 class _WrappedCarousel extends StatefulWidget {
   final WrappedSummary summary;
+  final PartnerCompareData? partnerCompare;
   final VoidCallback onPickPeriod;
-  const _WrappedCarousel({required this.summary, required this.onPickPeriod});
+  final bool couple;
+  const _WrappedCarousel({
+    required this.summary,
+    required this.partnerCompare,
+    required this.onPickPeriod,
+    this.couple = false,
+  });
 
   @override
   State<_WrappedCarousel> createState() => _WrappedCarouselState();
@@ -449,19 +833,27 @@ class _WrappedCarouselState extends State<_WrappedCarousel> {
     super.initState();
     _controller = PageController();
     final s = widget.summary;
+    final couple = widget.couple;
     _pages = [
-      _OverviewSessionsCard(summary: s, onNext: _next),
-      _ClockCard(summary: s, onNext: _next),
-      _GenreStripCard(summary: s, onNext: _next),
+      _OverviewSessionsCard(summary: s, onNext: _next, couple: couple),
+      _ClockCard(summary: s, onNext: _next, couple: couple),
+      _GenreStripCard(summary: s, onNext: _next, couple: couple),
       _FirstLastCard(summary: s, onNext: _next),
-      _DirectorsCard(summary: s, onNext: _next),
-      _DecadeCard(summary: s, onNext: _next),
+      _DirectorsCard(summary: s, onNext: _next, couple: couple),
+      _DecadeCard(summary: s, onNext: _next, couple: couple),
       _NewVsRewatchCard(summary: s, onNext: _next),
-      _TimelineCard(summary: s, onNext: _next),
-      _WeekdayCard(summary: s, onNext: _next),
-      _SoloCompanyCard(summary: s, onNext: _next),
-      _ArchetypeCard(summary: s, onNext: _next),
-      _ReviewsOverviewCard(summary: s, onNext: _next),
+      _TimelineCard(summary: s, onNext: _next, couple: couple),
+      _WeekdayCard(summary: s, onNext: _next, couple: couple),
+      // Skipped in couple mode: this data is watched_together by
+      // definition there (see compute_couple_wrapped_summary server-
+      // side), so solo/company would always read a trivial, unvarying
+      // 0% / 100% — a card with nothing to show would be worse than no
+      // card at all.
+      if (!couple) _SoloCompanyCard(summary: s, onNext: _next),
+      _ArchetypeCard(summary: s, onNext: _next, couple: couple),
+      if (widget.partnerCompare != null)
+        _PartnerCompareCard(summary: s, compare: widget.partnerCompare!, onNext: _next),
+      _ReviewsOverviewCard(summary: s, onNext: _next, couple: couple),
       if (s.favoriteReview != null) _FavoriteReviewCard(summary: s, onNext: _next),
       _LetterCard(summary: s, onNext: _next),
       _ReceiptCard(summary: s),
@@ -482,6 +874,32 @@ class _WrappedCarouselState extends State<_WrappedCarousel> {
   void _prev() {
     if (_page <= 0) return;
     _controller.previousPage(duration: const Duration(milliseconds: 320), curve: Curves.easeOut);
+  }
+
+  /// Same doorway into the keepsake export as [DiaryScreen]'s header
+  /// icon (see screens/diary/diary_screen.dart) — right here too, since
+  /// someone looking at their own Wrapped is the person most likely to
+  /// want it as a PDF. Hands the summary already on screen straight to
+  /// [KeepsakeExportScreen] as its `lockedWrappedSummary` rather than
+  /// letting that screen re-fetch by scope/year/month — the only way a
+  /// custom range (which exists only in memory, computed by
+  /// [CustomWrappedService]) can end up in a PDF at all, and it keeps a
+  /// built-in period's export exactly matching what's on screen too.
+  void _openKeepsake(BuildContext context) {
+    if (context.read<PremiumService>().isPremium) {
+      Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => KeepsakeExportScreen(lockedWrappedSummary: widget.summary)));
+      return;
+    }
+    showPremiumUpsellSheet(
+      context,
+      triggerSource: 'wrapped_pdf_export',
+      icon: Icons.auto_awesome_outlined,
+      title: 'save this wrapped'.tr,
+      message:
+          'premium can turn this into a soft, paper-styled pdf — with the receipt at the end — to save, print, or send'
+              .tr,
+    );
   }
 
   @override
@@ -520,12 +938,21 @@ class _WrappedCarouselState extends State<_WrappedCarousel> {
             page: _page,
             pages: _pages,
             controller: _controller,
-            onPageChanged: (i) => setState(() => _page = i),
+            onPageChanged: (i) {
+              // A small tick on every card change — swipe or chevron tap
+              // both land here, since a chevron just drives the same
+              // PageController — matching the tactile feedback every
+              // other tappable surface in the app gets (see PressScale in
+              // wow_motion.dart).
+              HapticFeedback.selectionClick();
+              setState(() => _page = i);
+            },
             onNext: _next,
             onPrev: _prev,
             periodLabel: widget.summary.periodLabel,
             onPickPeriod: widget.onPickPeriod,
             onClose: () => Navigator.of(context).pop(),
+            onExport: () => _openKeepsake(context),
           )),
         ),
       ],
@@ -546,6 +973,7 @@ class _WrappedCarouselContent extends StatelessWidget {
   final String periodLabel;
   final VoidCallback onPickPeriod;
   final VoidCallback onClose;
+  final VoidCallback onExport;
 
   const _WrappedCarouselContent({
     required this.page,
@@ -557,6 +985,7 @@ class _WrappedCarouselContent extends StatelessWidget {
     required this.periodLabel,
     required this.onPickPeriod,
     required this.onClose,
+    required this.onExport,
   });
 
   @override
@@ -567,19 +996,22 @@ class _WrappedCarouselContent extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
           child: Row(
             children: [
-              Container(
-                decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
-                child: IconButton(
-                  icon: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
-                  onPressed: onClose,
+              PressScale(
+                haptics: true,
+                onTap: onClose,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                  child: Icon(Icons.close, size: 18, color: SeenlyPalette.ink),
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
+              PressScale(
                 onTap: onPickPeriod,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
+                    boxShadow: SeenlyPalette.flatCardShadow,
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -599,7 +1031,17 @@ class _WrappedCarouselContent extends StatelessWidget {
               // now the constellation behind the whole screen (see
               // _ConstellationBackdrop, painted across the top of the sky)
               // does that job instead, so this header goes back to just
-              // close + period — the sky itself carries "how far along".
+              // close + period (+ export, added alongside them) — the
+              // sky itself carries "how far along".
+              PressScale(
+                haptics: true,
+                onTap: onExport,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: SeenlyPalette.paper, shape: BoxShape.circle),
+                  child: Icon(Icons.ios_share, size: 16, color: SeenlyPalette.ink),
+                ),
+              ),
             ],
           ),
         ),
@@ -655,7 +1097,11 @@ class _NavChevron extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // No haptics of its own — the page-change tick already fires once the
+    // tap actually lands on a new card (see onPageChanged above), so this
+    // just needs the tactile press-down every other chrome button gets,
+    // not a second buzz on top of that one.
+    return PressScale(
       onTap: onTap,
       child: Container(
         width: 26,
@@ -1054,7 +1500,22 @@ class _CardShell extends StatelessWidget {
                             // whole screen (see _ConstellationBackdrop)
                             // already shows how far along you are, so the
                             // chip was just repeating that in words.
-                            child,
+                            //
+                            // Every card used to just appear the instant
+                            // it was swiped to — the 3D page-turn (see
+                            // _CardPageTurn) covers the *transition*
+                            // between cards, but nothing made a card's own
+                            // content actually arrive once it was frontmost.
+                            // Wrapping it here, once, in the same settle-
+                            // in-from-below-with-a-breath-of-fade used all
+                            // over the rest of the app (see wow_motion.dart's
+                            // Entrance) means every one of the deck's ~16
+                            // screens gets that arrival for free, and gets
+                            // it again each time a card is scrolled back to
+                            // after being scrolled far enough away to be
+                            // disposed — exactly Entrance's own intended
+                            // behavior, not a special case here.
+                            Entrance(child: child),
                             if (shareButton != null) ...[
                               const SizedBox(height: 16),
                               shareButton!,
@@ -1660,7 +2121,7 @@ class _PosterThumb extends StatelessWidget {
     );
     if (!elevated) return image;
     return Container(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(9), boxShadow: SeenlyPalette.softShadow),
+      decoration: ClayBoxDecoration(borderRadius: BorderRadius.circular(9), boxShadow: SeenlyPalette.softShadow),
       child: image,
     );
   }
@@ -2122,15 +2583,47 @@ class _BadgeIcon extends StatefulWidget {
   State<_BadgeIcon> createState() => _BadgeIconState();
 }
 
-class _BadgeIconState extends State<_BadgeIcon> with SingleTickerProviderStateMixin {
+class _BadgeIconState extends State<_BadgeIcon> with TickerProviderStateMixin {
   // A slow, soft breathing scale — small enough (±3%) that it reads as
   // "quietly alive" rather than a bouncing animation competing for
   // attention. Same duration family as the constellation's twinkle
   // (2600ms) so the deck's ambient motion feels like one shared tempo.
   late final _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600))..repeat(reverse: true);
 
+  // The finale card's own "just unlocked" moment — the same elastic pop
+  // plus gold ray burst as the level-up/achievement celebrations
+  // elsewhere (see level_up_celebration.dart's GoldRayBurst + elasticOut
+  // scale), just sized to sit inline on a scrolled-to card instead of
+  // stopping the whole screen for it. Plays once, then hands off to the
+  // breathing loop above for as long as the card stays on screen.
+  late final _entrance = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  bool _tickHaptic = false;
+  bool _landHaptic = false;
+
+  @override
+  void initState() {
+    super.initState();
+    HapticFeedback.selectionClick();
+    _entrance.addListener(_onEntranceTick);
+    _entrance.forward();
+  }
+
+  void _onEntranceTick() {
+    final t = _entrance.value;
+    if (!_tickHaptic && t > 0.3) {
+      _tickHaptic = true;
+      HapticFeedback.lightImpact();
+    }
+    if (!_landHaptic && t > 0.6) {
+      _landHaptic = true;
+      HapticFeedback.mediumImpact();
+    }
+  }
+
   @override
   void dispose() {
+    _entrance.removeListener(_onEntranceTick);
+    _entrance.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -2138,10 +2631,37 @@ class _BadgeIconState extends State<_BadgeIcon> with SingleTickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
+      animation: Listenable.merge([_controller, _entrance]),
       builder: (context, child) {
-        final scale = 1 + Curves.easeInOut.transform(_controller.value) * 0.035;
-        return Transform.scale(scale: scale, child: child);
+        final breathe = 1 + Curves.easeInOut.transform(_controller.value) * 0.035;
+        final popT = Curves.elasticOut.transform(_entrance.value);
+        final fadeT = Curves.easeOut.transform((_entrance.value / 0.4).clamp(0.0, 1.0));
+        final burstEnvelope = math.sin(_entrance.value.clamp(0.0, 1.0) * math.pi);
+        // Same footprint as before the entrance was added — the ray
+        // burst overflows past it (via OverflowBox, below) rather than
+        // growing the box itself, so nothing else on the card shifts to
+        // make room for it.
+        return SizedBox(
+          width: widget.size,
+          height: widget.size * 1.18,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              IgnorePointer(
+                child: OverflowBox(
+                  maxWidth: widget.size * 2.4,
+                  maxHeight: widget.size * 2.4,
+                  child: GoldRayBurst(t: burstEnvelope, color: widget.color, size: widget.size * 2.2),
+                ),
+              ),
+              Opacity(
+                opacity: fadeT,
+                child: Transform.scale(scale: breathe * popT, child: child),
+              ),
+            ],
+          ),
+        );
       },
       child: Container(
         width: widget.size,
@@ -2257,9 +2777,10 @@ class _RoutePainter extends CustomPainter {
 }
 
 /// An envelope with a little wax-seal checkmark for the Letter card
-/// footer — smaller and simpler than the opening-screen `_EnvelopePainter`
-/// above (kept separate rather than reused since that one is tuned for a
-/// big centered tap target, this one for a small inline mark).
+/// footer — smaller and simpler than the opening-screen envelope painters
+/// above (kept separate rather than reused since those are tuned for a
+/// big centered tap target that breaks apart on open, this one for a
+/// small static inline mark).
 class _LetterSealIcon extends StatelessWidget {
   final Color paperColor;
   final Color inkColor;
@@ -2314,7 +2835,8 @@ class _LetterSealPainter extends CustomPainter {
 class _OverviewSessionsCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _OverviewSessionsCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _OverviewSessionsCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -2334,8 +2856,16 @@ class _OverviewSessionsCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             _Eyebrow(LocaleService.appIsRussian
-                ? (summary.scope == 'all' ? 'твоё кино за всё время' : 'твой ${summary.periodLabel} в кино')
-                : (summary.scope == 'all' ? 'your movies, all time' : 'your ${summary.periodLabel} in movies')),
+                ? (summary.scope == 'all'
+                    ? (couple ? 'ваше кино за всё время' : 'твоё кино за всё время')
+                    : summary.scope == 'custom'
+                        ? summary.periodLabel
+                        : (couple ? 'ваш ${summary.periodLabel} в кино' : 'твой ${summary.periodLabel} в кино'))
+                : (summary.scope == 'all'
+                    ? 'your movies, all time'
+                    : summary.scope == 'custom'
+                        ? summary.periodLabel
+                        : 'your ${summary.periodLabel} in movies')),
             const SizedBox(height: 6),
             _CountUp(value: summary.totalLogged, style: SeenlyText.serif(size: 64, weight: FontWeight.w700, color: fg)),
             Text(
@@ -2348,7 +2878,7 @@ class _OverviewSessionsCard extends StatelessWidget {
             const _TicketDash(),
             const SizedBox(height: 14),
             Text(
-              _overviewHoursSentence(summary),
+              _overviewHoursSentence(summary, couple: couple),
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 13, color: fg.withOpacity(0.8)),
             ),
@@ -2403,6 +2933,8 @@ String _periodPossessive(WrappedSummary s) {
       return 'этого месяца';
     case 'all':
       return 'за всё это время';
+    case 'custom':
+      return 'этого периода';
     default:
       return 'этого года';
   }
@@ -2418,6 +2950,8 @@ String _periodPossessiveEn(WrappedSummary s) {
       return 'this month';
     case 'all':
       return 'in all this time';
+    case 'custom':
+      return 'this stretch';
     default:
       return 'this year';
   }
@@ -2452,7 +2986,7 @@ int _periodDaysFor(WrappedSummary s) {
   if (s.scope == 'month' && s.month != null) {
     return DateTime(s.year, s.month! + 1, 0).day;
   }
-  if (s.scope == 'all') {
+  if (s.scope == 'all' || s.scope == 'custom') {
     return s.daysSpan > 0 ? s.daysSpan : 1;
   }
   return 365;
@@ -2463,11 +2997,12 @@ int _periodDaysFor(WrappedSummary s) {
 // pieces at the call site) because the phrase order differs enough
 // between the two languages that composing it piecemeal would fight the
 // grammar of one of them.
-String _overviewHoursSentence(WrappedSummary s) {
+String _overviewHoursSentence(WrappedSummary s, {bool couple = false}) {
   final hours = _hoursLabel(s.totalHours);
   final nth = _roughlyEveryNth(s);
   if (LocaleService.appIsRussian) {
-    return 'это $hours за экраном — примерно каждый $nth-й вечер ${_periodPossessive(s)} начинался с тебя и экрана';
+    final starter = couple ? 'начинался с вас двоих' : 'начинался с тебя';
+    return 'это $hours за экраном — примерно каждый $nth-й вечер ${_periodPossessive(s)} $starter и экрана';
   }
   return "that's $hours behind the screen — roughly every ${_ordinalEn(nth)} evening ${_periodPossessiveEn(s)} started with you and the screen";
 }
@@ -2518,6 +3053,8 @@ String _overviewSubtitle(WrappedSummary s) {
         return '$word this month';
       case 'all':
         return '$word all time';
+      case 'custom':
+        return '$word this stretch';
       default:
         return '$word this year';
     }
@@ -2527,6 +3064,8 @@ String _overviewSubtitle(WrappedSummary s) {
       return '$word за месяц';
     case 'all':
       return '$word за всё время';
+    case 'custom':
+      return '$word за этот период';
     default:
       return '$word за год';
   }
@@ -2535,7 +3074,8 @@ String _overviewSubtitle(WrappedSummary s) {
 class _ClockCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _ClockCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _ClockCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -2551,9 +3091,9 @@ class _ClockCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('когда ты смотришь'.tr),
+            _Eyebrow((couple ? 'когда вы смотрите' : 'когда ты смотришь').tr),
             const SizedBox(height: 6),
-            Text('твой киночас'.tr, style: _handwriting(size: 24, color: fg)),
+            Text((couple ? 'ваш киночас' : 'твой киночас').tr, style: _handwriting(size: 24, color: fg)),
             const SizedBox(height: 22),
             _DigitalClock(time: hour != null ? '${hour.toString().padLeft(2, '0')}:00' : '--:--'),
             const SizedBox(height: 20),
@@ -2598,7 +3138,8 @@ String _dayPartLabel(int hour) {
 class _GenreStripCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _GenreStripCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _GenreStripCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -2615,7 +3156,7 @@ class _GenreStripCard extends StatelessWidget {
           children: [
             _Eyebrow('из чего состоял год'.tr),
             const SizedBox(height: 6),
-            Text('твоя плёнка'.tr, style: _handwriting(size: 27, color: fg)),
+            Text((couple ? 'ваша плёнка' : 'твоя плёнка').tr, style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 22),
             if (mix.isNotEmpty) ...[
               SizedBox(
@@ -2725,7 +3266,8 @@ class _FirstLastCard extends StatelessWidget {
 class _DirectorsCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _DirectorsCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _DirectorsCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -2789,7 +3331,9 @@ class _DirectorsCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
                 LocaleService.appIsRussian
-                    ? 'режиссёры, к которым ты возвращалась чаще всего'
+                    ? (couple
+                        ? 'режиссёры, к которым вы возвращались чаще всего'
+                        : 'режиссёры, к которым ты возвращалась чаще всего')
                     : "the directors you came back to the most",
                 textAlign: TextAlign.center,
                 style: _handwriting(size: 16, color: fg)),
@@ -2803,7 +3347,8 @@ class _DirectorsCard extends StatelessWidget {
 class _DecadeCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _DecadeCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _DecadeCard({required this.summary, required this.onNext, this.couple = false});
 
   static const _labelRu = {'2020s': '2020-е', '2010s': '2010-е', 'older': 'до 2010-х'};
   static const _labelEn = {'2020s': '2020s', '2010s': '2010s', 'older': 'before 2010'};
@@ -2824,7 +3369,7 @@ class _DecadeCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('из какого времени твои фильмы'.tr),
+            _Eyebrow((couple ? 'из какого времени ваши фильмы' : 'из какого времени твои фильмы').tr),
             const SizedBox(height: 6),
             Text(topLabel != null ? '${'mostly'.tr} $topLabel' : '—', style: _handwriting(size: 27, color: fg)),
             const SizedBox(height: 26),
@@ -2932,7 +3477,8 @@ class _NewVsRewatchCard extends StatelessWidget {
 class _TimelineCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _TimelineCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _TimelineCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -3006,7 +3552,7 @@ class _TimelineCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
                 LocaleService.appIsRussian
-                    ? '${_daysLabel(summary.longestStreakDays)} подряд — твой самый длинный стрик'
+                    ? '${_daysLabel(summary.longestStreakDays)} подряд — ${couple ? 'ваш' : 'твой'} самый длинный стрик'
                     : '${_daysLabel(summary.longestStreakDays)} in a row — your longest streak',
                 textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
@@ -3019,7 +3565,8 @@ class _TimelineCard extends StatelessWidget {
 class _WeekdayCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _WeekdayCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _WeekdayCard({required this.summary, required this.onNext, this.couple = false});
 
   static const _labels = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
   static const _labelsEn = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'];
@@ -3039,7 +3586,7 @@ class _WeekdayCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Eyebrow('какой день — твой'.tr),
+            _Eyebrow((couple ? 'какой день — ваш' : 'какой день — твой').tr),
             const SizedBox(height: 6),
             Text('${summary.weekendPercent.round()}% ${'on weekends'.tr}',
                 textAlign: TextAlign.center, style: _handwriting(size: 27, color: fg)),
@@ -3084,8 +3631,10 @@ class _WeekdayCard extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
                 LocaleService.appIsRussian
-                    ? 'суббота и воскресенье — твои главные киновечера'
-                    : 'Saturday and Sunday are your biggest movie nights',
+                    ? (couple
+                        ? 'суббота и воскресенье — ваши главные киновечера'
+                        : 'суббота и воскресенье — твои главные киновечера')
+                    : 'saturday and sunday are your biggest movie nights',
                 textAlign: TextAlign.center, style: _handwriting(size: 17, color: fg)),
           ],
         );
@@ -3169,7 +3718,8 @@ class _SoloCompanyCard extends StatelessWidget {
 class _ArchetypeCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _ArchetypeCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _ArchetypeCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -3181,8 +3731,12 @@ class _ArchetypeCard extends StatelessWidget {
       shareButton: _ShareButton(
         label: 'поделиться типажом →'.tr,
         shareText: LocaleService.appIsRussian
-            ? 'мой типаж года в teamira: ${summary.archetypeLabel}'
-            : 'my teamira archetype of the year: ${summary.archetypeLabel}',
+            ? (couple
+                ? 'наш типаж на двоих в tanè: ${summary.archetypeLabel}'
+                : 'мой типаж года в tanè: ${summary.archetypeLabel}')
+            : (couple
+                ? 'our tanè archetype, together: ${summary.archetypeLabel}'
+                : 'my tanè archetype of the year: ${summary.archetypeLabel}'),
       ),
       child: Builder(builder: (context) {
         final fg = _CardTone.of(context).fg;
@@ -3192,7 +3746,7 @@ class _ArchetypeCard extends StatelessWidget {
           children: [
             _BadgeIcon(color: fg),
             const SizedBox(height: 8),
-            _Eyebrow('твой типаж года'.tr),
+            _Eyebrow((couple ? 'ваш типаж на двоих' : 'твой типаж года').tr),
             const SizedBox(height: 6),
             Text(summary.archetypeLabel,
                 textAlign: TextAlign.center,
@@ -3274,13 +3828,187 @@ class _ToneHearts extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// You & your circle — premium
+// ---------------------------------------------------------------------------
+
+/// Only ever included in the carousel when [compare] is non-null (see
+/// _WrappedCarouselState.initState) — meaning the account is actually
+/// linked to someone. Free accounts still get this card, just as a
+/// locked teaser rather than the real numbers (same "show what it's
+/// for, then invite" shape as PremiumScreen — see
+/// widgets/premium_upsell_sheet.dart), so the feature is discoverable
+/// without having to leave Wrapped to find out it exists.
+class _PartnerCompareCard extends StatelessWidget {
+  final WrappedSummary summary;
+  final PartnerCompareData compare;
+  final VoidCallback onNext;
+  const _PartnerCompareCard({required this.summary, required this.compare, required this.onNext});
+
+  @override
+  Widget build(BuildContext context) {
+    final isCompany = compare.others.length > 1;
+    return _CardShell(
+      bonusLabel: isCompany
+          ? (LocaleService.appIsRussian ? 'ваш круг' : 'your circle')
+          : (LocaleService.appIsRussian ? 'вы вдвоём' : 'you two'),
+      onNext: onNext,
+      background: SeenlyPalette.sage,
+      child: Builder(builder: (context) {
+        final fg = _CardTone.of(context).fg;
+        final isPremium = context.watch<PremiumService>().isPremium;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _Eyebrow(LocaleService.appIsRussian ? 'кто чаще предлагает' : 'who picks more'),
+            const SizedBox(height: 6),
+            Text('кто выбирает?'.tr, style: _handwriting(size: 25, color: fg)),
+            const SizedBox(height: 20),
+            if (isPremium)
+              _PartnerCompareReveal(compare: compare, fg: fg)
+            else
+              _PartnerCompareLocked(fg: fg, isCompany: isCompany),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+class _PartnerCompareReveal extends StatelessWidget {
+  final PartnerCompareData compare;
+  final Color fg;
+  const _PartnerCompareReveal({required this.compare, required this.fg});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = compare.people.fold<int>(0, (sum, p) => sum + p.suggestedCount);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final p in compare.people) ...[
+          _CompareBar(
+            label: p.isSelf ? (LocaleService.appIsRussian ? 'ты' : 'you') : p.username,
+            value: p.suggestedCount,
+            total: total,
+            fg: fg,
+            strong: p.isSelf,
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 6),
+        const _TicketDash(),
+        const SizedBox(height: 12),
+        Text(
+          LocaleService.appIsRussian
+              ? '${compare.watchedTogetherCount} посмотрено вместе · ${compare.plannedCount} в планах'
+              : '${compare.watchedTogetherCount} watched together · ${compare.plannedCount} planned',
+          textAlign: TextAlign.center,
+          style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.85)),
+        ),
+      ],
+    );
+  }
+}
+
+class _CompareBar extends StatelessWidget {
+  final String label;
+  final int value;
+  final int total;
+  final Color fg;
+  final bool strong;
+  const _CompareBar({required this.label, required this.value, required this.total, required this.fg, required this.strong});
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = total == 0 ? 0.0 : value / total;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: SeenlyText.mono(size: 12, color: fg, weight: strong ? FontWeight.w700 : FontWeight.w400),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ),
+            Text('$value',
+                style: SeenlyText.mono(size: 12, color: fg, weight: strong ? FontWeight.w700 : FontWeight.w400)),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            height: 10,
+            child: Stack(
+              children: [
+                Container(color: fg.withOpacity(0.18)),
+                FractionallySizedBox(
+                  widthFactor: fraction.clamp(0.03, 1.0),
+                  child: Container(color: fg.withOpacity(strong ? 0.95 : 0.55)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PartnerCompareLocked extends StatelessWidget {
+  final Color fg;
+  final bool isCompany;
+  const _PartnerCompareLocked({required this.fg, required this.isCompany});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(Icons.lock_outline, size: 26, color: fg),
+        const SizedBox(height: 14),
+        Text(
+          LocaleService.appIsRussian
+              ? (isCompany ? 'кто в круге предлагает больше' : 'кто из вас двоих предлагает больше')
+              : (isCompany ? 'who in the circle picks more' : 'who between you two picks more'),
+          textAlign: TextAlign.center,
+          style: SeenlyText.serif(size: 14, color: fg),
+        ),
+        const SizedBox(height: 18),
+        PressScale(
+          onTap: () => showPremiumUpsellSheet(
+            context,
+            triggerSource: 'circle_stats',
+            icon: Icons.people_outline,
+            title: 'you vs your circle is premium'.tr,
+            message: 'see who suggests more of what you watch together — premium unlocks the numbers'.tr,
+          ),
+          scaleTo: 0.97,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: fg.withOpacity(0.5)),
+            ),
+            child: Text('open with premium'.tr, style: SeenlyText.mono(size: 11, color: fg, weight: FontWeight.w600)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Chapter 3 — reviews
 // ---------------------------------------------------------------------------
 
 class _ReviewsOverviewCard extends StatelessWidget {
   final WrappedSummary summary;
   final VoidCallback onNext;
-  const _ReviewsOverviewCard({required this.summary, required this.onNext});
+  final bool couple;
+  const _ReviewsOverviewCard({required this.summary, required this.onNext, this.couple = false});
 
   @override
   Widget build(BuildContext context) {
@@ -3299,7 +4027,7 @@ class _ReviewsOverviewCard extends StatelessWidget {
           children: [
             _TapedPolaroid(posterUrl: headerPoster, placeholderColor: SeenlyPalette.coral, width: 84, rotation: -0.07),
             const SizedBox(height: 12),
-            _Eyebrow('твои рецензии'.tr),
+            _Eyebrow((couple ? 'ваши рецензии' : 'твои рецензии').tr),
             _CountUp(value: summary.reviewCount, style: SeenlyText.serif(size: 46, weight: FontWeight.w700, color: fg)),
             Text((LocaleService.appIsRussian ? 'фильма получили оценку' : 'movies got a rating'), style: _handwriting(size: 18, color: fg)),
             const SizedBox(height: 10),
@@ -3410,12 +4138,12 @@ class _LetterCard extends StatelessWidget {
         ? 'в дневнике за ${summary.periodLabel} появилось ${summary.totalLogged} записей, а на экране прошло '
             '${_hoursLabel(summary.totalHours)} — это примерно ${(summary.totalHours / 24).round()} суток, отданных чужим историям.\n\n'
             '${_genreShareSentence(summary)} '
-            '${summary.busiestTimelineLabel != null ? (summary.scope == 'month' ? 'самым плотным был ${summary.busiestTimelineLabel}' : 'самым насыщенным месяцем был ${summary.busiestTimelineLabel}') : ''}'
+            '${summary.busiestTimelineLabel != null ? ((summary.scope == 'month' || summary.scope == 'custom') ? 'самым плотным был ${summary.busiestTimelineLabel}' : 'самым насыщенным месяцем был ${summary.busiestTimelineLabel}') : ''}'
             '${summary.longestStreakDays > 1 ? ', а самый длинный стрик — ${_daysLabel(summary.longestStreakDays)} подряд' : ''}.'
         : 'your diary gained ${summary.totalLogged} entries for ${summary.periodLabel}, and '
             "${_hoursLabel(summary.totalHours)} went to the screen — roughly ${(summary.totalHours / 24).round()} days given over to other people's stories.\n\n"
             '${_genreShareSentenceEn(summary)} '
-            '${summary.busiestTimelineLabel != null ? (summary.scope == 'month' ? 'the busiest day was ${summary.busiestTimelineLabel}' : 'the busiest month was ${summary.busiestTimelineLabel}') : ''}'
+            '${summary.busiestTimelineLabel != null ? ((summary.scope == 'month' || summary.scope == 'custom') ? 'the busiest day was ${summary.busiestTimelineLabel}' : 'the busiest month was ${summary.busiestTimelineLabel}') : ''}'
             '${summary.longestStreakDays > 1 ? ', and the longest streak was ${_daysLabel(summary.longestStreakDays)} in a row' : ''}.';
 
     return _CardShell(
@@ -3437,7 +4165,7 @@ class _LetterCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                   summary.last?.dateLabel ??
-                      (LocaleService.appIsRussian ? '31 декабря, поздно вечером' : "December 31st, late in the evening"),
+                      (LocaleService.appIsRussian ? '31 декабря, поздно вечером' : "december 31st, late in the evening"),
                   style: SeenlyText.mono(size: 11, color: fg.withOpacity(0.7))),
             ),
             const SizedBox(height: 10),
@@ -3552,7 +4280,7 @@ class _ReceiptCard extends StatelessWidget {
           const _ReceiptDivider(),
           const SizedBox(height: 10),
           Center(
-            child: Text(ruCount(items.length, one: 'позиция', few: 'позиции', many: 'позиций', englishOne: 'item', englishOther: 'items').toUpperCase(),
+            child: Text(nCount('nPositions', items.length).toUpperCase(),
                 style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint, weight: FontWeight.w700)),
           ),
           const SizedBox(height: 12),
@@ -3592,8 +4320,16 @@ class _ReceiptCard extends StatelessWidget {
           const SizedBox(height: 14),
           Center(child: Text(
             LocaleService.appIsRussian
-                ? (summary.scope == 'month' ? 'спасибо за этот месяц ♥' : 'спасибо за этот год ♥')
-                : (summary.scope == 'month' ? 'thanks for this month ♥' : 'thanks for this year ♥'),
+                ? (summary.scope == 'month'
+                    ? 'спасибо за этот месяц ♥'
+                    : summary.scope == 'custom'
+                        ? 'спасибо за эти дни ♥'
+                        : 'спасибо за этот год ♥')
+                : (summary.scope == 'month'
+                    ? 'thanks for this month ♥'
+                    : summary.scope == 'custom'
+                        ? 'thanks for these days ♥'
+                        : 'thanks for this year ♥'),
             style: SeenlyText.serif(size: 14, color: SeenlyPalette.accent),
           )),
           const SizedBox(height: 14),
@@ -3608,8 +4344,8 @@ class _ReceiptCard extends StatelessWidget {
           _ShareButton(
             label: 'поделиться чеком →'.tr,
             shareText: LocaleService.appIsRussian
-                ? 'мой год в teamira: ${summary.totalLogged} записей, ${_hoursLabel(summary.totalHours)} за экраном, любимый жанр — ${summary.topGenre ?? '—'}'
-                : 'my year in teamira: ${summary.totalLogged} entries, ${_hoursLabel(summary.totalHours)} behind the screen, top genre — ${summary.topGenre ?? '—'}',
+                ? 'мой год в tanè: ${summary.totalLogged} записей, ${_hoursLabel(summary.totalHours)} за экраном, любимый жанр — ${summary.topGenre ?? '—'}'
+                : 'my year in tanè: ${summary.totalLogged} entries, ${_hoursLabel(summary.totalHours)} behind the screen, top genre — ${summary.topGenre ?? '—'}',
           ),
         ],
               ),
@@ -3625,7 +4361,7 @@ class _ReceiptCard extends StatelessWidget {
 class _ReceiptDivider extends StatelessWidget {
   const _ReceiptDivider();
   @override
-  Widget build(BuildContext context) => Divider(color: SeenlyPalette.dashedBorder, height: 1);
+  Widget build(BuildContext context) => CozyDivider(color: SeenlyPalette.dashedBorder, height: 1);
 }
 
 class _ReceiptRow extends StatelessWidget {

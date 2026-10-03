@@ -26,6 +26,12 @@ class SeenlyBrightness {
   /// Whether [SeenlyPalette]'s ambient getters should currently hand back
   /// the dark variant.
   static bool get isDark {
+    // The video backdrop no longer forces the dark palette: it used to,
+    // which made every light theme (light, cozy, clay, orange,
+    // strawberry) unselectable while the video, on by default, was
+    // playing. The theme now follows the chosen mode, and the video is
+    // scrimmed toward the palette's own background instead (see
+    // AppVideoBackground, and SeenlyPalette._forVideo for the text tones).
     switch (_mode) {
       case ThemeMode.dark:
         return true;
@@ -35,5 +41,20 @@ class SeenlyBrightness {
         return SchedulerBinding.instance.platformDispatcher.platformBrightness ==
             Brightness.dark;
     }
+  }
+
+  static bool _videoBackdrop = false;
+
+  /// True while the looping video backdrop is playing behind the app.
+  /// [SeenlyPalette] reads this to strengthen its secondary text tones —
+  /// the footage has both bright patches (~90% luminance) and dark ones,
+  /// so text sitting directly on it, with no card behind it, needs more
+  /// contrast than the same tones have on a flat page.
+  static bool get videoBackdrop => _videoBackdrop;
+
+  /// Kept in sync by AppBackgroundVideo (widgets/app_video_background.dart)
+  /// — call before anything that depends on the palette rebuilds.
+  static void setVideoBackdrop(bool on) {
+    _videoBackdrop = on;
   }
 }

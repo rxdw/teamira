@@ -22,7 +22,7 @@ import csv
 import io
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -199,17 +199,32 @@ class ImportCommitOut(BaseModel):
 
 
 def _parse_watched_at(raw: Optional[str]) -> datetime:
+    """Best-effort parse of whatever a CSV/paste import hands in for a
+    watched date — a bare date, a full timestamp, or occasionally
+    nothing at all. Always returns an aware UTC datetime: `strptime` and
+    `fromisoformat` both hand back a naive result for the "2024-01-02" /
+    "2024-01-02T10:30:00" shapes this actually sees in practice (no
+    offset in the source data), which used to silently mix with the
+    aware `datetime.now(timezone.utc)` fallback below it — fine as long
+    as nothing ever compared the two in the same expression, which
+    stopped being true once WatchlistEntry/DiaryEntry.watched_at became
+    DateTime(timezone=True) (see app/models.py). A naive result is
+    assumed to already be UTC (matching every other implicit-UTC
+    assumption in this codebase) rather than the server's local time.
+    """
     if not raw:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"):
         try:
-            return datetime.strptime(raw, fmt)
+            parsed = datetime.strptime(raw, fmt)
+            return parsed.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     try:
-        return datetime.fromisoformat(raw)
+        parsed = datetime.fromisoformat(raw)
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
     except ValueError:
-        return datetime.utcnow()
+        return datetime.now(timezone.utc)
 
 
 @router.post("/commit", response_model=ImportCommitOut)

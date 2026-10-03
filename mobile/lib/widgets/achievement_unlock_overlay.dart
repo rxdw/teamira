@@ -362,7 +362,7 @@ class _AchievementMintMomentState extends State<_AchievementMintMoment>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                a.title,
+                                a.title.tr,
                                 textAlign: TextAlign.center,
                                 style: SeenlyText.serif(
                                   size: 22,

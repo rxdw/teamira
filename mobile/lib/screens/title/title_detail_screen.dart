@@ -24,6 +24,7 @@ import '../../widgets/heart_burst.dart';
 import '../../widgets/heart_rating.dart';
 import '../../widgets/poster_lightbox.dart';
 import '../../widgets/region_picker_sheet.dart';
+import '../../widgets/recommend_sheet.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/reviews_sheet.dart';
 import '../../widgets/log_ritual.dart';
@@ -40,6 +41,9 @@ import '../../widgets/premium_upsell_sheet.dart';
 import '../person/person_detail_screen.dart';
 import 'full_cast_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/notebook_paper.dart';
+import '../../widgets/saved_celebration.dart';
+import '../../theme/clay_kit.dart';
 
 class TitleDetailScreen extends StatefulWidget {
   final String mediaId;
@@ -177,9 +181,10 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
     if (next && !context.read<PremiumService>().canAddFavorite) {
       showPremiumUpsellSheet(
         context,
+        triggerSource: 'favorites_limit',
         icon: Icons.favorite_outline,
-        title: 'достигнут лимит избранного',
-        message: 'на бесплатном тарифе можно сохранить до 5 любимых фильмов — с премиумом лимита нет',
+        title: 'favorites limit reached'.tr,
+        message: 'the free tier holds up to 5 favorite films — premium removes the limit'.tr,
       );
       return;
     }
@@ -417,8 +422,12 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
         _addingToPlan = false;
         _addedToPlan = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('added — find it under plan to watch'.tr)),
+      showSavedCelebration(
+        context,
+        kind: SavedKind.planned,
+        title: _item.title.display,
+        posterUrl: _item.posterUrl,
+        mediaType: _item.mediaType,
       );
     } catch (_) {
       if (!mounted) return;
@@ -756,8 +765,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                                 child = Text(
                                   'not logged yet — save an evening below'.tr,
                                   key: const ValueKey('history-empty'),
-                                  style: SeenlyText.serif(
-                                      italic: true, color: SeenlyPalette.placeholder),
+                                  style: SeenlyText.emptyState(),
                                 );
                               } else {
                                 final latestRated = history.reversed
@@ -884,6 +892,16 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                             iconColor: _isFavorite ? SeenlyPalette.pink : null,
                             onTap: _toggleFavorite,
                             loading: _favoriteBusy,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _RoundIconButton(
+                          icon: Icons.recommend_outlined,
+                          onTap: () => RecommendSheet.show(
+                            context,
+                            source: _item.source,
+                            mediaId: _item.id,
+                            title: _item.title.display,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1174,7 +1192,7 @@ class _HeaderTitleBlock extends StatelessWidget {
                   child: Material(
                     color: Colors.transparent,
                     child: Container(
-                      decoration: BoxDecoration(
+                      decoration: ClayBoxDecoration(
                         borderRadius: BorderRadius.circular(6),
                         boxShadow: SeenlyPalette.softShadow,
                       ),
@@ -1383,7 +1401,7 @@ class _RatingsRow extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: SeenlyPalette.border),
@@ -1418,7 +1436,7 @@ class _RatingsRow extends StatelessWidget {
                     Icon(Icons.chat_bubble_outline, size: 11, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 6),
                     Text(
-                      ruCount(ratings.reviewsCount!, one: 'рецензия', few: 'рецензии', many: 'рецензий', englishOne: 'review', englishOther: 'reviews'),
+                      nCount('nReviews', ratings.reviewsCount!),
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                     if (onTapReviews != null) ...[
@@ -1454,7 +1472,8 @@ class _RatingStat extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
+        HandDrawnCircle(
+          child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showStar) ...[
@@ -1468,6 +1487,7 @@ class _RatingStat extends StatelessWidget {
                   )
                 : Text(value, style: SeenlyText.serif(size: 18, weight: FontWeight.w600)),
           ],
+          ),
         ),
         const SizedBox(height: 4),
         Text(
@@ -1776,7 +1796,7 @@ class _TrailerTile extends StatelessWidget {
       child: SizedBox(
         width: _width,
         child: DecoratedBox(
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
             borderRadius: BorderRadius.circular(16),
             boxShadow: SeenlyPalette.softShadow,
           ),
@@ -1835,7 +1855,7 @@ class _TrailerTile extends StatelessWidget {
                         trailer.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: SeenlyText.serif(italic: true, size: 11.5, color: SeenlyPalette.paper),
+                        style: SeenlyText.serif(italic: true, size: 11.5, color: SeenlyPalette.paperOnDark),
                       ),
                     ),
                   ],
@@ -1892,7 +1912,8 @@ class _WhereToWatchSection extends StatelessWidget {
           onTap: onChangeRegion,
           child: Container(
             padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
+            decoration: ClayBoxDecoration(
+              boxShadow: SeenlyPalette.flatCardShadow,
               color: SeenlyPalette.paper,
               borderRadius: BorderRadius.circular(14),
             ),

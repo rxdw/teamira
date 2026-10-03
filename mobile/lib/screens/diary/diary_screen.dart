@@ -6,6 +6,8 @@ import '../../models/diary_entry.dart';
 import '../../models/media_item.dart' show CastMember;
 import '../../models/watchlist_entry.dart';
 import '../../state/app_state.dart';
+import '../../state/diary_store.dart';
+import '../../state/watchlist_store.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/heart_rating.dart';
@@ -16,10 +18,12 @@ import '../../widgets/share_sheet.dart';
 import '../../widgets/series_episodes_sheet.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import '../../services/log_theme_service.dart';
+import '../../services/premium_service.dart';
+import '../../widgets/premium_upsell_sheet.dart';
+import '../premium/keepsake_export_screen.dart';
 import '../../theme/log_theme_copy.dart';
 import '../../widgets/log_ritual.dart';
 import '../../widgets/log_timeline.dart';
-import '../../widgets/diary_constellation.dart';
 import '../collections/collection_full_screen.dart';
 import '../search/search_screen.dart';
 import '../shell/root_shell.dart';
@@ -27,6 +31,10 @@ import '../title/title_detail_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart';
 import '../../services/app_translations.dart';
+import '../../theme/notebook_paper.dart';
+import '../../theme/seenly_skin.dart';
+import '../../widgets/dashed_border.dart';
+import '../../theme/clay_kit.dart';
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -36,7 +44,11 @@ class DiaryScreen extends StatefulWidget {
 }
 
 class _DiaryScreenState extends State<DiaryScreen> {
-  late Future<List<DiaryEntry>> _future;
+  // Diary entries themselves now live in DiaryStore (see Фаза 2.15 in
+  // the launch plan) — this screen reads them reactively with
+  // `context.watch<DiaryStore>()` in build() instead of holding its own
+  // Future for them. _pickedFuture/_shelvesFuture stay as they were;
+  // they're unrelated bonus strips, not core diary content.
   late Future<SeenlyCollection?> _pickedFuture;
   late Future<ProfileCollections?> _shelvesFuture;
   bool _refreshing = false;
@@ -51,7 +63,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
   @override
   void initState() {
     super.initState();
-    _future = context.read<AppState>().diary.list();
+    // Idempotent — if another screen already triggered this (or is in
+    // the middle of it), this just shares that result. See DiaryStore's
+    // own doc comment.
+    context.read<DiaryStore>().ensureLoaded();
     _pickedFuture = _loadPicked();
     _shelvesFuture = _loadShelves();
   }
@@ -82,9 +97,11 @@ class _DiaryScreenState extends State<DiaryScreen> {
     // Same "best-effort" reasoning as _loadPicked above — "watching now"
     // (see _ShelvesStrip) is a nudge back to what's already in motion,
     // not core diary content, so a failed fetch just quietly collapses
-    // the strip rather than showing an error block.
+    // the strip rather than showing an error block. Now shares
+    // WatchlistStore's cache with profile_screen.dart instead of
+    // fetching its own independent copy.
     try {
-      return await context.read<AppState>().profile.collections();
+      return await context.read<WatchlistStore>().ensureLoaded();
     } catch (_) {
       return null;
     }
@@ -92,11 +109,10 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   Future<void> _refresh() async {
     setState(() => _refreshing = true);
-    final next = context.read<AppState>().diary.list();
+    final next = context.read<DiaryStore>().refresh();
     final nextPicked = _loadPicked();
-    final nextShelves = _loadShelves();
+    final nextShelves = context.read<WatchlistStore>().refresh();
     setState(() {
-      _future = next;
       _pickedFuture = nextPicked;
       _shelvesFuture = nextShelves;
     });
@@ -105,6 +121,35 @@ class _DiaryScreenState extends State<DiaryScreen> {
     } finally {
       if (mounted) setState(() => _refreshing = false);
     }
+  }
+
+  /// The diary's own doorway into the keepsake PDF export (see
+  /// screens/premium/keepsake_export_screen.dart) — a full card in the
+  /// log itself now (see _KeepsakeCard below) rather than a small icon
+  /// in the header, since that used to be too easy to miss. Reachable
+  /// from the diary rather than only through Settings, since that's
+  /// where someone would actually think to ask "can I keep this?"
+  /// Premium opens the export screen directly; everyone else gets the
+  /// same soft upsell sheet used elsewhere in the app (see
+  /// widgets/premium_upsell_sheet.dart) instead of a hard wall — the
+  /// card itself already says what's behind it either way (see
+  /// _KeepsakeCard's own doc comment), so tapping never surprises
+  /// anyone with a paywall they didn't see coming.
+  void _openKeepsake() {
+    if (context.read<PremiumService>().isPremium) {
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const KeepsakeExportScreen()));
+      return;
+    }
+    showPremiumUpsellSheet(
+      context,
+      triggerSource: 'diary_pdf_export',
+      icon: Icons.auto_stories_outlined,
+      title: 'turn your diary into a keepsake'.tr,
+      message:
+          'premium can export your whole diary — or a wrapped recap of any period — as a soft, paper-styled pdf to save, print, or send'
+              .tr,
+    );
   }
 
   String _dayLabel(DateTime d) {
@@ -132,18 +177,27 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // DiaryScreen doubles as a RootShell tab (which already supplies a
-    // Scaffold + SafeArea around every tab) and as a screen pushed on
-    // its own from Home/Profile's "diary"/"all" links. Giving it its
-    // own Scaffold here makes the standalone push self-contained —
-    // without one there's nothing painting the paper background behind
-    // it, so it showed through as plain black. Harmless when nested
-    // inside RootShell's Scaffold: same background color either way,
-    // and a SafeArea inside a SafeArea just no-ops on the inner one.
-    return Scaffold(
-      backgroundColor: SeenlyPalette.background,
-      body: SafeArea(
-            child: Column(
+    // DiaryScreen is only ever shown as a RootShell tab now —
+    // RootShell.switchTab (see root_shell.dart) replaced the old
+    // standalone `Navigator.push(DiaryScreen())` everywhere (Home's
+    // "fresh in your diary — all" link, Profile's "diary ›" link, and
+    // this screen's own back-to-profile action all go through it), so
+    // there's no longer a case where this screen has to stand on its
+    // own Scaffold. RootShell already supplies one Scaffold + SafeArea
+    // shared by every tab, and already paints the looping video backdrop
+    // and the ruled-paper texture once, underneath the whole IndexedStack
+    // (see widgets/app_video_background.dart, theme/notebook_paper.dart)
+    // — this screen used to paint its *own* second copy of both on top,
+    // which sounds harmless ("VideoPlayer accepts the same controller
+    // in more than one place at once") but isn't: IndexedStack keeps
+    // every tab's widget tree alive and rebuilding regardless of which
+    // one is active, so that second copy was never actually gated on
+    // Diary being the visible tab — it was a second live VideoPlayer
+    // bound to the same singleton controller sitting right on top of
+    // RootShell's own, which is what made the video freeze/misbehave.
+    // One shared background, painted once by RootShell, is enough.
+    return SafeArea(
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
@@ -151,21 +205,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('diary'.tr, style: SeenlyText.screenTitle),
+                  HandDrawnUnderline(
+                    child: Text('diary'.tr, style: SeenlyText.screenTitle),
+                  ),
                   Row(
                     children: [
                       PressScale(
                         onTap: _refreshing ? null : _refresh,
                         haptics: true,
-                        child: Container(
-                          width: 32,
-                          height: 32,
+                        child: WobblyCircle(
+                          size: 32,
+                          color: SeenlyPalette.paper,
                           margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            color: SeenlyPalette.paper,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
                           child: _refreshing
                               ? SizedBox(
                                   width: 14,
@@ -181,13 +232,9 @@ class _DiaryScreenState extends State<DiaryScreen> {
                           MaterialPageRoute(builder: (_) => const SearchScreen()),
                         ),
                         haptics: true,
-                        child: Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: SeenlyPalette.accent,
-                            shape: BoxShape.circle,
-                          ),
+                        child: WobblyCircle(
+                          size: 32,
+                          color: SeenlyPalette.accent,
                           child: Icon(Icons.add,
                               size: 16, color: SeenlyPalette.accentOnAccent),
                         ),
@@ -203,32 +250,52 @@ class _DiaryScreenState extends State<DiaryScreen> {
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const SearchScreen()),
                 ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                  decoration: BoxDecoration(
-                    color: SeenlyPalette.paper,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
-                      const SizedBox(width: 8),
-                      Text('search a film, show, or game'.tr,
-                          style: SeenlyText.serif(
-                              italic: true, size: 13, color: SeenlyPalette.placeholder)),
-                    ],
-                  ),
-                ),
+                // Cozy skin: a squarer, hand-stitched index-card look
+                // (tighter corners, a dashed rule traced around the
+                // edge) instead of the standard skin's plain rounded
+                // search pill — reads as a card tucked into the diary
+                // rather than a generic search field.
+                child: Builder(builder: (context) {
+                  final bar = Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                    decoration: ClayBoxDecoration(
+                      boxShadow: SeenlyPalette.flatCardShadow,
+                      color: SeenlyPalette.paper,
+                      borderRadius:
+                          BorderRadius.circular(SeenlySkin.isCozy ? 12 : 24),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search, size: 16, color: SeenlyPalette.inkFaint),
+                        const SizedBox(width: 8),
+                        Text('search a film, show, or game'.tr,
+                            style: SeenlyText.serif(
+                                italic: true, size: 13, color: SeenlyPalette.placeholder)),
+                      ],
+                    ),
+                  );
+                  if (!SeenlySkin.isCozy) return bar;
+                  return DashedRoundedBorder(
+                    color: SeenlyPalette.dashedBorder,
+                    radius: 12,
+                    margin: const EdgeInsets.all(3),
+                    child: bar,
+                  );
+                }),
               ),
             ),
             Expanded(
-              child: FutureBuilder<List<DiaryEntry>>(
-                future: _future,
-                builder: (context, snapshot) {
-                  if (!snapshot.hasData && !snapshot.hasError) {
+              child: Consumer<DiaryStore>(
+                builder: (context, diaryStore, _) {
+                  if (diaryStore.entries.isEmpty && diaryStore.isLoading) {
                     return _fadeSwitch(const _DiarySkeleton(key: ValueKey('diary-skeleton')));
                   }
-                  if (snapshot.hasError) {
+                  // Only the full-page error state when there's nothing
+                  // cached to fall back to — a failed refresh with
+                  // existing entries just quietly keeps showing them
+                  // (see DiaryStore._load), which is the actual point of
+                  // having a cache at all.
+                  if (diaryStore.entries.isEmpty && diaryStore.error != null) {
                     return _fadeSwitch(RefreshIndicator(
                       key: const ValueKey('diary-error'),
                       onRefresh: _refresh,
@@ -261,7 +328,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       ),
                     ));
                   }
-                  final entries = snapshot.data!;
+                  final entries = diaryStore.entries;
                   // Claims one stagger slot per top-level section, capped the
                   // same way Home's own `nextStagger` is — a section far down
                   // the page has nothing to cascade alongside by the time
@@ -303,8 +370,7 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                   LogThemeCopy.emptyDiary(
                                       context.watch<LogThemeService>().theme),
                                   textAlign: TextAlign.center,
-                                  style: SeenlyText.serif(
-                                      italic: true, color: SeenlyPalette.placeholder),
+                                  style: SeenlyText.emptyState(),
                                 ),
                               ],
                             ),
@@ -358,21 +424,18 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       controller: _logScrollController,
                       padding: const EdgeInsets.only(bottom: 24),
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 4, 22, 18),
-                          child: ScrollReveal(
-                            delay: nextReveal(),
-                            child: SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.62,
-                              child: DiaryConstellationPanel(entries: entries),
-                            ),
-                          ),
-                        ),
                         ScrollReveal(delay: nextReveal(), child: _ShelvesStrip(future: _shelvesFuture)),
                         ScrollReveal(
                             delay: nextReveal(), child: _PickedForYouStrip(future: _pickedFuture)),
                         ScrollReveal(
                             delay: nextReveal(), child: _ShelfPickStrip(future: _shelvesFuture)),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                          child: ScrollReveal(
+                            delay: nextReveal(),
+                            child: _KeepsakeCard(onTap: _openKeepsake),
+                          ),
+                        ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(22, 8, 22, 0),
                           child: Column(
@@ -386,7 +449,28 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               ScrollReveal(
                                 delay: nextReveal(),
                                 riseBy: 10,
-                                child: Text('the log'.tr, style: SeenlyText.metaLabel),
+                                // In the cozy skin the label trails off into a
+                                // torn-paper dashed rule running to the page
+                                // edge, like a section break scored into a
+                                // notebook page — plain label everywhere else,
+                                // since CozyDivider itself becomes a real
+                                // Divider outside cozy and we don't want a new
+                                // line appearing in the standard skin.
+                                child: Row(
+                                  children: [
+                                    Text('the log'.tr, style: SeenlyText.metaLabel),
+                                    if (SeenlySkin.isCozy) ...[
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: CozyDivider(
+                                          height: 1,
+                                          thickness: 1,
+                                          color: SeenlyPalette.dashedBorder,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
                               ),
                               const SizedBox(height: 14),
                               ...dayGroups,
@@ -401,7 +485,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -417,6 +500,84 @@ class _DiaryScreenState extends State<DiaryScreen> {
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeIn,
       child: child,
+    );
+  }
+}
+
+/// A proper card for the keepsake PDF export, sitting right in the log
+/// itself — this used to be a small icon in the header (easy to miss,
+/// see _DiaryScreenState._openKeepsake's own doc comment) and is now
+/// something you actually scroll past. Shown to every account, premium
+/// or not: the point is that people should know this exists even
+/// before they've paid for it, so the "premium" badge and blurb below
+/// only appear for non-premium accounts — everyone else already knows,
+/// so their card just says what it does. Tapping goes through
+/// _openKeepsake either way, which is what decides whether that's the
+/// real export screen or the upsell sheet.
+class _KeepsakeCard extends StatelessWidget {
+  final VoidCallback onTap;
+  const _KeepsakeCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPremium = context.watch<PremiumService>().isPremium;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: ClayBoxDecoration(
+          color: SeenlyPalette.clay,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: SeenlyPalette.softShadow,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: SeenlyPalette.accentOnAccent.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.auto_stories_outlined,
+                  size: 17, color: SeenlyPalette.accentOnAccent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isPremium) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: SeenlyPalette.accentOnAccent.withOpacity(0.16),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('premium'.tr,
+                          style: SeenlyText.mono(
+                              size: 8, color: SeenlyPalette.accentOnAccent)),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  Text('turn your diary into a keepsake'.tr,
+                      style: SeenlyText.serif(
+                          italic: true, size: 15, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent)),
+                  const SizedBox(height: 3),
+                  Text(
+                    'premium can export your whole diary — or a wrapped recap of any period — as a soft, paper-styled pdf to save, print, or send'
+                        .tr,
+                    style: SeenlyText.mono(
+                        size: 9.5, color: SeenlyPalette.accentOnAccent.withOpacity(0.85)),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward, size: 17, color: SeenlyPalette.accentOnAccent),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -650,7 +811,7 @@ class _ShelfChip extends StatelessWidget {
         width: fullWidth ? null : 172,
         height: fullWidth ? 96 : null,
         padding: EdgeInsets.all(fullWidth ? 10 : 8),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(14),
           boxShadow: SeenlyPalette.softShadow,
@@ -808,16 +969,56 @@ class _ShelfPickStrip extends StatefulWidget {
   State<_ShelfPickStrip> createState() => _ShelfPickStripState();
 }
 
-class _ShelfPickStripState extends State<_ShelfPickStrip> {
+class _ShelfPickStripState extends State<_ShelfPickStrip> with SingleTickerProviderStateMixin {
   List<WatchlistEntry>? _sourceShelf;
   List<WatchlistEntry> _picks = const [];
+  // Bumped per-tile, per-reroll — folded into that tile's ValueKey below
+  // so AnimatedSwitcher always sees a genuinely new key for the tile
+  // that just changed, even on the rare shuffle that happens to land
+  // the same title back in the same spot.
+  List<int> _tileNonce = const [];
+  bool _rerolling = false;
+
+  late final AnimationController _spinController =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+
+  @override
+  void dispose() {
+    _spinController.dispose();
+    super.dispose();
+  }
 
   List<WatchlistEntry> _draw(List<WatchlistEntry> shelf) {
     final pool = [...shelf]..shuffle();
     return pool.take(3).toList();
   }
 
-  void _reroll(List<WatchlistEntry> shelf) => setState(() => _picks = _draw(shelf));
+  /// Reshuffles one tile at a time, left to right, instead of swapping
+  /// all three the instant the button is tapped — the same staggered
+  /// feel [HorizontalReveal] gives this row on first load, just
+  /// replayed for a reroll. Each tile pops in with a small overshoot
+  /// (see the AnimatedSwitcher below) and the "↻" itself spins once, so
+  /// tapping it actually reads as *something happening* rather than the
+  /// picks silently swapping in place.
+  Future<void> _reroll(List<WatchlistEntry> shelf) async {
+    if (_rerolling) return;
+    _rerolling = true;
+    _spinController.forward(from: 0);
+    final next = _draw(shelf);
+    for (var i = 0; i < next.length; i++) {
+      if (i > 0) await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+      setState(() {
+        final picks = [..._picks];
+        final nonce = [..._tileNonce];
+        picks[i] = next[i];
+        nonce[i] = nonce[i] + 1;
+        _picks = picks;
+        _tileNonce = nonce;
+      });
+    }
+    _rerolling = false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -835,7 +1036,9 @@ class _ShelfPickStripState extends State<_ShelfPickStrip> {
         if (!identical(_sourceShelf, shelf)) {
           _sourceShelf = shelf;
           _picks = _draw(shelf);
+          _tileNonce = List.filled(_picks.length, 0);
         }
+        final canReroll = shelf.length > 3;
         return Padding(
           padding: const EdgeInsets.only(top: 16, bottom: 4),
           child: Column(
@@ -845,10 +1048,17 @@ class _ShelfPickStripState extends State<_ShelfPickStrip> {
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                 child: SectionHeader(
                   title: 'pick something from your shelf'.tr,
-                  trailing: shelf.length > 3 ? '↻' : null,
-                  trailingStyle: SeenlyText.mono(size: 15, weight: FontWeight.w700, color: SeenlyPalette.inkFaint),
+                  trailing: canReroll ? '↻' : null,
+                  trailingChild: canReroll
+                      ? RotationTransition(
+                          turns: _spinController,
+                          child: Text('↻',
+                              style: SeenlyText.mono(
+                                  size: 15, weight: FontWeight.w700, color: SeenlyPalette.inkFaint)),
+                        )
+                      : null,
                   centerTitle: true,
-                  onTrailingTap: shelf.length > 3 ? () => _reroll(shelf) : null,
+                  onTrailingTap: canReroll ? () => _reroll(shelf) : null,
                 ),
               ),
               Padding(
@@ -862,19 +1072,35 @@ class _ShelfPickStripState extends State<_ShelfPickStrip> {
                         width: 92,
                         child: HorizontalReveal(
                           delay: Duration(milliseconds: 40 + i.clamp(0, 3) * 70),
-                          child: ThemedPosterTile(
-                            title: _picks[i].displayTitle,
-                            posterUrl: _picks[i].posterUrl,
-                            mediaType: _picks[i].mediaType,
-                            fallbackColor: SeenlyPalette.mediaColor(_picks[i].mediaType),
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => TitleDetailScreen(
-                                  mediaId: _picks[i].mediaId,
-                                  source: _picks[i].source,
-                                  mediaType: _picks[i].mediaType,
-                                  seedTitle: _picks[i].displayTitle,
-                                  seedPosterUrl: _picks[i].posterUrl,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 360),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeIn,
+                            transitionBuilder: (child, animation) => FadeTransition(
+                              opacity: animation,
+                              child: ScaleTransition(
+                                scale: Tween<double>(begin: 0.86, end: 1).animate(
+                                  CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                                ),
+                                child: child,
+                              ),
+                            ),
+                            child: ThemedPosterTile(
+                              key: ValueKey(
+                                  '${_picks[i].mediaId}-${i < _tileNonce.length ? _tileNonce[i] : 0}'),
+                              title: _picks[i].displayTitle,
+                              posterUrl: _picks[i].posterUrl,
+                              mediaType: _picks[i].mediaType,
+                              fallbackColor: SeenlyPalette.mediaColor(_picks[i].mediaType),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => TitleDetailScreen(
+                                    mediaId: _picks[i].mediaId,
+                                    source: _picks[i].source,
+                                    mediaType: _picks[i].mediaType,
+                                    seedTitle: _picks[i].displayTitle,
+                                    seedPosterUrl: _picks[i].posterUrl,
+                                  ),
                                 ),
                               ),
                             ),
@@ -924,14 +1150,9 @@ class _ShelfPickCta extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: SeenlyPalette.accent,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
+              WobblyCircle(
+                size: 26,
+                color: SeenlyPalette.accent,
                 child: Icon(Icons.bookmark, size: 12, color: SeenlyPalette.accentOnAccent),
               ),
               const SizedBox(width: 10),
@@ -984,32 +1205,39 @@ class _DiaryPoster extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = SeenlyPalette.mediaColor(mediaType);
+    final image = posterUrl != null && posterUrl!.isNotEmpty
+        ? FadeInNetworkImage(
+            url: posterUrl!,
+            fit: BoxFit.cover,
+            placeholder: Container(color: color),
+          )
+        : Container(color: color);
+    // Cozy skin: a little pinned photo (PolaroidFrame — same widget the
+    // poster grids already use) instead of a plain rounded thumbnail,
+    // so a logged evening reads as a snapshot tucked onto the page.
+    // Renders [image] unframed outside the cozy skin, so this is a
+    // no-op there.
+    final poster = PolaroidFrame(
+      tiltSeed: (posterUrl ?? mediaType).hashCode,
+      child: image,
+    );
+    final plainPoster = Container(
+      decoration: ClayBoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: SeenlyPalette.softShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(width: 64, height: 92, child: image),
+      ),
+    );
     return SizedBox(
       width: 64,
       height: 92,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: SeenlyPalette.softShadow,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: SizedBox(
-                width: 64,
-                height: 92,
-                child: posterUrl != null && posterUrl!.isNotEmpty
-                    ? FadeInNetworkImage(
-                        url: posterUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: Container(color: color),
-                      )
-                    : Container(color: color),
-              ),
-            ),
-          ),
+          SeenlySkin.isCozy ? poster : plainPoster,
           Positioned(
             bottom: -6,
             left: -6,
@@ -1045,9 +1273,14 @@ class _SeriesEntryRow extends StatelessWidget {
     final watched = entry.episodesWatched;
     final progressLabel = watched == null || watched == 0
         ? 'S${entry.season}${entry.episode != null ? "E${entry.episode}" : ""}'
-        : '$watched ${ruPluralForm(watched, one: "серия", few: "серии", many: "серий", englishOne: "episode", englishOther: "episodes")} ${"watched".tr} · S${entry.season}'
+        : '$watched ${nOnly('nEpisodes', watched)} ${"watched".tr} · S${entry.season}'
             '${entry.episode != null ? "E${entry.episode}" : ""}';
-    return PressScale(
+    // A folded-down page corner (cozy skin only — DogEarCorner is a
+    // no-op outside it) so a series entry reads as its own dog-eared
+    // page in the diary, matching the treatment Collections cards
+    // already get.
+    return DogEarCorner(
+      child: PressScale(
       onTap: () => showSeriesEpisodesSheet(
         context,
         mediaId: entry.mediaId,
@@ -1058,7 +1291,7 @@ class _SeriesEntryRow extends StatelessWidget {
       ),
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(14),
           boxShadow: SeenlyPalette.softShadow,
@@ -1075,15 +1308,22 @@ class _SeriesEntryRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.sage.withOpacity(0.18),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text('watching · series'.tr,
-                        style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.sage)),
-                  ),
+                  SeenlySkin.isCozy
+                      ? StampBadge(
+                          color: SeenlyPalette.sage,
+                          child: Text('watching · series'.tr,
+                              style: SeenlyText.mono(
+                                  size: 8.5, weight: FontWeight.w700, color: SeenlyPalette.sage)),
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: SeenlyPalette.sage.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text('watching · series'.tr,
+                              style: SeenlyText.mono(size: 8.5, color: SeenlyPalette.sage)),
+                        ),
                   const SizedBox(height: 6),
                   Text(entry.displayTitle, style: SeenlyText.cardTitle),
                   const SizedBox(height: 4),
@@ -1116,6 +1356,7 @@ class _SeriesEntryRow extends StatelessWidget {
             Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
           ],
         ),
+      ),
       ),
     );
   }
@@ -1188,14 +1429,37 @@ class _DiaryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PressScale(
+    final mediaTypeTag = SeenlySkin.isCozy
+        ? StampBadge(
+            color: SeenlyPalette.mediaColor(entry.mediaType),
+            angle: -0.1,
+            child: Text(entry.mediaType,
+                style: SeenlyText.mono(
+                    size: 8.5,
+                    weight: FontWeight.w700,
+                    color: SeenlyPalette.mediaColor(entry.mediaType))),
+          )
+        : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: SeenlyPalette.mediaColor(entry.mediaType).withOpacity(0.16),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(entry.mediaType,
+                style: SeenlyText.mono(
+                    size: 8.5, color: SeenlyPalette.mediaColor(entry.mediaType))),
+          );
+    // A folded-down page corner, matching the treatment [_SeriesEntryRow]
+    // and Collections cards already get — cozy skin only.
+    return DogEarCorner(
+      child: PressScale(
       onTap: () async {
         await showWatchedPreview(context, WatchedPreviewData.fromDiaryEntry(entry));
         onChanged?.call();
       },
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(14),
           boxShadow: SeenlyPalette.softShadow,
@@ -1211,16 +1475,7 @@ class _DiaryRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: SeenlyPalette.mediaColor(entry.mediaType).withOpacity(0.16),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(entry.mediaType,
-                            style: SeenlyText.mono(
-                                size: 8.5, color: SeenlyPalette.mediaColor(entry.mediaType))),
-                      ),
+                      mediaTypeTag,
                       if (entry.isRewatch) ...[
                         const SizedBox(width: 6),
                         Row(
@@ -1257,12 +1512,24 @@ class _DiaryRow extends StatelessWidget {
                       spacing: 6,
                       runSpacing: 4,
                       children: [
-                        for (final tag in entry.moodTags)
+                        // In the cozy skin each tag cycles through the
+                        // same three washi-tape tones the log's tape
+                        // corners use, and reads as a little paper tag
+                        // (small radius) rather than a plain pill.
+                        for (final (i, tag) in entry.moodTags.indexed)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: SeenlyPalette.background,
-                              borderRadius: BorderRadius.circular(10),
+                              color: SeenlySkin.isCozy
+                                  ? [
+                                      SeenlyPalette.tapeRose,
+                                      SeenlyPalette.tapeSage,
+                                      SeenlyPalette.tapeMustard,
+                                    ][i % 3]
+                                      .withOpacity(0.55)
+                                  : SeenlyPalette.background,
+                              borderRadius:
+                                  BorderRadius.circular(SeenlySkin.isCozy ? 5 : 10),
                             ),
                             child: Text(tag,
                                 style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkMuted)),
@@ -1276,12 +1543,28 @@ class _DiaryRow extends StatelessWidget {
                   ],
                   if (entry.note != null && entry.note!.trim().isNotEmpty) ...[
                     const SizedBox(height: 7),
-                    Text(
-                      entry.note!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: SeenlyText.serif(
-                          italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
+                    // Cozy skin: a small hand-drawn quote mark ahead of
+                    // the note, so it reads as a scribble in the margin
+                    // rather than plain body text — a no-op decoration
+                    // outside cozy, where the italic serif already did
+                    // that job on its own.
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (SeenlySkin.isCozy) ...[
+                          Icon(Icons.format_quote, size: 13, color: SeenlyPalette.accent),
+                          const SizedBox(width: 3),
+                        ],
+                        Expanded(
+                          child: Text(
+                            entry.note!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: SeenlyText.serif(
+                                italic: true, size: 12.5, color: SeenlyPalette.inkMuted),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -1296,21 +1579,25 @@ class _DiaryRow extends StatelessWidget {
                 ),
                 fileName: 'seenly-${entry.id}',
                 shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+                rewardKey: 'seenly-${entry.id}',
               ),
-              child: Container(
+              // Was a faint, background-colored circle with a
+              // barely-there icon — easy to read as pure decoration
+              // rather than a tap target. Tinting it with the accent
+              // color (same language as the share buttons elsewhere —
+              // see watched_preview_sheet.dart) makes it legible at a
+              // glance as "you can share this row" without needing to
+              // grow the row itself.
+              child: WobblyCircle(
+                size: 30,
+                color: SeenlyPalette.accent.withOpacity(0.12),
                 margin: const EdgeInsets.only(left: 6),
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  color: SeenlyPalette.background,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Icon(Icons.ios_share, size: 13, color: SeenlyPalette.inkFaint),
+                child: Icon(Icons.ios_share_rounded, size: 15, color: SeenlyPalette.accent),
               ),
             ),
           ],
         ),
+      ),
       ),
     );
   }

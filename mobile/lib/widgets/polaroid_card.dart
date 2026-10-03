@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'wow_motion.dart';
+import '../theme/clay_kit.dart';
 
 /// The signature "scrapbook" element: a small square photo, slightly
 /// rotated, with a strip of washi tape at the top and a handwritten
@@ -40,7 +41,8 @@ class PolaroidCard extends StatelessWidget {
         child: Container(
           width: size + 12,
           padding: const EdgeInsets.fromLTRB(6, 6, 6, 9),
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.circular(5),
           ),

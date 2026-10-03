@@ -1,4 +1,5 @@
 import 'media_item.dart';
+import '../utils/server_time.dart';
 
 /// Mirrors TogetherSessionOut in backend/app/schemas.py — one snapshot of
 /// a network watch-together session, from the point of view of whichever
@@ -56,6 +57,6 @@ class TogetherSession {
         matches: (json['matches'] as List? ?? const [])
             .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
             .toList(),
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }

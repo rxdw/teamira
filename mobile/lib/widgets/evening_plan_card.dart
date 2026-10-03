@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/co_view_entry.dart';
 import '../models/planned_evening.dart';
+import '../screens/partner/album/album_reveal_coordinator.dart';
 import '../services/evening_plan_service.dart';
 import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../screens/add_entry/watching_choice_screen.dart';
 import 'plan_evening_sheet.dart';
 import 'themed_loading_indicator.dart';
 import '../screens/title/title_detail_screen.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
-/// The "plan an evening" feature's one piece of UI, dropped onto three
-/// screens (Home, Profile, CoViewingScreen) — reads the single shared
+/// The "plan an evening" feature's one piece of UI, dropped onto Home,
+/// Profile, and the co-viewing hub (screens/partner/co_view_hub_screen.dart
+/// — same content whether it's showing embedded as the "вместе" tab or
+/// pushed as CoViewingScreen) — reads the single shared
 /// [EveningPlanService] so getting a ticket on one screen is reflected
-/// on the other two right away.
+/// on the others right away.
 ///
 /// Several evenings can be planned at once (see [EveningPlanService]),
 /// but this card only ever shows one ticket: whichever is soonest. If
@@ -27,16 +33,26 @@ import '../services/app_translations.dart';
 /// something is — same "the state IS the screen" idea as [TicketWidget]
 /// itself, just one level up. [coViewingByDefault] only affects the sheet
 /// this opens (see [showPlanEveningSheet]'s own docstring).
+///
+/// [onlyCoViewing] restricts which of [EveningPlanService]'s plans this
+/// card will even consider — the co-viewing hub sets it so a solo
+/// evening planned from Home/Profile (coViewing: false) never shows up
+/// in here as if it were shared, just because it happens to be the
+/// soonest thing on the whole calendar; Home/Profile leave it off, since
+/// there the card is genuinely just "your next evening", together or not.
 class EveningPlanCard extends StatelessWidget {
   final bool coViewingByDefault;
+  final bool onlyCoViewing;
 
-  const EveningPlanCard({super.key, this.coViewingByDefault = false});
+  const EveningPlanCard({super.key, this.coViewingByDefault = false, this.onlyCoViewing = false});
 
   @override
   Widget build(BuildContext context) {
     final service = context.watch<EveningPlanService>();
     if (!service.loaded) return const SizedBox.shrink();
-    final plan = service.plan;
+    final plan = onlyCoViewing ? service.planMatching((p) => p.coViewing) : service.plan;
+    final otherCount =
+        onlyCoViewing ? service.otherCountMatching((p) => p.coViewing) : service.otherPlansCount;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
       switchInCurve: Curves.easeOutCubic,
@@ -56,7 +72,7 @@ class EveningPlanCard extends StatelessWidget {
           : _PlannedEveningCard(
               key: ValueKey(plan.id),
               plan: plan,
-              otherCount: service.otherPlansCount,
+              otherCount: otherCount,
               coViewingByDefault: coViewingByDefault,
             ),
     );
@@ -79,7 +95,7 @@ class _EmptyEveningCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: SeenlyPalette.dashedBorder, width: 1.2),
@@ -157,12 +173,49 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
     );
   }
 
+  /// The "смотрю" action on this ticket — sends the person through the
+  /// exact same logging ritual as everywhere else (see
+  /// WatchingChoiceScreen), pre-checking "watched with partner" when
+  /// this was planned as a co-viewing evening. Replaces the old instant
+  /// "watched" tap, which only ever set a bare feed status with no
+  /// rating and never touched the diary at all. Once that ritual
+  /// actually saves something, this also flips the mirrored CoViewEntry
+  /// (if this ticket has one — see PlannedEvening.coViewEntryId) off the
+  /// shared "запланировано" list, the same way the co-viewing hub's own
+  /// planned grid does — without writing a second diary row on top of
+  /// the one the ritual just wrote.
   Future<void> _markWatched() async {
     if (_busy) return;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => WatchingChoiceScreen(
+          item: widget.plan.toMediaItem(),
+          initialWatchedWithPartner: widget.plan.coViewing,
+        ),
+      ),
+    );
+    if (saved != true) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
-      await context.read<AppState>().feed.react(widget.plan.toMediaItem(), 'watched');
+      final entryId = widget.plan.coViewEntryId;
+      CoViewEntry? watchedEntry;
+      if (entryId != null) {
+        try {
+          watchedEntry = await context.read<AppState>().partner.markCoViewWatched(entryId, alreadyLogged: true);
+        } catch (_) {
+          // Best-effort — the ritual above already saved the actual
+          // diary entry either way; worst case this one lingers on the
+          // shared "запланировано" list until it's cleared some other way.
+        }
+      }
       await context.read<EveningPlanService>().clear(widget.plan.id);
+      // A sealed album note that this call just unsealed gets its moment
+      // now (a no-op when nothing was waiting).
+      if (watchedEntry != null && mounted) {
+        await playRevealIfAny(context, watched: watchedEntry, partnerName: widget.plan.partnerUsername);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -218,7 +271,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
     if (plan.isToday) return 'tonight\'s the night'.tr;
     if (plan.isTomorrow) return 'coming up tomorrow'.tr;
     if (plan.daysUntil <= 7) {
-      return '${'in'.tr} ${ruCount(plan.daysUntil, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')}';
+      return '${'in'.tr} ${nCount('nDays', plan.daysUntil)}';
     }
     return _formatDate(plan.date);
   }
@@ -235,7 +288,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(20),
         boxShadow: SeenlyPalette.softShadow,
@@ -291,7 +344,7 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                   right: 10,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
+                    decoration: ClayBoxDecoration(
                       color: accent,
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: SeenlyPalette.softShadow,
@@ -409,31 +462,36 @@ class _PlannedEveningCardState extends State<_PlannedEveningCard> {
                     child: Icon(Icons.add, size: 15, color: SeenlyPalette.accent),
                   ),
                 ),
-                if (plan.isPast) ...[
-                  GestureDetector(
-                    onTap: _busy ? null : _markWatched,
-                    child: _busy
-                        ? Padding(
-                            padding: EdgeInsets.all(6),
-                            child: SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
-                            ),
-                          )
-                        : Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: SeenlyPalette.accent,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Text('watched'.tr,
-                                style: SeenlyText.mono(
-                                    size: 10, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
+                GestureDetector(
+                  onTap: _busy ? null : _markWatched,
+                  child: _busy
+                      ? Padding(
+                          padding: EdgeInsets.all(6),
+                          child: SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
                           ),
-                  ),
-                  const SizedBox(width: 6),
-                ],
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: SeenlyPalette.accent,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.visibility_rounded, size: 11, color: SeenlyPalette.accentOnAccent),
+                              const SizedBox(width: 4),
+                              Text('watching'.tr,
+                                  style: SeenlyText.mono(
+                                      size: 10, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 6),
                 GestureDetector(
                   onTap: _clearPlan,
                   child: Container(
@@ -469,7 +527,8 @@ class _AllPlansSheet extends StatelessWidget {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) => Container(
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
@@ -557,12 +616,35 @@ class _AllPlansRowState extends State<_AllPlansRow> {
     return plan.hasTime ? '$day · ${plan.timeLabel}' : day;
   }
 
+  /// Same as _PlannedEveningCardState's own _markWatched — see its doc
+  /// comment. Duplicated rather than shared because the two states live
+  /// on genuinely different widgets with their own `widget.plan`/`_busy`.
   Future<void> _markWatched() async {
     if (_busy) return;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => WatchingChoiceScreen(
+          item: widget.plan.toMediaItem(),
+          initialWatchedWithPartner: widget.plan.coViewing,
+        ),
+      ),
+    );
+    if (saved != true) return;
+    if (!mounted) return;
     setState(() => _busy = true);
     try {
-      await context.read<AppState>().feed.react(widget.plan.toMediaItem(), 'watched');
+      final entryId = widget.plan.coViewEntryId;
+      CoViewEntry? watchedEntry;
+      if (entryId != null) {
+        try {
+          watchedEntry = await context.read<AppState>().partner.markCoViewWatched(entryId, alreadyLogged: true);
+        } catch (_) {}
+      }
       await context.read<EveningPlanService>().clear(widget.plan.id);
+      if (watchedEntry != null && mounted) {
+        await playRevealIfAny(context, watched: watchedEntry, partnerName: widget.plan.partnerUsername);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
@@ -631,29 +713,35 @@ class _AllPlansRowState extends State<_AllPlansRow> {
                 ],
               ),
             ),
-            if (plan.isPast)
-              GestureDetector(
-                onTap: _busy ? null : _markWatched,
-                child: _busy
-                    ? Padding(
-                        padding: EdgeInsets.all(6),
-                        child: SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
-                        ),
-                      )
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: SeenlyPalette.accent,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text('watched'.tr,
-                            style: SeenlyText.mono(
-                                size: 9.5, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
+            GestureDetector(
+              onTap: _busy ? null : _markWatched,
+              child: _busy
+                  ? Padding(
+                      padding: EdgeInsets.all(6),
+                      child: SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
                       ),
-              ),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: SeenlyPalette.accent,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.visibility_rounded, size: 10, color: SeenlyPalette.accentOnAccent),
+                          const SizedBox(width: 3),
+                          Text('watching'.tr,
+                              style: SeenlyText.mono(
+                                  size: 9.5, color: SeenlyPalette.accentOnAccent, weight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+            ),
             const SizedBox(width: 6),
             GestureDetector(
               onTap: () => context.read<EveningPlanService>().clear(plan.id),

@@ -17,6 +17,12 @@ class SectionHeader extends StatelessWidget {
   // at the right. Off by default so every other screen (home, diary,
   // profile) keeps its original left-aligned header.
   final bool centerTitle;
+  // Swaps in a custom widget for the trailing slot instead of the
+  // plain [trailing] text — same tap target and the same centering
+  // math as the text version, just for the rare caller that needs
+  // more than static text there (a spinning refresh glyph, say).
+  // Ignored (falls back to [trailing]) when left null.
+  final Widget? trailingChild;
 
   const SectionHeader({
     super.key,
@@ -26,6 +32,7 @@ class SectionHeader extends StatelessWidget {
     this.titleStyle,
     this.trailingStyle,
     this.centerTitle = false,
+    this.trailingChild,
   });
 
   @override
@@ -45,14 +52,15 @@ class SectionHeader extends StatelessWidget {
     }
 
     final titleStyleResolved = titleStyle ?? SeenlyText.sectionTitle;
-    final trailingWidget = trailing == null
-        ? null
-        : GestureDetector(
-            onTap: onTrailingTap,
-            child: Text(trailing!,
+    final trailingContent = trailingChild ??
+        (trailing == null
+            ? null
+            : Text(trailing!,
                 style: trailingStyle ??
-                    SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
-          );
+                    SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)));
+    final trailingWidget = trailingContent == null
+        ? null
+        : GestureDetector(onTap: onTrailingTap, child: trailingContent);
 
     if (!centerTitle) {
       // Title sits in Expanded so it's the one that gives way (shrinks

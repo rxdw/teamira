@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
 
 /// Which tile set `JourneyRealMap` draws — a look, not data: the same
 /// origin/destination/progress either way, just a different map skin
@@ -79,27 +80,25 @@ class MapStyleCatalog {
 /// exact same value, so either place always shows what the other last
 /// picked.
 class MapStyleService extends ChangeNotifier {
-  static const _key = 'seenly_map_style';
+  final _style = PersistedPref<MapStyle>(
+    'seenly_map_style',
+    defaultValue: MapStyle.classic,
+    read: (prefs, key) => MapStyle.values.firstWhere(
+      (s) => s.name == prefs.getString(key),
+      orElse: () => MapStyle.classic,
+    ),
+    write: (prefs, key, value) => prefs.setString(key, value.name),
+  );
 
-  MapStyle _style = MapStyle.classic;
-  MapStyle get style => _style;
-  MapStyleInfo get info => MapStyleCatalog.infoFor(_style);
+  MapStyle get style => _style.value;
+  MapStyleInfo get info => MapStyleCatalog.infoFor(_style.value);
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_key);
-    _style = MapStyle.values.firstWhere(
-      (s) => s.name == stored,
-      orElse: () => MapStyle.classic,
-    );
+    await _style.load();
     notifyListeners();
   }
 
   Future<void> setStyle(MapStyle value) async {
-    if (_style == value) return;
-    _style = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, value.name);
+    await _style.save(value, onChanged: notifyListeners);
   }
 }

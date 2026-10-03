@@ -9,6 +9,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../search/search_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// "scan a ticket" — one photo of a physical cinema ticket stub, read
 /// entirely on-device (no upload anywhere), landing on Search with a
@@ -286,7 +287,8 @@ class _ResultsBody extends StatelessWidget {
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.circular(16),
           ),
@@ -317,7 +319,8 @@ class _ResultsBody extends StatelessWidget {
                 onTap: () => onUseLine(l),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
+                    boxShadow: SeenlyPalette.flatCardShadow,
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: SeenlyPalette.border),

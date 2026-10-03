@@ -6,17 +6,30 @@ import 'package:provider/provider.dart';
 import '../models/media_item.dart';
 import '../models/partner_status.dart';
 import '../models/planned_evening.dart';
+import '../models/suggestion.dart';
 import '../models/watchlist_entry.dart';
 import '../services/api_client.dart';
 import '../services/evening_plan_service.dart';
+import '../services/premium_service.dart';
 import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import 'empty_state.dart';
 import 'tear_ticket_confirm.dart';
 import 'themed_loading_indicator.dart';
 import 'themed_poster_tile.dart';
+import 'heart_burst.dart';
+import 'soft_motion.dart';
+import 'wow_motion.dart'
+    show Entrance, BreathingGlow, PressScale, ShimmerBlock, FadeInNetworkImage;
 import '../services/app_translations.dart';
 import '../services/locale_service.dart';
+import 'saved_celebration.dart';
+import '../theme/clay_kit.dart';
+import '../models/pair_album.dart';
+import '../screens/partner/album/album_strings.dart' as album_strings;
+import '../screens/partner/album/note_compose_sheet.dart';
+import '../services/pair_album_service.dart';
 
 /// The whole "plan an evening" ritual, full screen: pick something off
 /// the plan-to-watch shelf, say when, say whether it's a co-viewing
@@ -32,21 +45,35 @@ import '../services/locale_service.dart';
 /// almost always about watching together) — it's still just a starting
 /// point, not a lock, since a linked pair can just as easily plan a solo
 /// night from that same screen.
+///
+/// [approvingSuggestion] turns this into "approve a suggestion" rather
+/// than a fresh plan: agreeing to a suggested evening *is* planning one
+/// (same title, same "when", same co-viewing toggle — it's just already
+/// halfway filled in), so it's the same ritual starting one step in
+/// (title already picked, co-viewing locked on) rather than a separate,
+/// dateless "just add it" shortcut. Confirming calls
+/// [PartnerService.acceptSuggestion] — with whatever date/time got
+/// picked — instead of [PartnerService.planCoViewing].
 Future<void> showPlanEveningSheet(
   BuildContext context, {
   bool coViewingByDefault = false,
+  Suggestion? approvingSuggestion,
 }) {
   return Navigator.of(context).push(
     MaterialPageRoute(
       fullscreenDialog: true,
-      builder: (context) => _PlanEveningSheet(coViewingByDefault: coViewingByDefault),
+      builder: (context) => _PlanEveningSheet(
+        coViewingByDefault: coViewingByDefault,
+        approvingSuggestion: approvingSuggestion,
+      ),
     ),
   );
 }
 
 class _PlanEveningSheet extends StatefulWidget {
   final bool coViewingByDefault;
-  const _PlanEveningSheet({required this.coViewingByDefault});
+  final Suggestion? approvingSuggestion;
+  const _PlanEveningSheet({required this.coViewingByDefault, this.approvingSuggestion});
 
   @override
   State<_PlanEveningSheet> createState() => _PlanEveningSheetState();
@@ -75,10 +102,27 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
   bool _coViewing = false;
   PartnerStatus? _partnerStatus;
 
+  // The album note for the picked title, written *before* the evening is
+  // planned (the server keys notes by title, not by planned entry, so none
+  // of this depends on the ticket being torn). Loaded lazily when the
+  // confirm step opens; null = none yet.
+  AlbumPage? _albumNote;
+  AlbumStatus? _albumStatus;
+  bool _albumLoaded = false;
+
   @override
   void initState() {
     super.initState();
-    _coViewing = widget.coViewingByDefault;
+    final suggestion = widget.approvingSuggestion;
+    if (suggestion != null) {
+      // Title's already decided — skip straight to "when", same as if
+      // someone had just picked it off the shelf.
+      _picked = suggestion.toMediaItem();
+      _step = 1;
+      _coViewing = true;
+    } else {
+      _coViewing = widget.coViewingByDefault;
+    }
     _load();
   }
 
@@ -175,9 +219,56 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
     if (picked != null && mounted) setState(() => _time = picked);
   }
 
+  bool _confirming = false;
+
+  int get _minStep => widget.approvingSuggestion != null ? 1 : 0;
+
   Future<void> _confirm() async {
     final picked = _picked;
-    if (picked == null) return;
+    if (picked == null || _confirming) return;
+    setState(() => _confirming = true);
+    final suggestion = widget.approvingSuggestion;
+    String? coViewEntryId;
+    try {
+      if (suggestion != null) {
+        // Approving a suggestion doesn't just plan a new co-viewing
+        // entry — it consumes the suggestion itself (clears it from the
+        // Home inbox) and carries over who originally sent it. Unlike
+        // the best-effort mirror below, this one has to actually
+        // succeed: skipping it silently would leave the suggestion
+        // sitting in the inbox as if nothing happened.
+        final entry = await context.read<AppState>().partner.acceptSuggestion(
+              suggestion.id,
+              date: DateTime(_date.year, _date.month, _date.day),
+              hour: _time?.hour,
+              minute: _time?.minute,
+            );
+        coViewEntryId = entry.id;
+      } else if (_coViewing && (_partnerStatus?.linked ?? false)) {
+        // Co-viewing + actually linked: mirror this onto the shared
+        // co-viewing list so the partner sees the same scheduled evening
+        // on their own side too, not just as a ticket sitting on this
+        // device (see PartnerService.planCoViewing). Best-effort — the
+        // personal ticket below is saved either way, so a sync hiccup
+        // here shouldn't block "get a ticket" from finishing.
+        try {
+          final entry = await context.read<AppState>().partner.planCoViewing(
+                picked,
+                date: DateTime(_date.year, _date.month, _date.day),
+                hour: _time?.hour,
+                minute: _time?.minute,
+              );
+          coViewEntryId = entry.id;
+        } catch (_) {}
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _confirming = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("couldn't accept that just now — try again".tr)),
+      );
+      return;
+    }
     final evening = PlannedEvening(
       mediaId: picked.id,
       source: picked.source,
@@ -188,32 +279,31 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
       date: DateTime(_date.year, _date.month, _date.day),
       hour: _time?.hour,
       minute: _time?.minute,
-      coViewing: _coViewing,
-      partnerUsername: _coViewing ? _partnerStatus?.partnerUsername : null,
+      coViewing: suggestion != null || _coViewing,
+      partnerUsername: (suggestion != null || _coViewing) ? _partnerStatus?.partnerUsername : null,
+      coViewEntryId: coViewEntryId,
       createdAt: DateTime.now(),
     );
     await context.read<EveningPlanService>().planEvening(evening);
-    // Co-viewing + actually linked: mirror this onto the shared
-    // co-viewing list so the partner sees the same scheduled evening on
-    // their own side too, not just as a ticket sitting on this device
-    // (see PartnerService.planCoViewing). Best-effort — the personal
-    // ticket above is already saved either way, so a sync hiccup here
-    // shouldn't block "get a ticket" from finishing.
-    if (_coViewing && (_partnerStatus?.linked ?? false)) {
-      try {
-        await context.read<AppState>().partner.planCoViewing(
-              picked,
-              date: DateTime(_date.year, _date.month, _date.day),
-              hour: _time?.hour,
-              minute: _time?.minute,
-            );
-      } catch (_) {}
-    }
     if (!mounted) return;
     // A short beat so "ticket's yours" actually gets read before the
     // sheet closes out from under it.
     await Future.delayed(const Duration(milliseconds: 650));
-    if (mounted) Navigator.of(context).pop();
+    if (mounted) {
+      // The evening is planned: the poster gets its bookmark, with the
+      // date it's planned for — and, if it's a shared one, the hearts.
+      showSavedCelebration(
+        context,
+        kind: SavedKind.planned,
+        title: picked.title.display,
+        posterUrl: picked.posterUrl,
+        mediaType: picked.mediaType,
+        partnerName: (suggestion != null || _coViewing) ? _partnerStatus?.partnerUsername : null,
+        together: suggestion != null || _coViewing,
+        whenLabel: [_formatDate(_date), if (_time != null) _time!.format(context)].join(' · '),
+      );
+      Navigator.of(context).pop();
+    }
   }
 
   @override
@@ -235,22 +325,31 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                       // Back steps back through the ritual; on the first
                       // step there's nothing to step back to, so it just
                       // leaves the screen — same place the close button
-                      // (below) always goes.
-                      onPressed: () => _step > 0
+                      // (below) always goes. Approving a suggestion
+                      // starts one step in with the title already
+                      // decided (see initState) — stepping back below
+                      // that would land on the title picker and let the
+                      // title quietly change out from under the
+                      // suggestion being accepted, so that step is off
+                      // limits here too.
+                      onPressed: () => _step > _minStep
                           ? setState(() => _step -= 1)
                           : Navigator.of(context).pop(),
                     ),
                     Expanded(
-                      child: Text(
-                        _step == 0
-                            ? 'plan an evening'
-                            : _step == 1
-                                ? 'when?'
-                                : 'get your ticket',
-                        style: SeenlyText.serif(italic: true, size: 17),
+                      child: SoftSwap(
+                        child: Text(
+                          _step == 0
+                              ? 'plan an evening'.tr
+                              : _step == 1
+                                  ? 'when?'.tr
+                                  : 'get your ticket'.tr,
+                          key: ValueKey<int>(_step),
+                          style: SeenlyText.serif(italic: true, size: 17),
+                        ),
                       ),
                     ),
-                    GestureDetector(
+                    PressScale(
                       onTap: () => Navigator.of(context).pop(),
                       child: Container(
                         width: 26,
@@ -263,14 +362,25 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
                 ),
               ),
               const SizedBox(height: 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: _EveningStepper(step: _step),
+              ),
+              const SizedBox(height: 14),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: _step == 0
-                      ? _titleStep()
-                      : _step == 1
-                          ? _dateStep()
-                          : _confirmStep(),
+                  // Each step glides in from the side it's reached from
+                  // (right going forward, left going back).
+                  child: StepSwitcher(
+                    step: _step,
+                    expand: true,
+                    child: _step == 0
+                        ? _titleStep()
+                        : _step == 1
+                            ? _dateStep()
+                            : _confirmStep(),
+                  ),
                 ),
               ),
             ],
@@ -303,6 +413,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
             style: SeenlyText.serif(size: 13),
             decoration: InputDecoration(
               isDense: true,
+              filled: false,
               border: InputBorder.none,
               hintText: 'search for a title…'.tr,
               hintStyle: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder),
@@ -314,7 +425,21 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
         const SizedBox(height: 12),
         _coViewingToggle(),
         const SizedBox(height: 12),
-        Expanded(child: hasQuery ? _searchResultsGrid() : _shelfGrid()),
+        Expanded(
+          // Shelf, "searching…" and each finished search are different
+          // pictures — cross-fade between them instead of cutting.
+          child: SoftSwap(
+            alignment: Alignment.topCenter,
+            duration: const Duration(milliseconds: 240),
+            rise: 0.015,
+            child: KeyedSubtree(
+              key: ValueKey<String>(
+                hasQuery ? (_searching ? 'searching' : 'results:$_lastQuery') : 'shelf',
+              ),
+              child: hasQuery ? _searchResultsGrid() : _shelfGrid(),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -329,34 +454,59 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
   Widget _coViewingToggle() {
     final linked = _partnerStatus?.linked ?? false;
     if (!linked) {
-      return GestureDetector(
+      return PressScale(
         onTap: _openInvitePartnerSheet,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: SeenlyPalette.background,
+            color: SeenlyPalette.accent.withOpacity(0.07),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: SeenlyPalette.border),
+            border: Border.all(color: SeenlyPalette.accent.withOpacity(0.28)),
           ),
           child: Row(
             children: [
-              Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.inkFaint),
-              const SizedBox(width: 10),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: SeenlyPalette.accent.withOpacity(0.14),
+                ),
+                child: Icon(Icons.favorite_border, size: 16, color: SeenlyPalette.accent),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   'no partner linked yet — invite one to plan evenings together'.tr,
                   style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
                 ),
               ),
-              Icon(Icons.chevron_right, size: 16, color: SeenlyPalette.inkFaint),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                decoration: BoxDecoration(
+                  color: SeenlyPalette.accent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'invite'.tr,
+                  style: SeenlyText.mono(
+                    size: 10.5,
+                    color: SeenlyPalette.accentOnAccent,
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
       );
     }
-    return GestureDetector(
+    return PressScale(
       onTap: () => setState(() => _coViewing = !_coViewing),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: _coViewing ? SeenlyPalette.accent.withOpacity(0.12) : SeenlyPalette.background,
@@ -365,10 +515,21 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
         ),
         child: Row(
           children: [
-            Icon(
-              _coViewing ? Icons.favorite : Icons.favorite_border,
-              size: 17,
-              color: _coViewing ? SeenlyPalette.accent : SeenlyPalette.inkFaint,
+            // Turning it on: the heart fills in with a small pop and a
+            // few hearts drift off it.
+            HeartBurst(
+              isFavorite: _coViewing,
+              child: SoftSwap(
+                pop: true,
+                alignment: Alignment.center,
+                duration: const Duration(milliseconds: 280),
+                child: Icon(
+                  _coViewing ? Icons.favorite : Icons.favorite_border,
+                  key: ValueKey<bool>(_coViewing),
+                  size: 17,
+                  color: _coViewing ? SeenlyPalette.accent : SeenlyPalette.inkFaint,
+                ),
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -405,18 +566,29 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
 
   // Nothing typed yet — browse the plan-to-watch shelf, same as before.
   Widget _shelfGrid() {
-    if (_loadingShelf) {
-      return Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent));
-    }
+    if (_loadingShelf) return _posterSkeleton();
     final shelf = _shelf ?? const [];
     if (shelf.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'nothing on your plan-to-watch shelf yet — search for a title above, or add a few to that shelf first.'.tr,
-            textAlign: TextAlign.center,
-            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Entrance(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                BreathingGlow(
+                  color: SeenlyPalette.accent,
+                  size: 108,
+                  child: const GhostPosterRow(centerIcon: Icons.bookmark_border),
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'nothing on your plan-to-watch shelf yet — search for a title above, or add a few to that shelf first.'.tr,
+                  textAlign: TextAlign.center,
+                  style: SeenlyText.serif(size: 13.5, color: SeenlyPalette.inkMuted),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -432,12 +604,19 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
       itemCount: shelf.length,
       itemBuilder: (context, i) {
         final e = shelf[i];
-        return ThemedPosterTile(
-          title: e.displayTitle,
-          posterUrl: e.posterUrl,
-          mediaType: e.mediaType,
-          fallbackColor: SeenlyPalette.gridColorFor(i),
-          onTap: () => _pick(e),
+        // Posters settle in one after another, row by row.
+        return Entrance(
+          key: ValueKey<String>('shelf$i${e.displayTitle}'),
+          delay: Duration(milliseconds: 32 * (i % 12)),
+          duration: const Duration(milliseconds: 460),
+          riseBy: 14,
+          child: ThemedPosterTile(
+            title: e.displayTitle,
+            posterUrl: e.posterUrl,
+            mediaType: e.mediaType,
+            fallbackColor: SeenlyPalette.gridColorFor(i),
+            onTap: () => _pick(e),
+          ),
         );
       },
     );
@@ -451,14 +630,15 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
   // ProfileService.toggleFavorite, used by FavoriteAddScreen's own
   // search tab).
   Widget _searchResultsGrid() {
-    if (_searching) {
-      return Center(child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent));
-    }
+    if (_searching) return _posterSkeleton();
     if (_searchResults.isEmpty) {
       return Center(
-        child: Text(
-          'nothing found'.tr,
-          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
+        child: Entrance(
+          riseBy: 10,
+          child: Text(
+            'nothing found'.tr,
+            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.placeholder),
+          ),
         ),
       );
     }
@@ -473,14 +653,44 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
       itemCount: _searchResults.length,
       itemBuilder: (context, i) {
         final item = _searchResults[i];
-        return ThemedPosterTile(
-          title: item.title.display,
-          posterUrl: item.posterUrl,
-          mediaType: item.mediaType,
-          fallbackColor: SeenlyPalette.gridColorFor(i),
-          onTap: () => _pickMedia(item),
+        return Entrance(
+          key: ValueKey<String>('found$i${item.source}${item.id}'),
+          delay: Duration(milliseconds: 32 * (i % 12)),
+          duration: const Duration(milliseconds: 460),
+          riseBy: 14,
+          child: ThemedPosterTile(
+            title: item.title.display,
+            posterUrl: item.posterUrl,
+            mediaType: item.mediaType,
+            fallbackColor: SeenlyPalette.gridColorFor(i),
+            onTap: () => _pickMedia(item),
+          ),
         );
       },
+    );
+  }
+
+  /// Nine soft shimmering poster-shaped blocks — what the grid is about to
+  /// look like, standing in for the shelf while it loads and for a search
+  /// while it runs, so the screen never goes blank or jumps.
+  Widget _posterSkeleton() {
+    return GridView.count(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(bottom: 4),
+      crossAxisCount: 3,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 2 / 3,
+      children: [
+        for (int i = 0; i < 9; i++)
+          Entrance(
+            key: ValueKey<int>(i),
+            delay: Duration(milliseconds: 40 * i),
+            duration: const Duration(milliseconds: 400),
+            riseBy: 8,
+            child: ShimmerBlock(borderRadius: BorderRadius.circular(14)),
+          ),
+      ],
     );
   }
 
@@ -498,6 +708,21 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
       weekend = weekend.add(const Duration(days: 1));
     }
 
+    // Each block settles in a beat after the one above it, top to bottom —
+    // the poster first, the button last.
+    Widget settle(int n, Widget child) => Entrance(
+          delay: Duration(milliseconds: 70 * n),
+          duration: const Duration(milliseconds: 480),
+          riseBy: 14,
+          child: child,
+        );
+
+    final posterFallback = Container(
+      color: SeenlyPalette.mediaColor(picked.mediaType),
+      alignment: Alignment.center,
+      child: Icon(Icons.movie_creation_outlined, color: SeenlyPalette.paper, size: 40),
+    );
+
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,193 +730,371 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
           // The pick, front and center — this step is about committing
           // to a date for *this*, so it gets the same "hero poster"
           // treatment the title detail screen gives a title, not the
-          // small identifier chip a form field would use.
+          // small identifier chip a form field would use. It lands with a
+          // small settle (a touch smaller and tilted, then upright) and
+          // the art fades in once it has loaded.
           Center(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: SeenlyPalette.softShadow,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: SizedBox(
-                  width: 220,
-                  height: 320,
-                  child: picked.posterUrl != null && picked.posterUrl!.isNotEmpty
-                      ? Image.network(
-                          picked.posterUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: SeenlyPalette.mediaColor(picked.mediaType),
-                            alignment: Alignment.center,
-                            child: Icon(Icons.movie_creation_outlined,
-                                color: SeenlyPalette.paper, size: 40),
-                          ),
-                        )
-                      : Container(
-                          color: SeenlyPalette.mediaColor(picked.mediaType),
-                          alignment: Alignment.center,
-                          child: Icon(Icons.movie_creation_outlined,
-                              color: SeenlyPalette.paper, size: 40),
-                        ),
+            child: _PosterSettle(
+              child: Container(
+                decoration: ClayBoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: SeenlyPalette.softShadow,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: SizedBox(
+                    width: 220,
+                    height: 320,
+                    child: picked.posterUrl != null && picked.posterUrl!.isNotEmpty
+                        ? FadeInNetworkImage(
+                            url: picked.posterUrl!,
+                            placeholder: posterFallback,
+                          )
+                        : posterFallback,
+                  ),
                 ),
               ),
             ),
           ),
           const SizedBox(height: 18),
-          Center(
-            child: Text(
-              picked.title.display,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: SeenlyText.serif(italic: true, size: 19, weight: FontWeight.w600),
+          settle(
+            1,
+            Center(
+              child: Text(
+                picked.title.display,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: SeenlyText.serif(italic: true, size: 19, weight: FontWeight.w600),
+              ),
             ),
           ),
           const SizedBox(height: 28),
-          Row(
-            children: [
-              Expanded(
-                child: _DateChip(label: 'today'.tr, selected: _sameDay(_date, today), onTap: () => setState(() => _date = today)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateChip(label: 'tomorrow'.tr, selected: _sameDay(_date, tomorrow), onTap: () => setState(() => _date = tomorrow)),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateChip(label: 'this weekend'.tr, selected: _sameDay(_date, weekend), onTap: () => setState(() => _date = weekend)),
-              ),
-            ],
+          settle(
+            2,
+            Row(
+              children: [
+                Expanded(
+                  child: _DateChip(label: 'today'.tr, selected: _sameDay(_date, today), onTap: () => setState(() => _date = today)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DateChip(label: 'tomorrow'.tr, selected: _sameDay(_date, tomorrow), onTap: () => setState(() => _date = tomorrow)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DateChip(label: 'this weekend'.tr, selected: _sameDay(_date, weekend), onTap: () => setState(() => _date = weekend)),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
-          _MiniCalendar(
-            selected: _date,
-            onSelected: (d) => setState(() => _date = d),
+          settle(
+            3,
+            _MiniCalendar(
+              selected: _date,
+              onSelected: (d) => setState(() => _date = d),
+            ),
           ),
           const SizedBox(height: 22),
-          Text(
-            'what time?'.tr,
-            style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _DateChip(
-                  label: 'morning'.tr,
-                  selected: _isTimePreset(10, 0),
-                  onTap: () => setState(() => _time = const TimeOfDay(hour: 10, minute: 0)),
+          settle(
+            4,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'what time?'.tr,
+                  style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateChip(
-                  label: 'afternoon'.tr,
-                  selected: _isTimePreset(14, 0),
-                  onTap: () => setState(() => _time = const TimeOfDay(hour: 14, minute: 0)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateChip(
-                  label: 'evening'.tr,
-                  selected: _isTimePreset(19, 0),
-                  onTap: () => setState(() => _time = const TimeOfDay(hour: 19, minute: 0)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateChip(
-                  label: 'night'.tr,
-                  selected: _isTimePreset(21, 0),
-                  onTap: () => setState(() => _time = const TimeOfDay(hour: 21, minute: 0)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: _pickCustomTime,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: SeenlyPalette.background,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _time != null && !_isAnyTimePreset() ? SeenlyPalette.accent : SeenlyPalette.border,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.schedule, size: 16, color: SeenlyPalette.inkFaint),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _time == null ? 'no exact time — tap to pick one' : _time!.format(context),
-                      style: SeenlyText.serif(size: 13),
-                    ),
-                  ),
-                  if (_time != null)
-                    GestureDetector(
-                      onTap: () => setState(() => _time = null),
-                      child: Padding(
-                        padding: EdgeInsets.all(2),
-                        child: Icon(Icons.close, size: 14, color: SeenlyPalette.inkFaint),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _DateChip(
+                        label: 'morning'.tr,
+                        selected: _isTimePreset(10, 0),
+                        onTap: () => setState(() => _time = const TimeOfDay(hour: 10, minute: 0)),
                       ),
                     ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _DateChip(
+                        label: 'afternoon'.tr,
+                        selected: _isTimePreset(14, 0),
+                        onTap: () => setState(() => _time = const TimeOfDay(hour: 14, minute: 0)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _DateChip(
+                        label: 'evening'.tr,
+                        selected: _isTimePreset(19, 0),
+                        onTap: () => setState(() => _time = const TimeOfDay(hour: 19, minute: 0)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _DateChip(
+                        label: 'night'.tr,
+                        selected: _isTimePreset(21, 0),
+                        onTap: () => setState(() => _time = const TimeOfDay(hour: 21, minute: 0)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _customTimeRow(),
+              ],
             ),
           ),
-          if (linked) ...[
+          if (linked && widget.approvingSuggestion == null) ...[
             const SizedBox(height: 20),
-            _coViewingToggle(),
+            settle(5, _coViewingToggle()),
           ],
           const SizedBox(height: 22),
-          SizedBox(
-            width: double.infinity,
-            child: GestureDetector(
-              onTap: () => setState(() => _step = 2),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: SeenlyPalette.accent,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                alignment: Alignment.center,
-                child: Text('continue'.tr,
-                    style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
-              ),
-            ),
-          ),
+          settle(6, _continueButton()),
         ],
       ),
     );
   }
 
+  /// The "pick an exact time" row: its outline warms to the accent colour
+  /// once a custom time is set, the text swaps softly, and the little ✕
+  /// pops in only when there's a time to clear.
+  Widget _customTimeRow() {
+    final custom = _time != null && !_isAnyTimePreset();
+    final label = _time == null ? 'no exact time — tap to pick one'.tr : _time!.format(context);
+    return PressScale(
+      onTap: _pickCustomTime,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: SeenlyPalette.background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: custom ? SeenlyPalette.accent : SeenlyPalette.border),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.schedule, size: 16, color: custom ? SeenlyPalette.accent : SeenlyPalette.inkFaint),
+            const SizedBox(width: 10),
+            Expanded(
+              child: SoftSwap(
+                child: Text(
+                  label,
+                  key: ValueKey<String>(label),
+                  style: SeenlyText.serif(size: 13),
+                ),
+              ),
+            ),
+            SoftSwap(
+              pop: true,
+              alignment: Alignment.center,
+              child: _time != null
+                  ? GestureDetector(
+                      key: const ValueKey<String>('clear-time'),
+                      onTap: () => setState(() => _time = null),
+                      child: const Padding(
+                        padding: EdgeInsets.all(2),
+                        child: _ClearIcon(),
+                      ),
+                    )
+                  : const SizedBox(key: ValueKey<String>('no-clear'), width: 18, height: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// A one-line read-back of what's been chosen (it changes softly as the
+  /// choices change) above the button that moves on.
+  Widget _continueButton() {
+    final summary = _summary();
+    return Column(
+      children: [
+        SoftSwap(
+          alignment: Alignment.center,
+          child: Text(
+            summary,
+            key: ValueKey<String>(summary),
+            textAlign: TextAlign.center,
+            style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: PressScale(
+            onTap: () {
+              setState(() => _step = 2);
+              _loadAlbumNote();
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: SeenlyPalette.accent,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: SeenlyPalette.accent.withOpacity(0.28),
+                    blurRadius: 14,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text('continue'.tr,
+                  style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// A couple planning an evening together can leave a sealed note for the
+  /// other one. Shown only for a linked *couple* (a company has no album)
+  /// and only once the co-viewing toggle is on.
+  bool get _canLeaveNote {
+    final st = _partnerStatus;
+    return _coViewing && st != null && st.linked && !st.isCompany && _picked != null;
+  }
+
+  Future<void> _loadAlbumNote() async {
+    if (!_canLeaveNote) return;
+    try {
+      final service = PairAlbumService(ApiClient.instance);
+      final results = await Future.wait<Object>([service.waitingNotes(), service.status()]);
+      if (!mounted) return;
+      final pages = results[0] as List<AlbumPage>;
+      final key = '${_picked!.source}:${_picked!.id}';
+      AlbumPage? mine;
+      for (final p in pages) {
+        if (p.key == key) mine = p;
+      }
+      setState(() {
+        _albumNote = mine;
+        _albumStatus = results[1] as AlbumStatus;
+        _albumLoaded = true;
+      });
+    } catch (_) {
+      // No note row is a fine fallback; planning itself must never depend on it.
+    }
+  }
+
+  Future<void> _openNoteSheet() async {
+    final picked = _picked;
+    if (picked == null) return;
+    final result = await showNoteComposeSheet(
+      context,
+      item: picked,
+      partnerName: _partnerStatus?.partnerUsername ?? album_strings.at('партнёр', 'partner'),
+      status: _albumStatus,
+      existing: _albumNote,
+    );
+    if (result != null && mounted) await _loadAlbumNote();
+  }
+
+  Widget _noteRow() {
+    final partner = _partnerStatus?.partnerUsername ?? album_strings.at('партнёр', 'partner');
+    final written = _albumNote?.mine != null;
+    final theirs = _albumNote?.partnerSealed ?? false;
+    final Color tone = written ? SeenlyPalette.sage : SeenlyPalette.coral;
+    return PressScale(
+      onTap: _openNoteSheet,
+      scaleTo: 0.98,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: tone.withOpacity(0.09),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: tone.withOpacity(0.35)),
+        ),
+        child: Row(
+          children: [
+            SoftSwap(
+              pop: true,
+              alignment: Alignment.center,
+              child: Icon(
+                written ? Icons.mark_email_read_rounded : Icons.mail_outline_rounded,
+                key: ValueKey<bool>(written),
+                size: 20,
+                color: tone,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    written
+                        ? album_strings.at('записка запечатана', 'your note is sealed')
+                        : album_strings.at('записка для $partner', 'a note for $partner'),
+                    style: SeenlyText.serif(size: 14, weight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    theirs
+                        ? album_strings.at('$partner уже оставил(а) свою — прочтёте после вечера',
+                            '$partner already left one — you\'ll read it after the evening')
+                        : written
+                            ? album_strings.at('откроется, когда вы досмотрите', 'opens once you\'ve watched')
+                            : album_strings.at('прочтёт после просмотра · можно и потом',
+                                'read after the film · or add it later'),
+                    style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, size: 18, color: SeenlyPalette.inkFaint),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _confirmStep() {
-    final picked = _picked!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${picked.title.display} · ${_formatDate(_date)}'
-            '${_time != null ? ' · ${_time!.format(context)}' : ''}'
-            '${_coViewing ? ' · with ${_partnerStatus?.partnerUsername ?? 'your partner'}' : ''}',
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
+          Entrance(
+            delay: const Duration(milliseconds: 60),
+            riseBy: 10,
+            child: Text(
+              _summary(withTitle: true),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
+            ),
           ),
+          if (_canLeaveNote && _albumLoaded) ...[
+            const SizedBox(height: 16),
+            Entrance(
+              delay: const Duration(milliseconds: 120),
+              riseBy: 10,
+              child: _noteRow(),
+            ),
+          ],
           const SizedBox(height: 22),
-          TearTicketConfirm(
-            label: 'pull apart to get your ticket'.tr,
-            confirmedLabel: 'it\'s yours'.tr,
-            accent: SeenlyPalette.accent,
-            onConfirmed: _confirm,
+          Entrance(
+            delay: const Duration(milliseconds: 180),
+            duration: const Duration(milliseconds: 640),
+            riseBy: 20,
+            child: TearTicketConfirm(
+              label: 'pull apart to get your ticket'.tr,
+              confirmedLabel: 'it\'s yours'.tr,
+              accent: SeenlyPalette.accent,
+              onConfirmed: _confirm,
+            ),
           ),
           const SizedBox(height: 10),
         ],
@@ -699,12 +1102,183 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
     );
   }
 
+  /// "Sep 22 · 7:00 PM · with Anna" — the date, the time if one's set, the
+  /// partner if it's a co-viewing evening; with [withTitle] the pick's
+  /// title leads. One place, so the two steps that show it can't disagree.
+  String _summary({bool withTitle = false}) {
+    final parts = <String>[
+      if (withTitle) _picked!.title.display,
+      _formatDate(_date),
+      if (_time != null) _time!.format(context),
+      if (_coViewing) '${'with'.tr} ${_partnerStatus?.partnerUsername ?? 'your partner'.tr}',
+    ];
+    return parts.join(' · ');
+  }
+
   bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
   static const _months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
-  String _formatDate(DateTime d) => '${_months[d.month - 1]} ${d.day}';
+  // Short genitive forms, the way a date reads in Russian ("22 сен").
+  static const _monthsRu = [
+    'янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+  ];
+  String _formatDate(DateTime d) => LocaleService.appIsRussian
+      ? '${d.day} ${_monthsRu[d.month - 1]}'
+      : '${_months[d.month - 1]} ${d.day}';
+}
+
+/// Three little pills under the header — where you are in the ritual. The
+/// current one stretches out and takes the accent colour, the ones already
+/// done stay lightly tinted, the ones ahead are plain; moving between steps
+/// slides the stretch along.
+class _EveningStepper extends StatelessWidget {
+  final int step;
+  const _EveningStepper({required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (int i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 380),
+            curve: Curves.easeOutCubic,
+            width: i == step ? 34 : 14,
+            height: 4,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2),
+              color: i == step
+                  ? SeenlyPalette.accent
+                  : i < step
+                      ? SeenlyPalette.accent.withOpacity(0.35)
+                      : SeenlyPalette.border,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The picked title's poster arriving on the "when?" step: fades up from a
+/// touch smaller and slightly tilted, then sits upright — as if set down on
+/// the table rather than switched on. Plays once; a plain child when the
+/// system asks for reduced motion.
+class _PosterSettle extends StatelessWidget {
+  final Widget child;
+  const _PosterSettle({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 640),
+      curve: Curves.easeOutCubic,
+      child: child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.rotate(
+          angle: (1 - t) * -0.035,
+          child: Transform.scale(scale: 0.9 + 0.1 * t, child: child),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClearIcon extends StatelessWidget {
+  const _ClearIcon();
+
+  @override
+  Widget build(BuildContext context) =>
+      Icon(Icons.close, size: 14, color: SeenlyPalette.inkFaint);
+}
+
+/// A pairing code shown as a row of little tiles that pop in one after
+/// another, left to right — like numbers being stamped onto a ticket —
+/// instead of the whole code appearing at once.
+class _CodeReveal extends StatefulWidget {
+  final String code;
+  const _CodeReveal({required this.code});
+
+  @override
+  State<_CodeReveal> createState() => _CodeRevealState();
+}
+
+class _CodeRevealState extends State<_CodeReveal> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..forward();
+
+  late final List<Animation<double>> _grow = _intervals(Curves.easeOutBack);
+  late final List<Animation<double>> _fade = _intervals(Curves.easeOut);
+
+  List<Animation<double>> _intervals(Curve curve) {
+    final n = widget.code.length;
+    return List.generate(n, (i) {
+      final start = n <= 1 ? 0.0 : (i / n) * 0.55;
+      final end = (start + 0.45).clamp(0.0, 1.0).toDouble();
+      return CurvedAnimation(parent: _c, curve: Interval(start, end, curve: curve));
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final chars = widget.code.split('');
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: SeenlyPalette.background,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < chars.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            _tile(i, chars[i], reduceMotion),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(int i, String char, bool reduceMotion) {
+    final tile = Container(
+      width: 30,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
+        color: SeenlyPalette.paper,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: SeenlyPalette.border),
+      ),
+      child: Text(
+        char,
+        style: SeenlyText.mono(size: 20, weight: FontWeight.w700, color: SeenlyPalette.accent),
+      ),
+    );
+    if (reduceMotion) return tile;
+    return FadeTransition(
+      opacity: _fade[i],
+      child: ScaleTransition(scale: _grow[i], child: tile),
+    );
+  }
 }
 
 /// A compact, self-contained version of the pairing flow Home's own
@@ -746,7 +1320,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = "couldn't get a code just now — try again";
+        _error = "couldn't get a code just now — try again".tr;
       });
     }
   }
@@ -754,7 +1328,7 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
   Future<void> _submitJoin() async {
     final code = _codeController.text.trim();
     if (code.length != 6) {
-      setState(() => _error = 'codes are 6 characters');
+      setState(() => _error = 'codes are 6 characters'.tr);
       return;
     }
     setState(() {
@@ -764,6 +1338,16 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
     try {
       final status = await context.read<AppState>().partner.join(code);
       if (!mounted) return;
+      // Fresh couple, just formed — see AppState.notePartnerJustLinked's
+      // own doc comment on why exactly-two is enough to mean that
+      // without extra bookkeeping. Queued before popping this whole
+      // sheet, so RootShell (sitting underneath) picks it up once
+      // control actually lands back on it.
+      if (status.linked &&
+          status.members.length == 2 &&
+          !context.read<PremiumService>().isPremium) {
+        context.read<AppState>().notePartnerJustLinked();
+      }
       Navigator.of(context).pop(status);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -775,138 +1359,180 @@ class _InvitePartnerSheetState extends State<_InvitePartnerSheet> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _error = 'check the connection and try again';
+        _error = 'check the connection and try again'.tr;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Which of the three pictures the sheet is showing — each swap below
+    // is keyed on it, so moving from "get a code" to the code itself (or
+    // to typing one in) is a soft cross-fade with the sheet easing to its
+    // new height, not a cut.
+    final view = _entering ? 'enter' : (_pendingCode != null ? 'code' : 'start');
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: SeenlyPalette.dashedBorder,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('link a partner'.tr, style: SeenlyText.serif(italic: true, size: 16)),
-            const SizedBox(height: 6),
-            Text(
-              'once linked, evenings you plan together show up on both of your co-viewing screens.'.tr,
-              style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
-            ),
-            const SizedBox(height: 18),
-            if (!_entering) ...[
-              if (_pendingCode != null) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: SeenlyPalette.background,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    _pendingCode!,
-                    style: SeenlyText.mono(size: 22, weight: FontWeight.w700, color: SeenlyPalette.accent),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'send this to your partner — it\'s waiting for them to enter it.'.tr,
-                  style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
-                ),
-              ] else
-                SizedBox(
-                  width: double.infinity,
-                  child: GestureDetector(
-                    onTap: _busy ? null : _generateCode,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: SeenlyPalette.accent,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      alignment: Alignment.center,
-                      child: _busy
-                          ? ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
-                          : Text('get a code'.tr,
-                              style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 10),
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Center(
-                child: GestureDetector(
-                  onTap: () => setState(() => _entering = true),
-                  child: Text(
-                    'have a code instead?'.tr,
-                    style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: SeenlyPalette.dashedBorder,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-            ] else ...[
-              TextField(
-                controller: _codeController,
-                textCapitalization: TextCapitalization.characters,
-                maxLength: 6,
-                style: SeenlyText.mono(size: 16, weight: FontWeight.w600),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'CODE12'.tr,
-                  filled: true,
-                  fillColor: SeenlyPalette.background,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
+              const SizedBox(height: 16),
+              Text('link a partner'.tr, style: SeenlyText.serif(italic: true, size: 16)),
+              const SizedBox(height: 6),
+              Text(
+                'once linked, evenings you plan together show up on both of your co-viewing screens.'.tr,
+                style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
+              ),
+              const SizedBox(height: 18),
+              SoftSwap(
+                alignment: Alignment.topCenter,
+                rise: 0.03,
+                child: KeyedSubtree(
+                  key: ValueKey<String>(view),
+                  child: switch (view) {
+                    'enter' => _enterCodeView(),
+                    'code' => _showCodeView(),
+                    _ => _startView(),
+                  },
                 ),
               ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: GestureDetector(
-                  onTap: _busy ? null : _submitJoin,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.accent,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    alignment: Alignment.center,
-                    child: _busy
-                        ? ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent)
-                        : Text('link up'.tr,
-                            style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent)),
-                  ),
-                ),
+              SoftSwap(
+                rise: 0.3,
+                child: _error == null
+                    ? const SizedBox(key: ValueKey<String>('no-error'), width: double.infinity)
+                    : Padding(
+                        key: ValueKey<String>(_error!),
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(_error!, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
+                      ),
               ),
             ],
-            if (_error != null) ...[
-              const SizedBox(height: 10),
-              Text(_error!, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
-            ],
-          ],
+          ),
         ),
       ),
     );
   }
+
+  /// The button label, or the loader while [_busy] — swapped softly.
+  Widget _buttonFace(String label) => SoftSwap(
+        alignment: Alignment.center,
+        child: _busy
+            ? ThemedLoadingIndicator(
+                key: const ValueKey<String>('busy'),
+                strokeWidth: 2,
+                color: SeenlyPalette.accentOnAccent,
+              )
+            : Text(
+                label,
+                key: const ValueKey<String>('label'),
+                style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accentOnAccent),
+              ),
+      );
+
+  Widget _primaryButton({required String label, required VoidCallback onTap}) => SizedBox(
+        width: double.infinity,
+        child: PressScale(
+          onTap: _busy ? null : onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: SeenlyPalette.accent,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            alignment: Alignment.center,
+            child: _buttonFace(label),
+          ),
+        ),
+      );
+
+  Widget _startView() => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _primaryButton(label: 'get a code'.tr, onTap: _generateCode),
+          const SizedBox(height: 10),
+          Center(
+            child: PressScale(
+              onTap: () => setState(() => _entering = true),
+              child: Text(
+                'have a code instead?'.tr,
+                style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _showCodeView() => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CodeReveal(code: _pendingCode!),
+          const SizedBox(height: 8),
+          Text(
+            'send this to your partner — it\'s waiting for them to enter it.'.tr,
+            style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
+          ),
+          const SizedBox(height: 10),
+          Center(
+            child: PressScale(
+              onTap: () => setState(() => _entering = true),
+              child: Text(
+                'have a code instead?'.tr,
+                style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkFaint, weight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      );
+
+  Widget _enterCodeView() => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _codeController,
+            textCapitalization: TextCapitalization.characters,
+            maxLength: 6,
+            style: SeenlyText.mono(size: 16, weight: FontWeight.w600),
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: 'CODE12'.tr,
+              filled: true,
+              fillColor: SeenlyPalette.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _primaryButton(label: 'link up'.tr, onTap: _submitJoin),
+        ],
+      );
 }
 
 class _DateChip extends StatelessWidget {
@@ -917,18 +1543,34 @@ class _DateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    // Choosing a chip fades its fill and text colour over and lifts it
+    // with a soft glow, rather than flipping instantly; the press itself
+    // dips slightly (PressScale).
+    const fade = Duration(milliseconds: 240);
+    return PressScale(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: fade,
+        curve: Curves.easeOutCubic,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? SeenlyPalette.accent : SeenlyPalette.background,
           borderRadius: BorderRadius.circular(18),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: SeenlyPalette.accent.withOpacity(0.28),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : const [],
         ),
-        child: Text(
-          label,
+        child: AnimatedDefaultTextStyle(
+          duration: fade,
+          curve: Curves.easeOutCubic,
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -937,6 +1579,7 @@ class _DateChip extends StatelessWidget {
             color: selected ? SeenlyPalette.accentOnAccent : SeenlyPalette.inkMuted,
             weight: FontWeight.w600,
           ),
+          child: Text(label),
         ),
       ),
     );
@@ -1039,9 +1682,14 @@ class _MiniCalendarState extends State<_MiniCalendar> {
               _CalendarNavArrow(icon: Icons.chevron_left, enabled: _canGoBack, onTap: () => _changeMonth(-1)),
               Expanded(
                 child: Center(
-                  child: Text(
-                    '${(LocaleService.appIsRussian ? _monthNamesRu : _monthNames)[_visibleMonth.month - 1]} ${_visibleMonth.year}',
-                    style: SeenlyText.serif(size: 13.5, weight: FontWeight.w600),
+                  // The month name changes softly as you page through.
+                  child: SoftSwap(
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${(LocaleService.appIsRussian ? _monthNamesRu : _monthNames)[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                      key: ValueKey<int>(_visibleMonth.year * 12 + _visibleMonth.month),
+                      style: SeenlyText.serif(size: 13.5, weight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ),
@@ -1062,49 +1710,103 @@ class _MiniCalendarState extends State<_MiniCalendar> {
                 .toList(),
           ),
           const SizedBox(height: 2),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 6),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
-            itemCount: leadingBlanks + daysInMonth,
-            itemBuilder: (context, i) {
-              if (i < leadingBlanks) return const SizedBox.shrink();
-              final day = i - leadingBlanks + 1;
-              final date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
-              final disabled = date.isBefore(_todayDay) || date.isAfter(_maxDate);
-              final isSelected = _sameDay(date, widget.selected);
-              final isToday = _sameDay(date, _todayDay);
-              return Padding(
-                padding: const EdgeInsets.all(2),
-                child: GestureDetector(
-                  onTap: disabled ? null : () => widget.onSelected(date),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    decoration: BoxDecoration(
-                      color: isSelected ? SeenlyPalette.accent : Colors.transparent,
-                      shape: BoxShape.circle,
-                      border: isToday && !isSelected
-                          ? Border.all(color: SeenlyPalette.accent, width: 1.2)
-                          : null,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$day',
-                      style: SeenlyText.mono(
-                        size: 12,
-                        weight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: disabled
-                            ? SeenlyPalette.placeholder
-                            : isSelected
-                                ? SeenlyPalette.accentOnAccent
-                                : SeenlyPalette.ink,
+          // Paging months slides the whole grid the way you're going
+          // (later months from the right, earlier from the left), and the
+          // card eases to the new height when one month has a sixth row.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: StepSwitcher(
+              step: _visibleMonth.year * 12 + _visibleMonth.month,
+              shift: 0.09,
+              duration: const Duration(milliseconds: 320),
+              child: SizedBox(
+                width: double.infinity,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(bottom: 6),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+                  itemCount: leadingBlanks + daysInMonth,
+                  itemBuilder: (context, i) {
+                    if (i < leadingBlanks) return const SizedBox.shrink();
+                    final day = i - leadingBlanks + 1;
+                    final date = DateTime(_visibleMonth.year, _visibleMonth.month, day);
+                    final disabled = date.isBefore(_todayDay) || date.isAfter(_maxDate);
+                    final isSelected = _sameDay(date, widget.selected);
+                    final isToday = _sameDay(date, _todayDay);
+                    return Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: disabled ? null : () => widget.onSelected(date),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // "Today" ring — fades out once that day is the
+                            // selected one.
+                            Positioned.fill(
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 200),
+                                opacity: isToday && !isSelected ? 1 : 0,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: SeenlyPalette.accent, width: 1.2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            // The selection: a filled circle that grows out
+                            // of the middle of the day with a small
+                            // overshoot when picked, and shrinks back when
+                            // another day takes over.
+                            Positioned.fill(
+                              child: AnimatedScale(
+                                duration: const Duration(milliseconds: 280),
+                                curve: Curves.easeOutBack,
+                                scale: isSelected ? 1.0 : 0.5,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 180),
+                                  opacity: isSelected ? 1 : 0,
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      color: SeenlyPalette.accent,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: SeenlyPalette.accent.withOpacity(0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 200),
+                              style: SeenlyText.mono(
+                                size: 12,
+                                weight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: disabled
+                                    ? SeenlyPalette.placeholder
+                                    : isSelected
+                                        ? SeenlyPalette.accentOnAccent
+                                        : SeenlyPalette.ink,
+                              ),
+                              child: Text('$day'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),
@@ -1120,13 +1822,22 @@ class _CalendarNavArrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: enabled ? onTap : null,
+      scaleTo: 0.85,
       child: Container(
         width: 30,
         height: 30,
         alignment: Alignment.center,
-        child: Icon(icon, size: 18, color: enabled ? SeenlyPalette.ink : SeenlyPalette.placeholder),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: Icon(
+            icon,
+            key: ValueKey<bool>(enabled),
+            size: 18,
+            color: enabled ? SeenlyPalette.ink : SeenlyPalette.placeholder,
+          ),
+        ),
       ),
     );
   }

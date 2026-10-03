@@ -12,11 +12,14 @@ import '../../widgets/hero_stack_carousel.dart';
 import '../../widgets/shelf_stack_carousel.dart';
 import '../title/title_detail_screen.dart';
 import '../decide/decide_filters_screen.dart';
+import '../search/search_screen.dart';
 import 'collection_full_screen.dart';
 import 'collection_interests_screen.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart';
+import '../../theme/notebook_paper.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 class CollectionsScreen extends StatefulWidget {
   const CollectionsScreen({super.key});
@@ -28,7 +31,6 @@ class CollectionsScreen extends StatefulWidget {
 class _CollectionsScreenState extends State<CollectionsScreen> {
   final _prefs = CollectionsPrefsService();
   late Future<List<SeenlyCollection>> _future;
-  bool _refreshing = false;
   String _filter = 'all'; // all | movie | series | game
   String _source = 'editorial'; // editorial (TMDB/IGDB/Open Library) | teamira (hand-curated)
   bool? _onboarded; // null while we're still checking storage
@@ -216,16 +218,11 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _refreshing = true);
     final next = _fetchCollections();
     setState(() {
       _future = next;
     });
-    try {
-      await next;
-    } finally {
-      if (mounted) setState(() => _refreshing = false);
-    }
+    await next;
   }
 
   /// Header + swipeable poster stack for a regular (non-franchise) shelf —
@@ -286,7 +283,9 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('collections'.tr, style: SeenlyText.screenTitle),
+              HandDrawnUnderline(
+                child: Text('collections'.tr, style: SeenlyText.screenTitle),
+              ),
               Row(
                 children: [
                   PressScale(
@@ -300,37 +299,26 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                         ),
                       ),
                     ),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: SeenlyPalette.paper,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
+                    child: WobblyCircle(
+                      size: 32,
+                      color: SeenlyPalette.paper,
                       child: Icon(Icons.tune, size: 15, color: SeenlyPalette.ink),
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // Search — same entry point as the button on Home. This
+                  // used to be a refresh button; pull-to-refresh (and the
+                  // tappable retry hint in the error/empty states) covers
+                  // refreshing now.
                   PressScale(
                     haptics: true,
-                    onTap: _refreshing ? null : _refresh,
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: SeenlyPalette.paper,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: _refreshing
-                          ? SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: ThemedLoadingIndicator(
-                                  strokeWidth: 2, color: SeenlyPalette.accent),
-                            )
-                          : Icon(Icons.refresh, size: 17, color: SeenlyPalette.ink),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SearchScreen()),
+                    ),
+                    child: WobblyCircle(
+                      size: 32,
+                      color: SeenlyPalette.paper,
+                      child: Icon(Icons.search, size: 17, color: SeenlyPalette.ink),
                     ),
                   ),
                 ],
@@ -360,7 +348,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 22),
           child: UnderlineTabRow(
-            labels: ['collections'.tr, 'teamira picks'.tr],
+            labels: ['collections'.tr, 'tanè picks'.tr],
             activeIndex: _source == 'teamira' ? 1 : 0,
             onChanged: (i) => _switchSource(i == 1 ? 'teamira' : 'editorial'),
           ),
@@ -377,7 +365,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                 // Scrollable + wrapped in RefreshIndicator even though
                 // there's barely any content — a pull-down gesture needs
                 // *something* scrollable to grab onto, and this state used
-                // to have no way to retry at all besides the header button.
+                // to have no way to retry at all besides tapping the hint below.
                 return _fadeSwitch(RefreshIndicator(
                   key: const ValueKey('collections-error'),
                   onRefresh: _refresh,
@@ -390,9 +378,12 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                           textAlign: TextAlign.center,
                           style: SeenlyText.serif(italic: true, color: SeenlyPalette.inkMuted)),
                       const SizedBox(height: 10),
-                      Text('pull down, or tap the refresh icon above, to try again'.tr,
-                          textAlign: TextAlign.center,
-                          style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
+                      GestureDetector(
+                        onTap: _refresh,
+                        child: Text('pull down, or tap here, to try again'.tr,
+                            textAlign: TextAlign.center,
+                            style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+                      ),
                     ],
                   ),
                 ));
@@ -490,12 +481,15 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                             ? 'no collections available right now'
                             : 'no $label collections right now',
                         textAlign: TextAlign.center,
-                        style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+                        style: SeenlyText.emptyState(),
                       ),
                       const SizedBox(height: 10),
-                      Text('pull down, or tap the refresh icon above, to check again'.tr,
-                          textAlign: TextAlign.center,
-                          style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
+                      GestureDetector(
+                        onTap: _refresh,
+                        child: Text('pull down, or tap here, to try again'.tr,
+                            textAlign: TextAlign.center,
+                            style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+                      ),
                     ],
                   ),
                 ));
@@ -693,24 +687,21 @@ class _CantDecideBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return PressScale(
+    return DogEarCorner(
+      child: PressScale(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
           children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: SeenlyPalette.accent.withOpacity(0.14),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
+            WobblyCircle(
+              size: 42,
+              color: SeenlyPalette.accent.withOpacity(0.14),
               child: Icon(Icons.auto_awesome_outlined, size: 18, color: SeenlyPalette.accent),
             ),
             const SizedBox(width: 12),
@@ -729,6 +720,7 @@ class _CantDecideBanner extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -744,7 +736,10 @@ class _FranchiseBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final firstItem = collection.items.first;
-    return PressScale(
+    return WashiTapedCard(
+      corner: Alignment.topLeft,
+      angle: -0.09,
+      child: PressScale(
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => CollectionFullScreen(collection: collection),
@@ -785,6 +780,7 @@ class _FranchiseBanner extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

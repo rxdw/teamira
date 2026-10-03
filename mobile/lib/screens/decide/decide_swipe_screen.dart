@@ -13,6 +13,7 @@ import '../shell/root_shell.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
 import '../../services/log_theme_service.dart';
+import '../../theme/clay_kit.dart';
 
 /// Solo version of the Watch Together vote deck — same swipe language
 /// (left to pass, right to keep) but with nobody else's decisions to
@@ -442,7 +443,8 @@ class _CountPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(12)),
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(12)),
       child: Text(text, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
     );
   }
@@ -486,7 +488,7 @@ class _RecapView extends StatelessWidget {
             Text(
               added == 0
                   ? 'nothing kept this round — try loosening the filters'.tr
-                  : '${ruCount(added, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles')} ${'added to plan to watch'.tr} · $skipped ${'skipped'.tr}',
+                  : '${nCount('nTitles', added)} ${'added to plan to watch'.tr} · $skipped ${'skipped'.tr}',
               textAlign: TextAlign.center,
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
             ),
@@ -525,7 +527,8 @@ class _OutlineButton extends StatelessWidget {
       scaleTo: 0.96,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: SeenlyPalette.border),

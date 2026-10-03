@@ -1,15 +1,20 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import or_
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+from app.blocking import hidden_user_ids
 from app.database import get_db
 from app import models
 from app.deps import get_current_user
-from app.schemas import ActivityItem
+from app.schemas import ActivityFeedOut, ActivityItem
 
 router = APIRouter(prefix="/activity", tags=["activity"])
+
+# Matches the page size routers/sincerity.py uses for the same
+# cursor-pagination shape (see get_activity below).
+_PAGE_SIZE = 40
 
 # Maps an ActivityEvent.verb to the shelf-privacy column it's gated by
 # (see models.User.privacy_watched/privacy_watching/privacy_planned) —
@@ -66,9 +71,17 @@ def _friend_ids(db: Session, user_id: str) -> List[str]:
     ]
 
 
+def friend_ids(db: Session, user_id: str) -> List[str]:
+    """Public alias of _friend_ids, for callers outside this module — see
+    routers/diary.py::log_entry's friend-activity push trigger, which
+    needs this list but has no other reason to import from activity.py."""
+    return _friend_ids(db, user_id)
+
+
 def item_from_event(e: models.ActivityEvent, who: str) -> ActivityItem:
     user = e.user
     return ActivityItem(
+        id=e.id,
         who=who,
         text=f'{e.verb} "{e.media_title}"',
         media_type=e.media_type.value if hasattr(e.media_type, "value") else e.media_type,
@@ -87,44 +100,104 @@ def item_from_event(e: models.ActivityEvent, who: str) -> ActivityItem:
     )
 
 
-@router.get("", response_model=List[ActivityItem])
+def _visible_item_or_none(e: models.ActivityEvent, current_user_id: str) -> Optional[ActivityItem]:
+    """Turns one row into an ActivityItem, or None if it's a friend's
+    event that friend has hidden from this shelf's privacy setting. Own
+    events are always visible."""
+    if e.user_id == current_user_id:
+        return item_from_event(e, "You")
+    if not e.user or not visible_to_friend(e.user, e.verb):
+        return None
+    who = e.user.display_name or e.user.username
+    return item_from_event(e, who)
+
+
+@router.get("", response_model=ActivityFeedOut)
 def get_activity(
+    before: Optional[str] = Query(
+        default=None, description="activity event id to page before, for older activity"
+    ),
+    limit: int = Query(default=_PAGE_SIZE, ge=1, le=100),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Every own event, plus friends' events — used both by the small
-    Home teaser card and by the full-screen friends activity feed (see
-    FriendsActivityFeedScreen on mobile). Friends' events are filtered
-    by that friend's own per-shelf privacy setting, same as their
-    profile/collections would be — someone who's set a shelf to
-    "nobody" won't show up here for any friend, "friends"/"everyone"
-    both show.
-    """
-    own_events = (
-        db.query(models.ActivityEvent)
-        .filter(models.ActivityEvent.user_id == current_user.id)
-        .order_by(models.ActivityEvent.created_at.desc())
-        .limit(50)
-        .all()
-    )
-    own_items = [item_from_event(e, "You") for e in own_events]
+    """Every own event, plus friends' events, merged into one
+    chronological feed — used both by the small Home teaser card and by
+    the full-screen friends activity feed (see FriendsActivityFeedScreen
+    on mobile). Friends' events are filtered by that friend's own
+    per-shelf privacy setting, same as their profile/collections would
+    be — someone who's set a shelf to "nobody" won't show up here for
+    any friend, "friends"/"everyone" both show.
 
-    friend_ids = _friend_ids(db, current_user.id)
-    friend_items: List[ActivityItem] = []
-    if friend_ids:
-        friend_events = (
-            db.query(models.ActivityEvent)
-            .filter(models.ActivityEvent.user_id.in_(friend_ids))
-            .order_by(models.ActivityEvent.created_at.desc())
-            .limit(150)
+    Blocking has to bite here too, not just on the profile screen: a
+    standing friendship survives a block (blocking removes the
+    friendship row, but a block placed on someone in a shared
+    co-viewing circle doesn't dissolve the circle — see
+    routers/moderation.py::block_user), and a deleted account's rows
+    are still physically present for the length of its grace period.
+    Either would otherwise keep showing up in this feed, so blocked/
+    deleted/suspended friend ids are dropped before the query even
+    runs.
+
+    Cursor-paginated the same way GET /sincerity/me is (see
+    routers/sincerity.py), with one added wrinkle: privacy filtering
+    happens *after* the query runs, so a straight `limit` on the SQL
+    query wouldn't reliably produce `limit` visible items. Instead this
+    fetches in batches and keeps going until it has `limit + 1` visible
+    items (the "+1" is the same has-more probe sincerity.py uses) or
+    genuinely runs out of rows — the same over-fetch-and-filter shape
+    routers/friends.py::_visible_activity_for_profile already uses for
+    one profile's shelf, just looped here instead of done once.
+    """
+    hidden = hidden_user_ids(db, current_user.id)
+    ids = [current_user.id] + [fid for fid in _friend_ids(db, current_user.id) if fid not in hidden]
+    target = limit + 1
+
+    items: List[ActivityItem] = []
+    cursor = before
+    exhausted = False
+
+    while len(items) < target and not exhausted:
+        # Overfetch: friend rows get thinned out by the privacy check
+        # below, so asking for exactly what's still missing would make
+        # this loop around far more often than necessary once a friend
+        # has hidden most of their shelves.
+        batch_size = (target - len(items)) * 3 + 10
+
+        q = db.query(models.ActivityEvent).filter(models.ActivityEvent.user_id.in_(ids))
+        if cursor:
+            anchor = db.query(models.ActivityEvent).filter(models.ActivityEvent.id == cursor).first()
+            if anchor is None:
+                break
+            q = q.filter(
+                or_(
+                    models.ActivityEvent.created_at < anchor.created_at,
+                    and_(
+                        models.ActivityEvent.created_at == anchor.created_at,
+                        models.ActivityEvent.id < anchor.id,
+                    ),
+                )
+            )
+
+        rows = (
+            q.order_by(models.ActivityEvent.created_at.desc(), models.ActivityEvent.id.desc())
+            .limit(batch_size)
             .all()
         )
-        for e in friend_events:
-            if not e.user or not visible_to_friend(e.user, e.verb):
-                continue
-            who = e.user.display_name or e.user.username
-            friend_items.append(item_from_event(e, who))
-            if len(friend_items) >= 50:
+        if not rows:
+            exhausted = True
+            break
+
+        for e in rows:
+            item = _visible_item_or_none(e, current_user.id)
+            if item is not None:
+                items.append(item)
+            cursor = e.id
+            if len(items) >= target:
                 break
 
-    return own_items + friend_items
+        if len(rows) < batch_size:
+            exhausted = True
+
+    has_more = len(items) > limit
+    return ActivityFeedOut(items=items[:limit], has_more=has_more)

@@ -1,3 +1,4 @@
+import '../partner/room/together_verdict_card.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -5,16 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/diary_entry.dart';
 import '../../models/media_item.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/together_wrapped_teaser.dart';
 import '../../widgets/departure_scenes.dart';
 import '../../widgets/launch_drop_overlay.dart';
 import '../../widgets/light_bloom.dart';
 import '../../widgets/log_flow_kit.dart';
 import '../../widgets/mood_tag_picker.dart' show vibePresetTags, vibePromptTitle;
 import '../../widgets/review_composer.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/shuttle_submit_button.dart';
 import '../../services/log_theme_service.dart';
@@ -23,6 +27,12 @@ import '../../widgets/level_up_celebration.dart';
 import '../../widgets/favorite_toggle.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../services/app_translations.dart';
+import '../../theme/notebook_paper.dart';
+import '../../widgets/saved_celebration.dart';
+import '../../widgets/share_card.dart';
+import '../../widgets/share_sheet.dart';
+import '../../widgets/decide_motion.dart' show SecondaryActionButton;
+import '../../theme/clay_kit.dart';
 
 // A handful of deep-space waypoints — same "plausible, seeded, never
 // reshuffles" trick as the train theme's route match: a title always
@@ -62,7 +72,19 @@ class ShuttleLogScreen extends StatefulWidget {
   final int? season;
   final int? episode;
   final int? episodeCount;
-  const ShuttleLogScreen({super.key, required this.item, this.season, this.episode, this.episodeCount});
+  // Pre-checks the "watched with partner" toggle below — see
+  // WatchingChoiceScreen's own doc comment for why (the co-viewing
+  // planned grid's "смотрю" button opens this already knowing the
+  // evening was shared).
+  final bool initialWatchedWithPartner;
+  const ShuttleLogScreen({
+    super.key,
+    required this.item,
+    this.season,
+    this.episode,
+    this.episodeCount,
+    this.initialWatchedWithPartner = false,
+  });
 
   @override
   State<ShuttleLogScreen> createState() => _ShuttleLogScreenState();
@@ -101,10 +123,15 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
   String? _partnerUsername;
   bool _saving = false;
   String? _error;
+  // Stashed the moment `_confirmAndSave` succeeds, purely so the pass
+  // step's share button (below) has a real logged entry to build an
+  // [EveningShareCard] from — nothing before that point needs it.
+  DiaryEntry? _savedDiaryEntry;
 
   @override
   void initState() {
     super.initState();
+    _watchedWithPartner = widget.initialWatchedWithPartner;
     final seed = widget.item.title.display;
     _taken = seededTakenSeats(seed, _rows * _cols, salt: 0x6c61756e, minTaken: 6, extraRange: 10); // 'laun'
     _motes = seededMotes(seed, 12, salt: 0x6c61756e);
@@ -220,8 +247,9 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
     // save happens underneath that, so it never reads as a blank wait.
     setState(() { _saving = true; _error = null; _step = _Step.igniting; });
     bool failed = false;
+    DiaryEntry? loggedEntry;
     try {
-      await Future.wait([
+      final results = await Future.wait([
         context.read<AppState>().diary.logEntry(
               item: widget.item,
               rating: _rating > 0 ? _rating : null,
@@ -236,6 +264,7 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
             ),
         Future.delayed(const Duration(milliseconds: 1500)),
       ]);
+      loggedEntry = results[0] as DiaryEntry;
     } catch (_) {
       failed = true;
     }
@@ -244,6 +273,8 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
       setState(() { _saving = false; _step = _Step.confirm; _error = "couldn't save that just now — try again".tr; });
       return;
     }
+    if (loggedEntry != null) showSincerityToasts(context, loggedEntry.sincerityAwarded);
+    _savedDiaryEntry = loggedEntry;
     HapticFeedback.mediumImpact();
     unawaited(context.read<AppState>().refreshLevel());
     setState(() => _saving = false);
@@ -256,6 +287,23 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
     );
     if (!mounted) return;
     setState(() => _step = _Step.pass);
+  }
+
+  // Opens the same share-card sheet as everywhere else in the app (see
+  // widgets/watched_preview_sheet.dart), built straight from the entry
+  // that was just logged — so "share" on this last screen isn't a
+  // separate, lesser path, it's the exact same card someone would get
+  // to later from the diary.
+  void _shareLoggedEntry() {
+    final entry = _savedDiaryEntry;
+    if (entry == null) return;
+    showShareCardSheet(
+      context,
+      card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
+      fileName: 'seenly-${entry.id}',
+      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      rewardKey: 'seenly-${entry.id}',
+    );
   }
 
   @override
@@ -453,7 +501,8 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-              decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
+              decoration: ClayBoxDecoration(
+                boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -554,7 +603,8 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
             padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
             child: Container(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-              decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
+              decoration: ClayBoxDecoration(
+                boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -637,7 +687,7 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
               children: [
                 Container(
                   padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
+                  decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -667,7 +717,7 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
                           ),
                         ],
                       ),
-                      Divider(height: 28, color: SeenlyPalette.border),
+                      CozyDivider(height: 28, color: SeenlyPalette.border),
                       ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                       const SizedBox(height: 10),
                       ConfirmRow(
@@ -758,26 +808,64 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
         ),
         _PassStepThanks(),
         const Spacer(flex: 2),
+        if (_watchedWithPartner && _partnerUsername != null)
+          TogetherWrappedTeaser(partnerName: _partnerUsername!),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(
-            label: 'keep the stub'.tr,
-            onTap: () async {
-              // Right as the person is about to leave the launch ritual
-              // behind — one more beat (or two), if this save leveled
-              // them up and/or a badge just came with it, before
-              // actually stepping away.
-              final leveledUp = context.read<AppState>().consumePendingLevelUp();
-              if (leveledUp != null && context.mounted) {
-                await showLevelUpCelebration(context, leveledUp);
-              }
-              if (context.mounted) {
-                await checkAndCelebrateNewAchievements(context);
-              }
-              if (context.mounted) Navigator.of(context).pop(true);
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: SecondaryActionButton(
+                  icon: Icons.ios_share_rounded,
+                  label: 'share'.tr,
+                  onTap: _shareLoggedEntry,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: PrimaryButton(
+                  label: 'keep the stub'.tr,
+                  onTap: () async {
+                    // Right as the person is about to leave the launch ritual
+                    // behind — one more beat (or two), if this save leveled
+                    // them up and/or a badge just came with it, before
+                    // actually stepping away.
+                    final leveledUp = context.read<AppState>().consumePendingLevelUp();
+                    if (leveledUp != null && context.mounted) {
+                      await showLevelUpCelebration(context, leveledUp);
+                    }
+                    if (context.mounted) {
+                      await checkAndCelebrateNewAchievements(context);
+                    }
+                    if (context.mounted && _watchedWithPartner) {
+                      // The shared rating, in its own soft sheet: sealed with
+                      // yours, or opening right now if the others have rated.
+                      await showTogetherVerdictSheet(context, widget.item);
+                    }
+                    if (context.mounted) {
+                      // The closing flourish: it lives in the root overlay, so it
+                      // carries on over the screen this one is about to reveal.
+                      showSavedCelebration(
+                        context,
+                        kind: SavedKind.logged,
+                        title: widget.item.title.display,
+                        posterUrl: widget.item.posterUrl,
+                        mediaType: widget.item.mediaType,
+                        rating: _rating > 0 ? _rating : null,
+                        partnerName: _watchedWithPartner ? _partnerUsername : null,
+                        compact: true,
+                        haptics: false,
+                      );
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ),
+
       ],
     );
   }
@@ -924,7 +1012,7 @@ class _LaunchTicketRevealState extends State<_LaunchTicketReveal> with SingleTic
             child: Container(
               width: 260,
               padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: SeenlyPalette.softShadow,

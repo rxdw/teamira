@@ -10,11 +10,14 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/invite_friends_sheet.dart';
+import '../../widgets/notification_count_pill.dart';
+import '../../widgets/taste_match_card.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/wow_motion.dart';
 import 'friend_profile_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// The friends system's home screen — reached from the profile's own
 /// friends block ("see all"). Everything here reads from `/friends` (see
@@ -32,6 +35,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
   FriendsData? _data;
   bool _loading = true;
   List<SuggestedFriend> _suggested = const [];
+
+  /// Mirrors the backend's own floor — see routers/friends.py's
+  /// _MIN_SEARCH_LENGTH.
+  static const _minSearchLength = 3;
 
   final _searchController = TextEditingController();
   List<FriendSearchResult> _searchResults = const [];
@@ -85,6 +92,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
     _debounce?.cancel();
     final query = _searchController.text.trim();
     if (query.isEmpty) {
+      setState(() {
+        _searchResults = const [];
+        _searching = false;
+      });
+      return;
+    }
+    // The backend refuses anything shorter than three characters, and
+    // rightly: username search used to match any substring of any name
+    // with a one-character floor, which made walking the whole user table
+    // a matter of typing each letter of the alphabet in turn. Stopping
+    // here rather than letting the request 422 keeps the spinner honest
+    // and saves a round trip per keystroke.
+    if (query.length < _minSearchLength) {
       setState(() {
         _searchResults = const [];
         _searching = false;
@@ -189,6 +209,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Widget build(BuildContext context) {
     final data = _data;
     final showingSearch = _searchController.text.trim().isNotEmpty;
+    final incomingCount = data?.incomingRequests.length ?? 0;
 
     return Scaffold(
       backgroundColor: SeenlyPalette.background,
@@ -209,14 +230,41 @@ class _FriendsScreenState extends State<FriendsScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text('friends'.tr, style: SeenlyText.screenTitle),
+                  // Same "you have something waiting" pill as the
+                  // profile screen's friends row — someone who came
+                  // straight here (a push tap, a bottom-tab shortcut)
+                  // sees the same signal without first passing through
+                  // the profile screen where it originally only lived.
+                  if (incomingCount > 0) ...[
+                    const SizedBox(width: 8),
+                    NotificationCountPill(count: incomingCount, glowSize: 26),
+                  ],
                 ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(hintText: 'find someone by username'.tr),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    decoration:
+                        InputDecoration(hintText: 'find someone by username'.tr),
+                  ),
+                  // Shown only while someone is mid-word, so it reads as
+                  // "keep going" rather than as an error.
+                  if (_searchController.text.trim().isNotEmpty &&
+                      _searchController.text.trim().length < _minSearchLength)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, left: 4),
+                      child: Text(
+                        'type at least 3 letters of their username'.tr,
+                        style: SeenlyText.mono(
+                            size: 9.5, color: SeenlyPalette.placeholder),
+                      ),
+                    ),
+                ],
               ),
             ),
             Expanded(
@@ -260,7 +308,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         Entrance(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Text('no one on teamira has that username'.tr,
+            child: Text('no one on tanè has that username'.tr,
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted)),
           ),
         ),
@@ -372,7 +420,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Text(
-            'search a username above, or invite someone who isn\'t on teamira yet'.tr,
+            'search a username above, or invite someone who isn\'t on tanè yet'.tr,
             style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
           ),
         )
@@ -381,9 +429,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
           final i = entry.key;
           final f = entry.value;
           final recent = f.recentActivity;
-          final subtitle = (recent != null && recent.mediaTitle != null)
-              ? 'watched "${recent.mediaTitle}"'
-              : ((f.statusText?.isNotEmpty ?? false) ? f.statusText! : 'level ${f.level}');
+          final match = f.tasteMatch;
+          // A real taste match is a more interesting thing to lead with
+          // than "level 4" — falls back to the same activity/level line
+          // as before for a friend there isn't yet enough shelf overlap
+          // to say anything about (see similarity.compare's own
+          // docstring for why that's "no match", not "0% match").
+          final subtitle = match != null
+              ? match.headline
+              : (recent != null && recent.mediaTitle != null)
+                  ? 'watched "${recent.mediaTitle}"'
+                  : ((f.statusText?.isNotEmpty ?? false) ? f.statusText! : 'level ${f.level}');
           return (double cardWidth) => reveal(_PolaroidCard(
                 avatarUrl: f.avatarUrl,
                 avatarPreset: f.avatarPreset,
@@ -392,6 +448,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 title: f.nameForDisplay,
                 subtitle: subtitle,
                 cardWidth: cardWidth,
+                matchBadge: match != null ? TasteMatchBadge(match: match) : null,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => FriendProfileScreen(
                     userId: f.userId,
@@ -428,7 +485,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
           final i = entry.key;
           final s = entry.value;
           final preview = s.recentActivity.isNotEmpty ? s.recentActivity.first : null;
-          final subtitle = preview?.mediaTitle != null ? 'watched "${preview!.mediaTitle}"' : 'level ${s.level}';
+          final match = s.tasteMatch;
+          final subtitle = match != null
+              ? match.headline
+              : (preview?.mediaTitle != null ? 'watched "${preview!.mediaTitle}"' : 'level ${s.level}');
           return (double cardWidth) => reveal(_PolaroidCard(
                 avatarUrl: s.avatarUrl,
                 avatarPreset: s.avatarPreset,
@@ -437,6 +497,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 title: s.nameForDisplay,
                 subtitle: subtitle,
                 cardWidth: cardWidth,
+                matchBadge: match != null ? TasteMatchBadge(match: match) : null,
                 onTap: () => Navigator.of(context).push(MaterialPageRoute(
                   builder: (_) => FriendProfileScreen(
                     userId: s.userId,
@@ -473,6 +534,7 @@ class _PolaroidCard extends StatelessWidget {
   final String subtitle;
   final Widget corner;
   final Widget? secondaryCorner;
+  final Widget? matchBadge;
   final VoidCallback? onTap;
   final double cardWidth;
 
@@ -485,6 +547,7 @@ class _PolaroidCard extends StatelessWidget {
     required this.subtitle,
     required this.corner,
     this.secondaryCorner,
+    this.matchBadge,
     this.onTap,
     this.cardWidth = 164,
   });
@@ -545,6 +608,7 @@ class _PolaroidCard extends StatelessWidget {
                   ),
                   Positioned(top: -8, right: -8, child: corner),
                   if (secondaryCorner != null) Positioned(top: -8, left: -8, child: secondaryCorner!),
+                  if (matchBadge != null) Positioned(bottom: -8, right: -8, child: matchBadge!),
                 ],
               ),
               const SizedBox(height: 19),
@@ -666,7 +730,8 @@ class _InviteRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(14),
         ),
@@ -686,7 +751,7 @@ class _InviteRow extends StatelessWidget {
                 children: [
                   Text('invite friends'.tr, style: SeenlyText.serif(size: 13, weight: FontWeight.w600)),
                   const SizedBox(height: 1),
-                  Text('not on teamira yet? send them your code'.tr,
+                  Text('not on tanè yet? send them your code'.tr,
                       style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                 ],
               ),

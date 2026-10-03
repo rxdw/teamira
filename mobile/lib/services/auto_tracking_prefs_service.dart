@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
 
 /// Whether the "auto-tracking" teaser card on Home has been dismissed —
 /// tapping the card's × hides it for good on this device. Same device-only
@@ -10,22 +11,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// either has it wired up in Settings > auto-tracking or they don't;
 /// dismissing this card just stops reminding them it exists.
 class AutoTrackingPrefsService extends ChangeNotifier {
-  static const _bannerKey = 'seenly_autotracking_home_banner_dismissed';
+  final _bannerDismissed = PersistedPref.boolean('seenly_autotracking_home_banner_dismissed');
 
-  bool _bannerDismissed = false;
-  bool get bannerDismissed => _bannerDismissed;
+  bool get bannerDismissed => _bannerDismissed.value;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _bannerDismissed = prefs.getBool(_bannerKey) ?? false;
+    await _bannerDismissed.load();
     notifyListeners();
   }
 
   Future<void> dismissBanner() async {
-    if (_bannerDismissed) return;
-    _bannerDismissed = true;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_bannerKey, true);
+    await _bannerDismissed.save(true, onChanged: notifyListeners);
   }
 }

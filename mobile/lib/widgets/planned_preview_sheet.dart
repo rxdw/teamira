@@ -10,9 +10,12 @@ import '../screens/title/title_detail_screen.dart';
 import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import 'sincerity_toast.dart';
 import 'source_video_link.dart';
 import 'themed_loading_indicator.dart';
 import '../services/app_translations.dart';
+import 'saved_celebration.dart';
+import '../theme/clay_kit.dart';
 
 /// Everything [PlannedPreviewCard] needs — the "plan to watch" grid's
 /// counterpart to [WatchedPreviewData] (see watched_preview_sheet.dart).
@@ -175,6 +178,7 @@ class PlannedPreviewCard extends StatefulWidget {
 
 class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
   bool _marking = false;
+  bool _dropping = false;
 
   void _openTitle(BuildContext context) {
     Navigator.of(context).pop();
@@ -201,6 +205,16 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
         await context.read<AppState>().feed.react(widget.data.toMediaItem(), 'watched');
       }
       if (!mounted) return;
+      showSavedCelebration(
+        context,
+        kind: SavedKind.logged,
+        title: widget.data.title,
+        posterUrl: widget.data.posterUrl,
+        mediaType: widget.data.mediaType,
+        // A co-viewing entry (it has its own mark-watched handler) is a
+        // shared evening.
+        together: widget.onMarkWatched != null,
+      );
       Navigator.of(context).pop();
       widget.onMarkedWatched();
     } catch (_) {
@@ -208,6 +222,31 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
       setState(() => _marking = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("couldn't mark that watched — try again".tr)),
+      );
+    }
+  }
+
+  Future<void> _drop(BuildContext context) async {
+    // Only offered for a personal watchlist row (see the button's own
+    // `if` in build() below) — a co-viewing entry's onMarkWatched is
+    // non-null and has no drop counterpart yet, see this widget's own
+    // class doc.
+    if (_marking || _dropping) return;
+    setState(() => _dropping = true);
+    try {
+      final result = await context.read<AppState>().watchlist.drop(
+            mediaId: widget.data.mediaId,
+            source: widget.data.source,
+          );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      showSincerityToasts(context, result.sincerityAwarded);
+      widget.onMarkedWatched();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _dropping = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("couldn't do that — try again".tr)),
       );
     }
   }
@@ -289,7 +328,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                             child: Container(
                               width: 30,
                               height: 30,
-                              decoration: BoxDecoration(
+                              decoration: ClayBoxDecoration(
                                 color: SeenlyPalette.accent,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: SeenlyPalette.paper, width: 2.5),
@@ -385,6 +424,29 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                         ),
                       ),
                     ),
+                    // Only for a personal watchlist row — see this
+                    // widget's own class doc for why co-viewing entries
+                    // (which pass their own onMarkWatched) don't get
+                    // this yet.
+                    if (widget.onMarkWatched == null) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: _dropping ? null : () => _drop(context),
+                          child: _dropping
+                              ? SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.inkMuted),
+                                )
+                              : Text(
+                                  'не моё'.tr,
+                                  style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkMuted),
+                                ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

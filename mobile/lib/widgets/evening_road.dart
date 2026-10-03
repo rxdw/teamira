@@ -9,6 +9,7 @@ import '../theme/text_styles.dart';
 import 'scroll_reveal.dart';
 import 'watched_preview_sheet.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the "Evening Route" theme — a soft
 /// little road curling from one evening to the next, replacing both
@@ -43,7 +44,7 @@ class RouteBoard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(24),
           boxShadow: SeenlyPalette.softShadow,
@@ -76,7 +77,7 @@ class RouteBoard extends StatelessWidget {
             Text(
               isEmpty
                   ? 'an empty road, waiting'.tr
-                  : '${ruCount(entries.length, one: 'остановка', few: 'остановки', many: 'остановок', englishOne: 'stop', englishOther: 'stops')} ${'on the road'.tr}',
+                  : '${nCount('nStops', entries.length)} ${'on the road'.tr}',
               style: SeenlyText.serif(size: 21, weight: FontWeight.w600),
             ),
             const SizedBox(height: 5),
@@ -214,7 +215,7 @@ class EveningRoadScreen extends StatelessWidget {
                     children: [
                       Text('the route'.tr, style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
                       Text(
-                        ruCount(entries.length, one: 'остановка', few: 'остановки', many: 'остановок', englishOne: 'stop', englishOther: 'stops'),
+                        nCount('nStops', entries.length),
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                       ),
                     ],
@@ -235,7 +236,7 @@ class EveningRoadScreen extends StatelessWidget {
               child: entries.isEmpty
                   ? Center(
                       child: Text('no evenings on the road yet'.tr,
-                          style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
+                          style: SeenlyText.emptyState()),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(18, 10, 18, 60),
@@ -323,7 +324,7 @@ class _StopTicketCard extends StatelessWidget {
             onTap: onTap,
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 13, 16, 14),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: SeenlyPalette.softShadow,

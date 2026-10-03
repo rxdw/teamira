@@ -15,6 +15,9 @@ import '../../widgets/franchise_info_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/notebook_paper.dart';
+import '../../theme/seenly_skin.dart';
+import '../../theme/clay_kit.dart';
 
 /// Everything in one editorial shelf, as a grid — reached by tapping
 /// "all →" on a Collections row.
@@ -86,15 +89,10 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
               child: PressScale(
                 haptics: true,
                 onTap: () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: SeenlyPalette.paper.withOpacity(0.88),
-                    shape: BoxShape.circle,
-                    boxShadow: SeenlyPalette.softShadow,
-                  ),
-                  alignment: Alignment.center,
+                child: WobblyCircle(
+                  size: 34,
+                  color: SeenlyPalette.paper.withOpacity(0.88),
+                  boxShadow: SeenlyPalette.softShadow,
                   child: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
                 ),
               ),
@@ -172,7 +170,7 @@ class _CollectionFullScreenState extends State<CollectionFullScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(ruCount(collection.items.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'), style: SeenlyText.metaLabel),
+                      child: Text(nCount('nTitles', collection.items.length), style: SeenlyText.metaLabel),
                     ),
                     if (collection.isFranchise) ...[
                       _AboutFranchisePill(collection: collection),
@@ -242,7 +240,7 @@ class _MosaicGrid extends StatelessWidget {
               ),
             ),
           ),
-          onLongPress: () => _showQuickActions(context, item),
+          onLongPress: () => showMediaQuickActions(context, item),
           child: MosaicParallaxPoster(
             builder: (parallax) => ThemedPosterTile(
               title: item.title.display,
@@ -391,6 +389,19 @@ class _RankBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isCozy) {
+      return StampBadge(
+        color: SeenlyPalette.ink,
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: Center(
+            child: Text('#$rank',
+                style: SeenlyText.mono(size: 9.5, weight: FontWeight.w700, color: SeenlyPalette.ink)),
+          ),
+        ),
+      );
+    }
     return Container(
       width: 20,
       height: 20,
@@ -423,14 +434,9 @@ class _ShuffleButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return PressScale(
       onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: SeenlyPalette.paper,
-          shape: BoxShape.circle,
-        ),
-        alignment: Alignment.center,
+      child: WobblyCircle(
+        size: 32,
+        color: SeenlyPalette.paper,
         child: TweenAnimationBuilder<double>(
           tween: Tween(end: turns),
           duration: const Duration(milliseconds: 480),
@@ -489,7 +495,11 @@ class _AboutFranchisePill extends StatelessWidget {
 /// Opened on long-press instead of only ever being reachable from deep
 /// inside the title detail screen — the two things someone's actually
 /// likely to want to do with a poster without leaving the grid.
-void _showQuickActions(BuildContext context, MediaItem item) {
+///
+/// Public so the full-screen release calendar
+/// (screens/calendar/release_calendar_screen.dart) can offer the exact same
+/// sheet on its own posters rather than growing a second copy.
+void showMediaQuickActions(BuildContext context, MediaItem item) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -497,7 +507,7 @@ void _showQuickActions(BuildContext context, MediaItem item) {
       padding: const EdgeInsets.all(16),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
           boxShadow: SeenlyPalette.softShadow,

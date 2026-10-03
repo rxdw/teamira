@@ -9,6 +9,7 @@ import 'scroll_reveal.dart';
 import 'ticket.dart' show MiniTicketChip;
 import 'watched_preview_sheet.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the "Cinema" theme — a little marquee
 /// sign whose bulbs light up as evenings get logged, the same "mood, not
@@ -74,7 +75,7 @@ class _TicketJarState extends State<TicketJar> with SingleTickerProviderStateMix
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(24),
           boxShadow: SeenlyPalette.softShadow,
@@ -97,7 +98,7 @@ class _TicketJarState extends State<TicketJar> with SingleTickerProviderStateMix
             Text(
               isEmpty
                   ? 'an empty marquee, waiting'.tr
-                  : '${ruCount(widget.entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')}, ${'up on the marquee'.tr}',
+                  : '${nCount('nEvenings', widget.entries.length)}, ${'up on the marquee'.tr}',
               style: SeenlyText.serif(italic: true, size: 19),
             ),
             const SizedBox(height: 5),
@@ -356,7 +357,7 @@ class CinemaProgrammeScreen extends StatelessWidget {
                     children: [
                       Text('the programme'.tr, style: SeenlyText.serif(size: 20, weight: FontWeight.w600)),
                       Text(
-                        ruCount(entries.length, one: 'показ', few: 'показа', many: 'показов', englishOne: 'screening', englishOther: 'screenings'),
+                        nCount('nScreenings', entries.length),
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                       ),
                     ],
@@ -377,7 +378,7 @@ class CinemaProgrammeScreen extends StatelessWidget {
               child: entries.isEmpty
                   ? Center(
                       child: Text('nothing on the programme yet'.tr,
-                          style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
+                          style: SeenlyText.emptyState()),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(18, 10, 18, 60),
@@ -435,7 +436,7 @@ class _ScreeningCard extends StatelessWidget {
             onTap: onTap,
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 13, 16, 14),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: SeenlyPalette.softShadow,

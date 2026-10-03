@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
+import '../analytics/analytics.dart';
 
 /// Which language catalog content (titles, descriptions) prefers on this
 /// device. A `ru` value only exists on a MediaItem when TMDB actually had
@@ -17,12 +19,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// SharedPreferences, no backend endpoint, since this is a display choice
 /// rather than account data.
 class LocaleService extends ChangeNotifier {
-  static const _key = 'seenly_content_language';
+  final _preferRussian = PersistedPref.boolean('seenly_content_language');
 
-  bool _preferRussian = false;
-  bool get preferRussian => _preferRussian;
+  bool get preferRussian => _preferRussian.value;
 
-  /// A static mirror of [_preferRussian], read by LocalizedText.display
+  /// A static mirror of [preferRussian], read by LocalizedText.display
   /// (models/media_item.dart) without plumbing this service through every
   /// one of the ~11 screens that already call `.display` directly. The
   /// tradeoff: a screen already built before the toggle changes won't
@@ -43,20 +44,16 @@ class LocaleService extends ChangeNotifier {
   static bool get appIsRussian => contentPrefersRussian;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _preferRussian = prefs.getBool(_key) ?? false;
-    contentPrefersRussian = _preferRussian;
-    _region = prefs.getString(_regionKey);
+    await _preferRussian.load();
+    contentPrefersRussian = _preferRussian.value;
+    await _region.load();
     notifyListeners();
   }
 
   Future<void> setPreferRussian(bool value) async {
-    if (_preferRussian == value) return;
-    _preferRussian = value;
     contentPrefersRussian = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_key, value);
+    await _preferRussian.save(value, onChanged: notifyListeners);
+    Analytics.instance.track('setting_changed', {'setting': 'content_language', 'value': value ? 'ru' : 'en'});
   }
 
   // ---------------------------------------------------------------------
@@ -69,20 +66,11 @@ class LocaleService extends ChangeNotifier {
   // _watchRegion), same as before this existed. Set explicitly whenever
   // the device locale guess doesn't match where someone actually
   // streams from (e.g. an en-US phone but a Russian JustWatch catalog).
-  static const _regionKey = 'seenly_watch_region';
+  final _region = PersistedPref.nullableString('seenly_watch_region');
 
-  String? _region;
-  String? get region => _region;
+  String? get region => _region.value;
 
   Future<void> setRegion(String? code) async {
-    if (_region == code) return;
-    _region = code;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    if (code == null) {
-      await prefs.remove(_regionKey);
-    } else {
-      await prefs.setString(_regionKey, code);
-    }
+    await _region.save(code, onChanged: notifyListeners);
   }
 }

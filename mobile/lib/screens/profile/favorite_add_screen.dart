@@ -14,6 +14,7 @@ import '../../widgets/heart_burst.dart';
 import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 enum _AddTab { search, watched, planned, watching }
 
@@ -122,9 +123,10 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
     if (nextValue && !context.read<PremiumService>().canAddFavorite) {
       showPremiumUpsellSheet(
         context,
+        triggerSource: 'favorites_limit',
         icon: Icons.favorite_outline,
-        title: 'достигнут лимит избранного',
-        message: 'на бесплатном тарифе можно сохранить до 5 любимых фильмов — с премиумом лимита нет',
+        title: 'favorites limit reached'.tr,
+        message: 'the free tier holds up to 5 favorite films — premium removes the limit'.tr,
       );
       return;
     }
@@ -192,18 +194,22 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: SizedBox(
                   height: 34,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    children: _AddTab.values
-                        .map((t) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: _TabChip(
-                                label: t.label,
-                                selected: _tab == t,
-                                onTap: () => setState(() => _tab = t),
-                              ),
-                            ))
-                        .toList(),
+                  // Four tabs share the full width equally rather than
+                  // scrolling sideways; each label shrinks to fit if a
+                  // longer translation needs it.
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < _AddTab.values.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        Expanded(
+                          child: _TabChip(
+                            label: _AddTab.values[i].label,
+                            selected: _tab == _AddTab.values[i],
+                            onTap: () => setState(() => _tab = _AddTab.values[i]),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
@@ -305,7 +311,7 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
             child: Text(
               text,
               textAlign: TextAlign.center,
-              style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+              style: SeenlyText.emptyState(),
             ),
           ),
         ],
@@ -325,18 +331,22 @@ class _TabChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 7),
         decoration: BoxDecoration(
           color: selected ? SeenlyPalette.accent : SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: selected ? SeenlyPalette.accent : SeenlyPalette.border),
         ),
         alignment: Alignment.center,
-        child: Text(
-          label,
-          style: SeenlyText.mono(
-            size: 11,
-            color: selected ? SeenlyPalette.accentOnAccent : SeenlyPalette.inkMuted,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            label,
+            maxLines: 1,
+            style: SeenlyText.mono(
+              size: 11,
+              color: selected ? SeenlyPalette.accentOnAccent : SeenlyPalette.inkMuted,
+            ),
           ),
         ),
       ),
@@ -363,7 +373,8 @@ class _MediaRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: SeenlyPalette.border),

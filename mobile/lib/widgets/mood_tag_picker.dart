@@ -4,6 +4,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// What stayed with you when the evening landed — the preset list shown
 /// whenever there's no rating yet, or the rating is a good one (see
@@ -137,7 +138,8 @@ class _MoodTagPickerState extends State<MoodTagPicker> {
           children: [
             Expanded(
               child: Container(
-                decoration: BoxDecoration(
+                decoration: ClayBoxDecoration(
+                  boxShadow: SeenlyPalette.flatCardShadow,
                   color: SeenlyPalette.paper,
                   borderRadius: BorderRadius.circular(10),
                 ),

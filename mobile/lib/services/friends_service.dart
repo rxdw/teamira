@@ -1,5 +1,7 @@
 import '../models/friend.dart';
+import '../models/taste_match.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
 
 /// Talks to /friends — friend requests, the accepted friends list, a
 /// username search to start a request, and the standing invite code with
@@ -26,11 +28,13 @@ class FriendsService {
     final json = await _client.post('/friends/request', body: {
       'username': username.trim(),
     }) as Map<String, dynamic>;
+    Analytics.instance.track('friend_request_sent');
     return FriendRequestItem.fromJson(json);
   }
 
   Future<Friend> acceptRequest(String requestId) async {
     final json = await _client.post('/friends/requests/$requestId/accept') as Map<String, dynamic>;
+    Analytics.instance.track('friend_request_accepted');
     return Friend.fromJson(json);
   }
 
@@ -59,6 +63,23 @@ class FriendsService {
   Future<List<SuggestedFriend>> suggested() async {
     final json = await _client.get('/friends/suggested') as List;
     return json.map((e) => SuggestedFriend.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// The detailed one-pair taste breakdown behind the compact
+  /// `tasteMatch` field already inlined on Friend/SuggestedFriend/
+  /// FriendProfile — for a card that wants the full picture (e.g. an
+  /// expanded "why you match" sheet) without refetching the whole list.
+  /// Returns null exactly when the pair has nothing to compare yet (see
+  /// backend/app/routers/friends.py::get_taste_match's own docstring) —
+  /// not an exception to handle, just no card to show.
+  Future<TasteMatch?> tasteMatch(String userId) async {
+    try {
+      final json = await _client.get('/friends/$userId/taste-match') as Map<String, dynamic>;
+      return TasteMatch.fromJson(json);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
   }
 
   /// This account's own standing code plus its running invite tally —

@@ -25,12 +25,20 @@ class CollectionInterestsScreen extends StatefulWidget {
   final bool isFirstRun;
   final Set<String> initialSelected;
   final ValueChanged<Set<String>> onSave;
+  // Overrides so this same picker can be reused outside Collections (e.g.
+  // the Home screen's release calendar type filter) without its copy
+  // claiming to be about Collections. Both default to the original
+  // Collections wording, so every existing call site is unaffected.
+  final String? subtitle;
+  final String backLabel;
 
   const CollectionInterestsScreen({
     super.key,
     required this.isFirstRun,
     required this.initialSelected,
     required this.onSave,
+    this.subtitle,
+    this.backLabel = 'back to collections',
   });
 
   @override
@@ -62,7 +70,7 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
                   children: [
                     Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.inkFaint),
                     const SizedBox(width: 6),
-                    Text('back to collections'.tr,
+                    Text(widget.backLabel.tr,
                         style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                   ],
                 ),
@@ -76,7 +84,7 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
           Text(
             widget.isFirstRun
                 ? 'pick a few things you\'re into — collections will lead with those. you can always change your mind later.'
-                : 'change what collections leads with, any time.',
+                : (widget.subtitle ?? 'change what collections leads with, any time.'),
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
           ),
           const SizedBox(height: 26),

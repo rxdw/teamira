@@ -1,3 +1,4 @@
+import '../partner/room/together_verdict_card.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -5,15 +6,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/diary_entry.dart';
 import '../../models/media_item.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
+import '../../theme/seenly_skin.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/together_wrapped_teaser.dart';
+import '../../widgets/dashed_border.dart';
+import '../../widgets/torn_paper.dart';
 import '../../widgets/departure_scenes.dart';
 import '../../widgets/light_bloom.dart';
 import '../../widgets/log_flow_kit.dart';
 import '../../widgets/mood_tag_picker.dart' show vibePresetTags, vibePromptTitle;
 import '../../widgets/review_composer.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/ticket.dart';
 import '../../widgets/ticket_drop_overlay.dart';
@@ -26,6 +33,12 @@ import '../../widgets/favorite_toggle.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
+import '../../theme/notebook_paper.dart';
+import '../../widgets/saved_celebration.dart';
+import '../../widgets/share_card.dart';
+import '../../widgets/share_sheet.dart';
+import '../../widgets/decide_motion.dart' show SecondaryActionButton;
+import '../../theme/clay_kit.dart';
 
 /// A quiet aside for the confirm step — the kind of small thing you'd
 /// notice from your seat while the trailers are still running. One is
@@ -49,7 +62,19 @@ class CinemaLogScreen extends StatefulWidget {
   final int? season;
   final int? episode;
   final int? episodeCount;
-  const CinemaLogScreen({super.key, required this.item, this.season, this.episode, this.episodeCount});
+  // Pre-checks the "watched with partner" toggle below — see
+  // WatchingChoiceScreen's own doc comment for why (the co-viewing
+  // planned grid's "смотрю" button opens this already knowing the
+  // evening was shared).
+  final bool initialWatchedWithPartner;
+  const CinemaLogScreen({
+    super.key,
+    required this.item,
+    this.season,
+    this.episode,
+    this.episodeCount,
+    this.initialWatchedWithPartner = false,
+  });
 
   @override
   State<CinemaLogScreen> createState() => _CinemaLogScreenState();
@@ -83,6 +108,10 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
   List<String> _moodTags = [];
   _When _when = _When.today;
   DateTime? _customDate;
+  // Stashed the moment `_confirmAndSave` succeeds, purely so the pass
+  // step's share button (below) has a real logged entry to build an
+  // [EveningShareCard] from — nothing before that point needs it.
+  DiaryEntry? _savedDiaryEntry;
   final _noteController = TextEditingController();
   final _customTagController = TextEditingController();
   bool _watchedWithPartner = false;
@@ -107,6 +136,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
   @override
   void initState() {
     super.initState();
+    _watchedWithPartner = widget.initialWatchedWithPartner;
     final seed = widget.item.title.display;
     _taken = seededTakenSeats(seed, _rows * _cols, salt: 0x7469636b, minTaken: 6, extraRange: 12); // 'tick'
     _motes = seededMotes(seed, 12, salt: 0x7469636b);
@@ -257,8 +287,9 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
     // so it never reads as a blank wait.
     setState(() { _saving = true; _error = null; _step = _Step.igniting; });
     bool failed = false;
+    DiaryEntry? loggedEntry;
     try {
-      await Future.wait([
+      final results = await Future.wait([
         context.read<AppState>().diary.logEntry(
               item: widget.item,
               rating: _rating > 0 ? _rating : null,
@@ -274,6 +305,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
             ),
         Future.delayed(const Duration(milliseconds: 1500)),
       ]);
+      loggedEntry = results[0] as DiaryEntry;
     } catch (_) {
       failed = true;
     }
@@ -282,6 +314,8 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
       setState(() { _saving = false; _step = _Step.confirm; _error = "couldn't save that just now — try again"; });
       return;
     }
+    if (loggedEntry != null) showSincerityToasts(context, loggedEntry.sincerityAwarded);
+    _savedDiaryEntry = loggedEntry;
     HapticFeedback.mediumImpact();
     // A save is exactly the moment a level-up (and possibly a new
     // badge unlocking) could just have happened — refresh the cached
@@ -300,6 +334,23 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
     );
     if (!mounted) return;
     setState(() => _step = _Step.pass);
+  }
+
+  // Opens the same share-card sheet as everywhere else in the app (see
+  // widgets/watched_preview_sheet.dart), built straight from the entry
+  // that was just logged — so "share" on this last screen isn't a
+  // separate, lesser path, it's the exact same card someone would get
+  // to later from the diary.
+  void _shareLoggedEntry() {
+    final entry = _savedDiaryEntry;
+    if (entry == null) return;
+    showShareCardSheet(
+      context,
+      card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
+      fileName: 'seenly-${entry.id}',
+      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      rewardKey: 'seenly-${entry.id}',
+    );
   }
 
   @override
@@ -810,7 +861,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                 _FilmReelCard(
                   child: Container(
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
+              decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -840,7 +891,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                       ),
                     ],
                   ),
-                  Divider(height: 28, color: SeenlyPalette.border),
+                  CozyDivider(height: 28, color: SeenlyPalette.border),
                   ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
@@ -970,26 +1021,64 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
         ),
         const _PassStepMascot(),
         const Spacer(flex: 2),
+        if (_watchedWithPartner && _partnerUsername != null)
+          TogetherWrappedTeaser(partnerName: _partnerUsername!),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(
-            label: 'keep the stub'.tr,
-            onTap: () async {
-              // Right as the person is about to leave the ritual behind —
-              // one more beat (or two) first, if this save leveled them up
-              // and/or unlocked a badge, before actually stepping away.
-              final leveledUp = context.read<AppState>().consumePendingLevelUp();
-              if (leveledUp != null && context.mounted) {
-                await showLevelUpCelebration(context, leveledUp);
-              }
-              if (context.mounted) {
-                await checkAndCelebrateNewAchievements(context);
-              }
-              if (context.mounted) Navigator.of(context).pop(true);
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: SecondaryActionButton(
+                  icon: Icons.ios_share_rounded,
+                  label: 'share'.tr,
+                  onTap: _shareLoggedEntry,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: PrimaryButton(
+                  label: 'keep the stub'.tr,
+                  onTap: () async {
+                    // Right as the person is about to leave the ritual behind —
+                    // one more beat (or two) first, if this save leveled them up
+                    // and/or unlocked a badge, before actually stepping away.
+                    final leveledUp = context.read<AppState>().consumePendingLevelUp();
+                    if (leveledUp != null && context.mounted) {
+                      await showLevelUpCelebration(context, leveledUp);
+                    }
+                    if (context.mounted) {
+                      await checkAndCelebrateNewAchievements(context);
+                    }
+                    if (context.mounted && _watchedWithPartner) {
+                      // The shared rating, in its own soft sheet: sealed with
+                      // yours, or opening right now if the others have rated.
+                      await showTogetherVerdictSheet(context, widget.item);
+                    }
+                    if (context.mounted) {
+                      // The closing flourish: it lives in the root overlay, so it
+                      // carries on over the screen this one is about to reveal.
+                      showSavedCelebration(
+                        context,
+                        kind: SavedKind.logged,
+                        title: widget.item.title.display,
+                        posterUrl: widget.item.posterUrl,
+                        mediaType: widget.item.mediaType,
+                        rating: _rating > 0 ? _rating : null,
+                        partnerName: _watchedWithPartner ? _partnerUsername : null,
+                        compact: true,
+                        haptics: false,
+                      );
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ],
+
     );
   }
 
@@ -1217,8 +1306,16 @@ class _FilmReelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Cozy skin doesn't use the cinema-ticket film-strip decoration —
+    // that motif is specific to the standard skin's "little private
+    // cinema" framing (see LogTheme.ticket). Cozy's own diary look gets
+    // a soft paper card with a stitched dashed edge instead — see
+    // _CozyPaperFrame below.
+    if (SeenlySkin.isCozy) {
+      return _CozyPaperFrame(child: child);
+    }
     return Container(
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.ink,
         borderRadius: BorderRadius.circular(20),
         boxShadow: SeenlyPalette.softShadow,
@@ -1249,6 +1346,51 @@ class _FilmReelCard extends StatelessWidget {
           const Positioned(right: 0, top: 0, bottom: 0, child: _PerforationStrip()),
         ],
       ),
+    );
+  }
+}
+
+/// Cozy skin's stand-in for the film-strip frame above: a warm paper
+/// card with a torn top edge (see [TornTopClipper]), a hand-stitched
+/// dashed line traced just inside it, and a couple of small sparkle
+/// accents at the top corner — the "corешок"/diary-page framing from
+/// the pastel mockups, no perforations or ink-black background since
+/// those only read as "cinema ticket", not "diary".
+class _CozyPaperFrame extends StatelessWidget {
+  final Widget child;
+  const _CozyPaperFrame({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // The shadow lives on its own plain rounded rect, underneath —
+        // see TornTopClipper's own docstring for why it can't just sit
+        // on the clipped paper Container below.
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: ClayBoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              boxShadow: SeenlyPalette.softShadow,
+            ),
+          ),
+        ),
+        ClipPath(
+          clipper: const TornTopClipper(),
+          child: Container(
+            color: SeenlyPalette.paper,
+            child: DashedRoundedBorder(
+              color: SeenlyPalette.dashedBorder,
+              radius: 18,
+              margin: const EdgeInsets.fromLTRB(9, 17, 9, 9),
+              child: child,
+            ),
+          ),
+        ),
+        const Positioned(top: -7, right: 22, child: SparkleAccent(size: 16, opacity: 0.75)),
+        const Positioned(top: 16, right: -5, child: SparkleAccent(size: 10, opacity: 0.5)),
+      ],
     );
   }
 }

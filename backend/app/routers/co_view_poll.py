@@ -1,18 +1,19 @@
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import WebSocket
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from app import models
+from app import models, realtime
 from app.database import get_db
-from app.deps import get_current_user
-from app.routers.co_view_vote import PoolSource, _build_vote_pool, _require_link
+from app.deps import get_current_user, get_ws_user
+from app.routers.co_view_vote import PoolSource, _build_vote_pool, _lock_link, _require_link
 from app.routers.partner import _member_ids, add_coview_entries
-from app.schemas import CoViewPollSessionOut, CoViewPollVoteRequest, MediaItem
+from app.schemas import CoViewPollSessionOut, CoViewPollVoteRequest, CoViewVoteProposeRequest, MediaItem
 
 router = APIRouter(prefix="/partner/co-viewing/poll", tags=["partner"])
 
@@ -39,8 +40,14 @@ def _get_active_poll(db: Session, link: models.PartnerLink) -> models.CoViewPoll
     )
 
 
-def _get_poll_for_link(db: Session, session_id: str, link: models.PartnerLink) -> models.CoViewPollSession:
-    row = db.get(models.CoViewPollSession, session_id)
+def _get_poll_for_link(
+    db: Session, session_id: str, link: models.PartnerLink, *, for_update: bool = False,
+) -> models.CoViewPollSession:
+    """`for_update=True` takes a row lock (`SELECT ... FOR UPDATE`) on the
+    poll for the rest of this transaction — see cast_poll_vote's and
+    get_poll's own comments for why that matters there. Same reasoning
+    as co_view_vote.py::_get_session_for_link."""
+    row = db.get(models.CoViewPollSession, session_id, with_for_update=for_update)
     if row is None or row.link_id != link.id:
         raise HTTPException(status_code=404, detail="Poll not found")
     return row
@@ -67,7 +74,7 @@ def _resolve_if_needed(db: Session, row: models.CoViewPollSession) -> None:
     members = _member_ids(row.link)
     votes = {v.user_id: v.candidate_index for v in row.votes if v.user_id in members}
     all_voted = bool(members) and all(uid in votes for uid in members)
-    deadline_passed = datetime.utcnow() >= row.deadline
+    deadline_passed = datetime.now(timezone.utc) >= row.deadline
     if not all_voted and not deadline_passed:
         return
 
@@ -93,7 +100,7 @@ def _resolve_if_needed(db: Session, row: models.CoViewPollSession) -> None:
                 [candidates[i].model_dump(mode="json") for i in leaders_idx]
             )
             row.round_number += 1
-            row.deadline = datetime.utcnow() + ROUND_DURATION
+            row.deadline = datetime.now(timezone.utc) + ROUND_DURATION
             for v in list(row.votes):
                 db.delete(v)
             return
@@ -105,6 +112,22 @@ def _resolve_if_needed(db: Session, row: models.CoViewPollSession) -> None:
     # Already on both/everyone's own plan-to-watch shelves — this only
     # needs to land on the shared list, not re-sync anyone's personal one.
     add_coview_entries(db, row.link, [winner], added_by_id=None, sync_own_watchlist=False)
+
+
+def _resolve_and_notify(db: Session, row: models.CoViewPollSession) -> None:
+    """Same work as calling _resolve_if_needed directly, plus: publishes
+    a realtime notification when it actually changed something (status
+    flipped to done, or a tied round narrowed into a runoff) — not on
+    every call, since most calls land while the poll is still just
+    sitting there active with nothing new to say. Used everywhere
+    _resolve_if_needed used to be called on its own, so the GET
+    endpoint, the locked "already active" precheck in start/propose,
+    and the websocket's own deadline-driven refetch all behave the
+    same way."""
+    before = (row.status, row.round_number)
+    _resolve_if_needed(db, row)
+    if (row.status, row.round_number) != before:
+        realtime.publish(db, realtime.topic_for("poll", row.id))
 
 
 def _to_out(row: models.CoViewPollSession, current_user_id: str) -> CoViewPollSessionOut:
@@ -151,14 +174,85 @@ async def start_poll(
     """
     link = _require_link(db, current_user.id)
 
+    # Unlocked pre-check: skip building the pool entirely in the common
+    # case where a poll's already active. Not the actual race guard —
+    # see the locked re-check right below, after the pool (which can hit
+    # TMDB/IGDB on a cold cache — see _build_vote_pool's "catalog"
+    # branch) is already built. Locking any earlier would hold the link
+    # row locked across that network round trip, blocking the partner's
+    # own request for no reason. Same reasoning as co_view_vote.py::start_vote.
+    precheck = _get_active_poll(db, link)
+    if precheck is not None:
+        _resolve_and_notify(db, precheck)
+        db.commit()
+        db.refresh(precheck)
+        return _to_out(precheck, current_user.id)
+
+    pool = await _build_vote_pool(db, link, source)
+    if len(pool) < 2:
+        raise HTTPException(status_code=422, detail="Need at least two titles queued to vote between")
+
+    chosen = pool if len(pool) <= SHORTLIST_SIZE else random.sample(pool, SHORTLIST_SIZE)
+
+    # Two partners tapping "start poll" within the same instant can both
+    # pass the unlocked precheck above before either commits, so both
+    # would create a session — silently breaking the "at most one active
+    # poll per link" invariant CoViewPollSession's own docstring
+    # promises. Locking the link row here serializes the two: the
+    # second call now blocks until the first commits, then sees the
+    # poll the first one just created and hands that back instead of
+    # making a second one. Same fix as co_view_vote.py::start_vote.
+    _lock_link(db, link)
     existing = _get_active_poll(db, link)
     if existing is not None:
-        _resolve_if_needed(db, existing)
+        _resolve_and_notify(db, existing)
         db.commit()
         db.refresh(existing)
         return _to_out(existing, current_user.id)
 
-    pool = await _build_vote_pool(db, link, source)
+    row = models.CoViewPollSession(
+        link_id=link.id,
+        started_by_id=current_user.id,
+        pool_source=source,
+        candidates_json=json.dumps(chosen),
+        round_number=1,
+        deadline=datetime.now(timezone.utc) + ROUND_DURATION,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _to_out(row, current_user.id)
+
+
+@router.post("/propose", response_model=CoViewPollSessionOut, status_code=201)
+def propose_poll(
+    payload: CoViewVoteProposeRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Starts a head-to-head poll on a client-supplied candidate set
+    instead of one built server-side from a `source` — what a filtered
+    pool (type/genre/year narrowed down first, see DecideFiltersScreen)
+    hands off to once it's ready to become an actual round. Mirrors
+    co_view_vote.py::propose_vote's "hand back whatever's already
+    active" behavior, and start_poll's SHORTLIST_SIZE cap — a client
+    pool can easily be bigger than a poll round should be.
+
+    Reuses CoViewVoteProposeRequest (just `items: List[MediaItem]`) —
+    the vote and poll propose bodies are identical in shape, only what
+    happens with the items afterward differs.
+    """
+    link = _require_link(db, current_user.id)
+    _lock_link(db, link)
+
+    existing = _get_active_poll(db, link)
+    if existing is not None:
+        _resolve_and_notify(db, existing)
+        db.commit()
+        db.refresh(existing)
+        return _to_out(existing, current_user.id)
+
+    pool = [item.model_dump(mode="json") for item in payload.items]
     if len(pool) < 2:
         raise HTTPException(status_code=422, detail="Need at least two titles queued to vote between")
 
@@ -167,10 +261,10 @@ async def start_poll(
     row = models.CoViewPollSession(
         link_id=link.id,
         started_by_id=current_user.id,
-        pool_source=source,
+        pool_source="proposed",
         candidates_json=json.dumps(chosen),
         round_number=1,
-        deadline=datetime.utcnow() + ROUND_DURATION,
+        deadline=datetime.now(timezone.utc) + ROUND_DURATION,
     )
     db.add(row)
     db.commit()
@@ -187,10 +281,14 @@ def get_poll(
     """Polled every few seconds while a poll is open — resolves it first
     (a deadline can pass between polls with no new vote in between, so
     this can't just read the row as-is the way a plain GET normally
-    would)."""
+    would). Locked (see _get_poll_for_link's own comment): unlike a
+    normal GET, this one can itself mutate the row (deadline-triggered
+    resolve/runoff), so two phones polling at the same instant right at
+    the deadline need the same serialization cast_poll_vote gets below,
+    or both could independently resolve/advance the runoff."""
     link = _require_link(db, current_user.id)
-    row = _get_poll_for_link(db, session_id, link)
-    _resolve_if_needed(db, row)
+    row = _get_poll_for_link(db, session_id, link, for_update=True)
+    _resolve_and_notify(db, row)
     db.commit()
     db.refresh(row)
     return _to_out(row, current_user.id)
@@ -204,7 +302,15 @@ def cast_poll_vote(
     db: Session = Depends(get_db),
 ):
     link = _require_link(db, current_user.id)
-    row = _get_poll_for_link(db, session_id, link)
+    # Locked (see _get_poll_for_link's own comment): two members voting
+    # on the last open slot within milliseconds of each other used to
+    # both read row.votes before the other's cast was committed, so
+    # both could pass the "not all voted yet" check and both call
+    # _resolve_if_needed — double-advancing a tie runoff (round_number
+    # bumped twice, votes cleared out from under the other request) or
+    # both trying to finish the round at once. Locking the row here
+    # serializes the two requests, same fix as co_view_vote.py::cast_vote.
+    row = _get_poll_for_link(db, session_id, link, for_update=True)
     if row.status != models.CoViewPollStatus.active:
         raise HTTPException(status_code=409, detail="This poll is already done")
 
@@ -225,7 +331,15 @@ def cast_poll_vote(
         existing.candidate_index = payload.candidate_index
     db.flush()
 
+    # A cast always changes something the whole circle's screens show
+    # (vote_counts/voted_count at minimum) even on the rounds where
+    # _resolve_if_needed itself doesn't flip status/round_number, so
+    # this publishes unconditionally — unlike _resolve_and_notify's own
+    # narrower "only when it actually changed" check, which exists for
+    # the read-only callers (GET, the locked precheck in start/propose)
+    # that aren't already publishing for some other reason.
     _resolve_if_needed(db, row)
+    realtime.publish(db, realtime.topic_for("poll", row.id))
     db.commit()
     db.refresh(row)
     return _to_out(row, current_user.id)
@@ -240,5 +354,67 @@ def end_poll(
     """Either side can call it off early — same as end_vote."""
     link = _require_link(db, current_user.id)
     row = _get_poll_for_link(db, session_id, link)
+    topic = realtime.topic_for("poll", row.id)
     db.delete(row)
+    realtime.publish(db, topic)
     db.commit()
+
+
+@router.websocket("/{session_id}/ws")
+async def watch_poll(
+    websocket: WebSocket,
+    session_id: str,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Pushed updates for an open poll — replaces the mobile client's
+    old `Timer.periodic(2s)` GET poll *and* its separate 1s tick timer
+    (see the `_pollTimer`/`_tickTimer` pair in co_view_poll_screen.dart
+    — the tick timer was purely a local countdown-text redraw and needs
+    nothing server-side, see that screen's own comment on it).
+
+    Unlike watch_vote/watch_session, this one's wait between refetches
+    isn't a flat heartbeat: `_wait_seconds` below recomputes, on every
+    iteration, how long until the *current* round's own deadline — so
+    a poll nobody votes on again still resolves within a moment of its
+    deadline passing, the same as the old 2s poll used to (just without
+    needing an actual poll to do it), capped at run_ws_loop's own
+    default heartbeat so an active-but-somehow-deadline-less row (there
+    isn't one today, but nothing above guarantees it never will be)
+    still gets refetched periodically regardless.
+    """
+    await websocket.accept()
+    user = await get_ws_user(token, db)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    deadline_box: dict[str, datetime | None] = {"deadline": None}
+
+    def _fetch() -> str | None:
+        try:
+            link = _require_link(db, user.id)
+            row = _get_poll_for_link(db, session_id, link, for_update=True)
+            _resolve_and_notify(db, row)
+            db.commit()
+            db.refresh(row)
+        except HTTPException:
+            return None
+        deadline_box["deadline"] = (
+            row.deadline if row.status == models.CoViewPollStatus.active else None
+        )
+        return _to_out(row, user.id).model_dump_json()
+
+    def _wait_seconds() -> float:
+        deadline = deadline_box["deadline"]
+        if deadline is None:
+            return realtime.DEFAULT_HEARTBEAT
+        remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
+        # A little past the deadline rather than a little before it —
+        # waking early just means a wasted refetch that finds nothing
+        # new yet and goes right back to waiting.
+        return max(0.5, min(realtime.DEFAULT_HEARTBEAT, remaining + 0.5))
+
+    await realtime.run_ws_loop(
+        websocket, realtime.topic_for("poll", session_id), _fetch, wait_seconds=_wait_seconds,
+    )

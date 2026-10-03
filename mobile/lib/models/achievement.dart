@@ -50,12 +50,20 @@ class AchievementsResponse {
   final int totalCount;
   final List<Achievement> achievements;
   final List<String> pinnedIds;
+  // How many badges the showcase can hold right now (3 free + however
+  // many bought — see backend/app/sincerity.py::spend_pin_slot) and how
+  // many of those were bought. The client reads maxPinned instead of
+  // hardcoding 3 so a purchase takes effect without an app update.
+  final int maxPinned;
+  final int bonusPinSlots;
 
   const AchievementsResponse({
     required this.unlockedCount,
     required this.totalCount,
     required this.achievements,
     this.pinnedIds = const [],
+    this.maxPinned = 3,
+    this.bonusPinSlots = 0,
   });
 
   factory AchievementsResponse.fromJson(Map<String, dynamic> json) =>
@@ -68,5 +76,7 @@ class AchievementsResponse {
         pinnedIds: (json['pinned_ids'] as List? ?? const [])
             .map((e) => e as String)
             .toList(),
+        maxPinned: json['max_pinned'] as int? ?? 3,
+        bonusPinSlots: json['bonus_pin_slots'] as int? ?? 0,
       );
 }

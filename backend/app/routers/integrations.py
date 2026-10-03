@@ -40,7 +40,7 @@ watched" lives, regardless of where the event came from.
 import json
 import secrets
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -173,7 +173,7 @@ async def _ingest(db: Session, user: models.User, integration: str, payload: Scr
             source=integration,
         )
 
-    log_watched(db, user.id, item, watched_at=datetime.utcnow())
+    log_watched(db, user.id, item, watched_at=datetime.now(timezone.utc))
 
     matched = not item.id.startswith("scrobble-")
 

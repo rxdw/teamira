@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/co_view_poll_session.dart';
 import '../../models/media_item.dart';
 import '../../services/co_view_vote_service.dart';
+import '../../services/realtime_socket.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
@@ -14,10 +15,10 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
-import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker;
+import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSetupHero, PoolSetupLayout;
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
-const _pollInterval = Duration(seconds: 2);
 const _tickInterval = Duration(seconds: 1);
 
 enum _Phase { setup, starting, voting, done, error }
@@ -28,8 +29,8 @@ enum _Phase { setup, starting, voting, done, error }
 /// wins. A tie for the lead doesn't dead-end the round: the backend
 /// narrows this exact session down to just the tied leaders and reopens
 /// it for a runoff (see backend/app/routers/co_view_poll.py) — this
-/// screen doesn't need to know that happened, it just keeps polling and
-/// re-renders whatever shortlist and deadline come back.
+/// screen doesn't need to know that happened, it just keeps watching
+/// and re-renders whatever shortlist and deadline come back.
 class CoViewPollScreen extends StatefulWidget {
   const CoViewPollScreen({super.key});
 
@@ -42,12 +43,14 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
   String _source = CoViewVotePoolSource.personal;
   CoViewPollSession? _session;
   String? _errorMessage;
-  Timer? _pollTimer;
+  RealtimeSocket<CoViewPollSession>? _socket;
+  StreamSubscription<CoViewPollSession>? _socketSub;
   Timer? _tickTimer;
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _socketSub?.cancel();
+    _socket?.close();
     _tickTimer?.cancel();
     super.dispose();
   }
@@ -64,7 +67,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         _session = session;
         _phase = session.isDone ? _Phase.done : _Phase.voting;
       });
-      if (!session.isDone) _startPolling();
+      if (!session.isDone) _startWatching();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -89,7 +92,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         _session = session;
         _phase = session.isDone ? _Phase.done : _Phase.voting;
       });
-      if (!session.isDone) _startPolling();
+      if (!session.isDone) _startWatching();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -120,18 +123,42 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
     );
   }
 
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(_pollInterval, (_) => _refresh());
-    _tickTimer?.cancel();
+  void _startWatching() {
+    _socketSub?.cancel();
+    _socket?.close();
+    final session = _session;
+    if (session != null) {
+      _socket = context.read<AppState>().coViewPoll.watch(session.id);
+      _socketSub = _socket!.updates.listen(_onSessionUpdate);
+    }
     // Purely for the live countdown text — doesn't touch the network,
-    // just forces a rebuild every second so "until HH:MM" (and the
-    // deadline's own resolution once it passes) stays current.
+    // just forces a rebuild every second so "until HH:MM" stays current
+    // between pushed updates (the deadline's own resolution is now the
+    // server socket's job — see backend/app/routers/co_view_poll.py's
+    // watch_poll).
+    _tickTimer?.cancel();
     _tickTimer = Timer.periodic(_tickInterval, (_) {
       if (mounted) setState(() {});
     });
   }
 
+  void _onSessionUpdate(CoViewPollSession updated) {
+    if (!mounted) return;
+    setState(() {
+      _session = updated;
+      if (updated.isDone) {
+        _phase = _Phase.done;
+        _socketSub?.cancel();
+        _socket?.close();
+        _tickTimer?.cancel();
+      }
+    });
+  }
+
+  /// One-off fallback fetch after a vote's own request fails outright
+  /// (see [_vote]'s catch block) — the socket itself keeps working
+  /// regardless, this is just to correct this device's own optimistic
+  /// update sooner than waiting on the next push.
   Future<void> _refresh() async {
     final session = _session;
     if (session == null || !mounted) return;
@@ -142,12 +169,13 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         _session = updated;
         if (updated.isDone) {
           _phase = _Phase.done;
-          _pollTimer?.cancel();
+          _socketSub?.cancel();
+          _socket?.close();
           _tickTimer?.cancel();
         }
       });
     } catch (_) {
-      // A missed poll just tries again on the next tick.
+      // best-effort
     }
   }
 
@@ -182,7 +210,8 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
         _session = updated;
         if (updated.isDone) {
           _phase = _Phase.done;
-          _pollTimer?.cancel();
+          _socketSub?.cancel();
+          _socket?.close();
           _tickTimer?.cancel();
         }
       });
@@ -193,7 +222,8 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
   }
 
   Future<void> _endAndClose() async {
-    _pollTimer?.cancel();
+    _socketSub?.cancel();
+    _socket?.close();
     _tickTimer?.cancel();
     final session = _session;
     if (session != null && !session.isDone) {
@@ -209,7 +239,8 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
 
   Future<void> _voteAgain() async {
     final session = _session;
-    _pollTimer?.cancel();
+    _socketSub?.cancel();
+    _socket?.close();
     _tickTimer?.cancel();
     if (session != null && !session.isDone) {
       try {
@@ -270,43 +301,21 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
   Widget _body() {
     switch (_phase) {
       case _Phase.setup:
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(22, 10, 22, 24),
-          children: [
-            Entrance(child: Icon(Icons.how_to_vote_outlined, size: 28, color: SeenlyPalette.accent)),
-            const SizedBox(height: 14),
-            Entrance(
-              delay: const Duration(milliseconds: 60),
-              child: Text('vote it out'.tr, style: SeenlyText.screenTitle),
-            ),
-            const SizedBox(height: 8),
-            Entrance(
-              delay: const Duration(milliseconds: 110),
-              child: Text(
+        return PoolSetupLayout(
+          hero: PoolSetupHero(
+            icon: Icons.how_to_vote_outlined,
+            title: 'vote it out'.tr,
+            subtitle:
                 "a shortlist, a countdown, whoever's got the most votes when time's up — a tie just runs another round between whoever's left.".tr,
-                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Entrance(
-              delay: const Duration(milliseconds: 150),
-              child: Text(
-                "what should the shortlist come from?".tr,
-                style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
-              ),
-            ),
-            const SizedBox(height: 18),
-            Entrance(
-              delay: const Duration(milliseconds: 190),
-              child: PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
-            ),
-            const SizedBox(height: 26),
-            Entrance(
-              delay: const Duration(milliseconds: 230),
-              riseBy: 14,
-              child: NarrowDownPrompt(onNarrowDown: _narrowDown, onTakeItAll: _start),
-            ),
-          ],
+          ),
+          question: "what should the shortlist come from?".tr,
+          value: _source,
+          onChanged: (v) => setState(() => _source = v),
+          footer: Entrance(
+            delay: const Duration(milliseconds: 230),
+            riseBy: 14,
+            child: NarrowDownPrompt(onNarrowDown: _narrowDown, onTakeItAll: _start),
+          ),
         );
       case _Phase.starting:
         return Center(
@@ -462,7 +471,7 @@ class _PollCard extends StatelessWidget {
     return Entrance(
       child: Container(
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.ink,
           borderRadius: BorderRadius.circular(22),
           boxShadow: SeenlyPalette.softShadow,
@@ -588,7 +597,7 @@ class _CandidateTile extends StatelessWidget {
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: Text(
-                  ruCount(votes, one: 'голос', few: 'голоса', many: 'голосов', englishOne: 'vote', englishOther: 'votes'),
+                  nCount('nVotes', votes),
                   key: ValueKey(votes),
                   style: SeenlyText.mono(
                     size: 12,

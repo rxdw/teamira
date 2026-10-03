@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
+import '../theme/notebook_paper.dart';
 import '../theme/palette.dart';
+import '../theme/seenly_skin.dart';
 import '../theme/text_styles.dart';
-import '../widgets/themed_loading_indicator.dart';
+import '../widgets/decide_motion.dart' show BouncingDots;
+import '../widgets/soft_motion.dart';
 import '../widgets/wow_motion.dart' show PressScale;
 
 /// Shared timing for every underline-tab switch in the app (Profile,
@@ -93,6 +98,24 @@ class MediaCountTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) {
+      return ClaySurface(
+        radius: 26,
+        elevation: 0.6,
+        color: Color.alphaBlend(color.withOpacity(0.24), SeenlyPalette.paper),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$count', style: SeenlyText.serif(size: 22, weight: FontWeight.w900, color: ClayTones.shadeOf(color, 0.12))),
+            const SizedBox(height: 4),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 6),
       decoration: BoxDecoration(
@@ -134,6 +157,9 @@ class PillChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) {
+      return ClayChip(label: label, active: active, onTap: onTap, fullWidth: fullWidth);
+    }
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
@@ -199,6 +225,14 @@ class _PrimaryButtonState extends State<PrimaryButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) {
+      return ClayButton(
+        label: widget.label,
+        onTap: widget.onTap,
+        loading: widget.loading,
+        expand: widget.expand,
+      );
+    }
     final button = Container(
       padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 24),
       decoration: BoxDecoration(
@@ -206,20 +240,24 @@ class _PrimaryButtonState extends State<PrimaryButton> {
         borderRadius: BorderRadius.circular(24),
       ),
       alignment: Alignment.center,
-      child: widget.loading
-          ? SizedBox(
-              width: 18,
-              height: 18,
-              child: ThemedLoadingIndicator(
-                strokeWidth: 2,
-                color: SeenlyPalette.accentOnAccent,
+      // Waiting isn't a spinner: three dots hop along while the label
+      // steps aside for them (and comes back when it's done).
+      child: SoftSwap(
+        alignment: Alignment.center,
+        duration: const Duration(milliseconds: 220),
+        child: widget.loading
+            ? SizedBox(
+                key: const ValueKey<String>('loading'),
+                height: 18,
+                child: Center(child: BouncingDots(color: SeenlyPalette.accentOnAccent)),
+              )
+            : Text(
+                widget.label,
+                key: ValueKey<String>('label:${widget.label}'),
+                style: SeenlyText.serif(
+                    italic: true, size: 14, color: SeenlyPalette.accentOnAccent),
               ),
-            )
-          : Text(
-              widget.label,
-              style: SeenlyText.serif(
-                  italic: true, size: 14, color: SeenlyPalette.accentOnAccent),
-            ),
+      ),
     );
 
     final tappable = GestureDetector(
@@ -361,12 +399,10 @@ class _EqualWidthUnderlineTabsState extends State<_EqualWidthUnderlineTabs>
                     : (fromLeft + tabWidth) + (toLeft - fromLeft) * lag;
                 return Positioned(
                   left: left,
-                  bottom: 0,
+                  bottom: SeenlySkin.isCozy ? -3 : 0,
                   width: right - left,
-                  height: 2,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(color: SeenlyPalette.accent),
-                  ),
+                  height: SeenlySkin.isCozy ? 8 : 2,
+                  child: HandDrawnLine(color: SeenlyPalette.accent, thickness: 2.2),
                 );
               },
             ),
@@ -407,6 +443,15 @@ class ScrollableUnderlineTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) {
+      return ClayTabBar(
+        labels: labels,
+        activeIndex: activeIndex,
+        onChanged: onChanged,
+        allowScroll: true,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: SeenlyPalette.border)),
@@ -486,8 +531,8 @@ class ScrollableUnderlineTabs extends StatelessWidget {
                             duration: kTabTransitionDuration,
                             curve: kTabLeadCurve,
                             width: activeIndex == i ? widths[i] : 0,
-                            height: 2,
-                            color: SeenlyPalette.accent,
+                            height: SeenlySkin.isCozy ? 8 : 2,
+                            child: HandDrawnLine(color: SeenlyPalette.accent, thickness: 2.2),
                           ),
                         ],
                       ),
@@ -517,6 +562,14 @@ class UnderlineTabRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) {
+      return ClayTabBar(
+        labels: labels,
+        activeIndex: activeIndex,
+        onChanged: onChanged,
+        margin: const EdgeInsets.symmetric(vertical: 4),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         border: Border(bottom: BorderSide(color: SeenlyPalette.border)),
@@ -579,7 +632,7 @@ class GenreTag extends StatelessWidget {
   /// each side. Used by [GenreTagsFlow] to pack tags into rows.
   static double naturalWidth(String label) {
     final painter = TextPainter(
-      text: TextSpan(text: label.toUpperCase(), style: textStyle),
+      text: TextSpan(text: label.tr.toUpperCase(), style: textStyle),
       textDirection: TextDirection.ltr,
       maxLines: 1,
     )..layout();
@@ -588,6 +641,21 @@ class GenreTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) {
+      return ClaySurface(
+        radius: 18,
+        elevation: 0.3,
+        color: Color.alphaBlend(SeenlyPalette.periwinkle.withOpacity(0.16), SeenlyPalette.paper),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Center(
+          child: Text(
+            label.tr,
+            textAlign: TextAlign.center,
+            style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkMuted, weight: FontWeight.w800),
+          ),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       alignment: Alignment.center,
@@ -596,7 +664,7 @@ class GenreTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label.toUpperCase(),
+        label.tr.toUpperCase(),
         textAlign: TextAlign.center,
         style: textStyle,
       ),

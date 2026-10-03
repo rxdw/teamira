@@ -3,6 +3,7 @@ import '../models/media_item.dart';
 import '../models/partner_status.dart';
 import '../models/suggestion.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
 
 /// Talks to /partner — a standing pairing (link once with a code, stays
 /// linked) plus the one-tap "suggest this for tonight" suggestions sent
@@ -19,6 +20,7 @@ class PartnerService {
   /// Generates (or re-fetches) a code to send to a partner.
   Future<PartnerStatus> pair() async {
     final json = await _client.post('/partner/pair') as Map<String, dynamic>;
+    Analytics.instance.track('coview_pair_code_created');
     return PartnerStatus.fromJson(json);
   }
 
@@ -27,6 +29,7 @@ class PartnerService {
     final json = await _client.post('/partner/join', body: {
       'code': code.trim().toUpperCase(),
     }) as Map<String, dynamic>;
+    Analytics.instance.track('coview_joined_by_code');
     return PartnerStatus.fromJson(json);
   }
 
@@ -42,6 +45,7 @@ class PartnerService {
     final json = await _client.post('/partner/invite', body: {
       'user_id': userId,
     }) as Map<String, dynamic>;
+    Analytics.instance.track('coview_invite_sent');
     return PartnerInvite.fromJson(json);
   }
 
@@ -53,11 +57,21 @@ class PartnerService {
     return PartnerInvites.fromJson(json);
   }
 
+  /// This account's taste match against each other member of its
+  /// co-viewing circle — one row for a couple, one per other seat for a
+  /// company. Powers the "мы" tab's compatibility section. Empty for an
+  /// account not currently linked to anyone.
+  Future<List<CircleCompatibility>> compatibility() async {
+    final json = await _client.get('/partner/compatibility') as List;
+    return json.map((e) => CircleCompatibility.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   /// Accepting a direct invite joins the inviter's circle — a couple's
   /// worth if it's a fresh one, or the whole company if it's already
   /// grown past two.
   Future<PartnerStatus> acceptInvite(String inviteId) async {
     final json = await _client.post('/partner/invites/$inviteId/accept') as Map<String, dynamic>;
+    Analytics.instance.track('coview_invite_accepted');
     return PartnerStatus.fromJson(json);
   }
 
@@ -84,10 +98,22 @@ class PartnerService {
       _client.delete('/partner/suggestions/$suggestionId');
 
   /// Agreeing to watch it — this is what actually moves the title onto
-  /// the shared co-viewing list as "planned together".
-  Future<CoViewEntry> acceptSuggestion(String suggestionId) async {
-    final json = await _client
-        .post('/partner/suggestions/$suggestionId/accept') as Map<String, dynamic>;
+  /// the shared co-viewing list as "planned together". [date]/[hour]/
+  /// [minute] carry whatever the plan-an-evening ritual picked (see
+  /// plan_evening_sheet.dart's approvingSuggestion mode) — approving a
+  /// suggestion *is* planning that evening, so it gets the same "when"
+  /// as anything else planned, not a bare, dateless add.
+  Future<CoViewEntry> acceptSuggestion(
+    String suggestionId, {
+    DateTime? date,
+    int? hour,
+    int? minute,
+  }) async {
+    final json = await _client.post('/partner/suggestions/$suggestionId/accept', body: {
+      if (date != null) 'scheduled_date': date.toIso8601String(),
+      'scheduled_hour': hour,
+      'scheduled_minute': minute,
+    }) as Map<String, dynamic>;
     return CoViewEntry.fromJson(json);
   }
 
@@ -131,9 +157,27 @@ class PartnerService {
 
   /// Marks a co-viewing title watched — logs the same evening into *both*
   /// linked accounts' personal diaries server-side.
-  Future<CoViewEntry> markCoViewWatched(String entryId) async {
-    final json = await _client
-        .post('/partner/co-viewing/$entryId/watched') as Map<String, dynamic>;
+  /// Marks a shared title watched right now — same "client supplies its
+  /// own local wall-clock instant" convention every other watched_at
+  /// write already follows (see DiaryService.logEntry). Without this,
+  /// the co-viewing screen was the one place that let the backend stamp
+  /// a bare UTC instant instead, which the client always reads back as
+  /// if it were local (see DiaryEntry.fromJson) — near a midnight
+  /// boundary that could log the evening under the wrong calendar day.
+  ///
+  /// [alreadyLogged] is for the planned card's "смотрю" button (see
+  /// CoViewHubScreen._openPlannedLogging): the caller has already been
+  /// through the normal per-title logging ritual and written their own
+  /// rated diary row themselves, so this call should only flip the
+  /// CoViewEntry off "запланировано" — not write a second, bare row on
+  /// top of it (or an unrated one for the other member(s), who didn't
+  /// ask for that). Leave it false for a plain instant "mark watched"
+  /// with no ritual involved, which still wants the old dual write.
+  Future<CoViewEntry> markCoViewWatched(String entryId, {bool alreadyLogged = false}) async {
+    final json = await _client.post('/partner/co-viewing/$entryId/watched', body: {
+      'watched_at': DateTime.now().toIso8601String(),
+      'already_logged': alreadyLogged,
+    }) as Map<String, dynamic>;
     return CoViewEntry.fromJson(json);
   }
 

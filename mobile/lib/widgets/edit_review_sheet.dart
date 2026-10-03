@@ -4,15 +4,18 @@ import 'package:provider/provider.dart';
 import '../models/diary_entry.dart';
 import '../models/media_item.dart' show CastMember;
 import '../state/app_state.dart';
+import '../state/diary_store.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'heart_rating.dart';
 import 'mood_tag_picker.dart';
 import 'review_composer.dart';
+import 'sincerity_toast.dart';
 import 'tear_ticket_confirm.dart';
 import 'themed_loading_indicator.dart';
 import 'wow_motion.dart' show PressScale;
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// What [showEditReviewSheet] resolved with. `deleted` means the person
 /// removed the evening entirely rather than saving changes to it — see
@@ -127,14 +130,23 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
     if (_saving || _deleting) return;
     setState(() => _saving = true);
     try {
-      final updated = await context.read<AppState>().diary.updateEntry(
+      // Optimistic — see Фаза 2.15.3 in the launch plan: the store
+      // reflects this change instantly (before the request below even
+      // resolves), so anywhere else this entry is shown — the diary
+      // list behind this sheet, the profile grid — updates right away
+      // too, not just this sheet. Same await/pop-on-success/
+      // snackbar-on-failure flow as before either way.
+      final updated = await context.read<DiaryStore>().updateEntry(
             widget.entry.id,
             rating: _rating > 0 ? _rating : null,
             note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
             moodTags: _moodTags.isEmpty ? null : _moodTags,
             favoriteCast: _favoriteCast.isEmpty ? null : _favoriteCast,
           );
-      if (mounted) Navigator.of(context).pop(EditReviewResult.saved(updated));
+      if (mounted) {
+        showSincerityToasts(context, updated.sincerityAwarded);
+        Navigator.of(context).pop(EditReviewResult.saved(updated));
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -162,7 +174,8 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Container(
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
           ),
@@ -213,7 +226,8 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
     if (confirmed != true || !mounted) return;
     setState(() => _deleting = true);
     try {
-      await context.read<AppState>().diary.delete(widget.entry.id);
+      // Optimistic removal, same store, same reasoning as _save above.
+      await context.read<DiaryStore>().delete(widget.entry.id);
       if (mounted) Navigator.of(context).pop(const EditReviewResult.deleted());
     } catch (_) {
       if (!mounted) return;
@@ -290,7 +304,8 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                decoration: BoxDecoration(
+                decoration: ClayBoxDecoration(
+                  boxShadow: SeenlyPalette.flatCardShadow,
                   color: SeenlyPalette.paper,
                   borderRadius: BorderRadius.circular(14),
                 ),

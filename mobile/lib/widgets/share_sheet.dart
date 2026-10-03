@@ -1,11 +1,15 @@
+import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import 'level_up_celebration.dart';
 import 'small_pieces.dart';
 import '../services/app_translations.dart';
 
@@ -16,11 +20,20 @@ import '../services/app_translations.dart';
 /// device's native share sheet. This is the whole "share this evening" /
 /// "share your year" flow — Letterboxd does the same thing, just baked
 /// into their app instead of a reusable helper.
+///
+/// [rewardKey] is a stable id for the card being shared (e.g.
+/// `seenly-<diary entry id>`). When set, a share the native sheet doesn't
+/// report as dismissed is sent to POST /shares/card, which pays sincerity
+/// points once
+/// per distinct card and only a couple of cards a day (see
+/// backend/app/routers/card_shares.py). Leave it null for cards that
+/// shouldn't earn points — e.g. the onboarding plan card.
 Future<void> showShareCardSheet(
   BuildContext context, {
   required Widget card,
   required String fileName,
   String? shareText,
+  String? rewardKey,
 }) {
   final boundaryKey = GlobalKey();
 
@@ -68,6 +81,7 @@ Future<void> showShareCardSheet(
             boundaryKey: boundaryKey,
             fileName: fileName,
             shareText: shareText,
+            rewardKey: rewardKey,
           ),
         );
       },
@@ -80,12 +94,14 @@ class _ShareCardSheetBody extends StatefulWidget {
   final GlobalKey boundaryKey;
   final String fileName;
   final String? shareText;
+  final String? rewardKey;
 
   const _ShareCardSheetBody({
     required this.card,
     required this.boundaryKey,
     required this.fileName,
     this.shareText,
+    this.rewardKey,
   });
 
   @override
@@ -95,11 +111,35 @@ class _ShareCardSheetBody extends StatefulWidget {
 class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
   bool _sharing = false;
   bool _failed = false;
+  // Set when the server paid points for this share — shown under the card in
+  // place of the failure line, so it can't be hidden behind the blurred
+  // backdrop the way a SnackBar on the screen underneath would be.
+  int? _earnedPoints;
+
+  /// Tells the server this card went out and, if it paid, shows the points
+  /// (and the level-up moment, if it tipped one). Best-effort: a failed
+  /// call just means no points this time, never a failed share.
+  Future<void> _reportShare(String key) async {
+    final app = context.read<AppState>();
+    try {
+      final result = await app.cardShares.record(key);
+      if (!result.counted) return;
+      if (mounted) setState(() => _earnedPoints = result.pointsAwarded);
+      await app.refreshLevel();
+      final leveledUp = app.consumePendingLevelUp();
+      if (leveledUp != null && mounted) {
+        await showLevelUpCelebration(context, leveledUp);
+      }
+    } catch (_) {
+      // Ignored on purpose — see above.
+    }
+  }
 
   Future<void> _share() async {
     setState(() {
       _sharing = true;
       _failed = false;
+      _earnedPoints = null;
     });
     try {
       final boundary = widget.boundaryKey.currentContext?.findRenderObject()
@@ -107,7 +147,7 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
       final image = await boundary?.toImage(pixelRatio: 3);
       final bytes = await image?.toByteData(format: ui.ImageByteFormat.png);
       if (bytes == null) throw Exception('no image');
-      await Share.shareXFiles(
+      final result = await Share.shareXFiles(
         [
           XFile.fromData(
             bytes.buffer.asUint8List(),
@@ -117,6 +157,13 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
         ],
         text: widget.shareText,
       );
+      // "unavailable" means the platform can't say what happened (some
+      // Android targets) — treated as shared, since the sheet did open.
+      // Only an explicit dismiss is not.
+      final key = widget.rewardKey;
+      if (key != null && result.status != ShareResultStatus.dismissed) {
+        unawaited(_reportShare(key));
+      }
     } catch (_) {
       if (mounted) setState(() => _failed = true);
     } finally {
@@ -131,8 +178,8 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
       child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-            maxWidth: 340,
-            maxHeight: media.size.height * 0.82,
+            maxWidth: 376,
+            maxHeight: media.size.height * 0.86,
           ),
           child: Container(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
@@ -182,6 +229,12 @@ class _ShareCardSheetBodyState extends State<_ShareCardSheetBody> {
                   const SizedBox(height: 10),
                   Text("couldn't share that — try again".tr,
                       style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
+                ],
+                if (_earnedPoints != null) ...[
+                  const SizedBox(height: 10),
+                  Text('+$_earnedPoints',
+                      style: SeenlyText.mono(
+                          size: 11.5, weight: FontWeight.w600, color: SeenlyPalette.accent)),
                 ],
                 const SizedBox(height: 18),
                 PrimaryButton(

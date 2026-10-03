@@ -1,5 +1,6 @@
 import '../models/import_row.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
 
 /// Bulk "bring your history over" — pastes a plain title list or a CSV
 /// export (Letterboxd and similar services all export the same basic
@@ -44,6 +45,7 @@ class ImportService {
       },
       timeout: const Duration(seconds: 30),
     ) as Map<String, dynamic>;
+    Analytics.instance.track('import_committed', {'rows': selected.length});
     return ImportCommitResult.fromJson(json);
   }
 }

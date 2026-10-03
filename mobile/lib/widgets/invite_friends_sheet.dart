@@ -11,7 +11,6 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'themed_loading_indicator.dart';
 import '../services/app_translations.dart';
-import '../services/locale_service.dart';
 
 /// The invite flow's only surface — opened by tapping "invite friends" in
 /// the profile friends block or on the friends screen itself. Never
@@ -158,7 +157,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
         ),
         const SizedBox(height: 2),
         Text(
-          "${'every friend who joins with your code earns you'.tr} +${invite.xpPerFriend} xp",
+          "${'every friend who joins with your code earns you'.tr} +${invite.sincerityPerFriend}",
           style: SeenlyText.serif(italic: true, size: 11, color: SeenlyPalette.inkMuted),
         ),
         const SizedBox(height: 16),
@@ -209,11 +208,7 @@ class _InviteFriendsSheetState extends State<InviteFriendsSheet> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(color: SeenlyPalette.background, borderRadius: BorderRadius.circular(12)),
             child: Text(
-              LocaleService.appIsRussian
-                  ? '${ruCount(invite.invitedCount, one: 'друг', few: 'друга', many: 'друзей', englishOne: '', englishOther: '')} '
-                      '${invite.invitedCount == 1 ? 'присоединился' : 'присоединились'} с твоим кодом — +${invite.xpBonus} xp пока что'
-                  : '${invite.invitedCount} ${invite.invitedCount == 1 ? "friend has" : "friends have"} '
-                      'joined with your code — +${invite.xpBonus} xp so far',
+              friendsJoinedWithCode(invite.invitedCount, invite.sincerityBonus),
               style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
             ),
           ),

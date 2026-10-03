@@ -1,6 +1,7 @@
 import '../models/media_item.dart';
 import '../models/user_list.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
 
 class ListsService {
   final ApiClient _client;
@@ -18,6 +19,7 @@ class ListsService {
       'name': name,
       if (description != null && description.isNotEmpty) 'description': description,
     }) as Map<String, dynamic>;
+    Analytics.instance.track('list_created');
     return UserList.fromJson(json);
   }
 
@@ -52,6 +54,7 @@ class ListsService {
   Future<UserListDetail> addItem(String listId, MediaItem item) async {
     final json = await _client.post('/lists/$listId/items',
         body: item.toAddListItemBody()) as Map<String, dynamic>;
+    Analytics.instance.track('list_item_added', {'media_type': item.mediaType});
     return UserListDetail.fromJson(json);
   }
 

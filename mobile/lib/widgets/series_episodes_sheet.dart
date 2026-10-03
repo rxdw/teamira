@@ -21,6 +21,8 @@ import 'heart_rating.dart';
 import 'review_composer.dart';
 import 'themed_loading_indicator.dart';
 import '../services/app_translations.dart';
+import '../theme/notebook_paper.dart';
+import '../theme/clay_kit.dart';
 
 /// Opened from a series' single roll-up card on the Diary tab or the
 /// "watched" shelf — one card per series rather than one row per logged
@@ -359,7 +361,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                             child: Container(
                               width: 30,
                               height: 30,
-                              decoration: BoxDecoration(
+                              decoration: ClayBoxDecoration(
                                 color: SeenlyPalette.accent,
                                 shape: BoxShape.circle,
                                 border: Border.all(color: SeenlyPalette.paper, width: 2.5),
@@ -387,11 +389,11 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                       const SizedBox(height: 10),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
+                        child: RuledProgressBar(
                           value: total == 0 ? 0.0 : watched / total,
                           minHeight: 5,
                           backgroundColor: SeenlyPalette.border,
-                          valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
+                          valueColor: SeenlyPalette.accent,
                         ),
                       ),
                     ],
@@ -408,7 +410,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                       Text(
                         _failed ? "couldn't load episodes — try again" : 'no episode data for this one yet',
                         textAlign: TextAlign.center,
-                        style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+                        style: SeenlyText.emptyState(),
                       ),
                       const SizedBox(height: 12),
                     ] else ...[
@@ -703,7 +705,9 @@ class _SeasonPagerState extends State<_SeasonPager> {
     final watchedCount =
         season.episodes.where((e) => widget.progress.isWatched(e.season, e.episode)).length;
 
-    return Container(
+    return PaperclipCard(
+      dx: 24,
+      child: Container(
       decoration: BoxDecoration(
         color: SeenlyPalette.background,
         borderRadius: BorderRadius.circular(14),
@@ -735,7 +739,7 @@ class _SeasonPagerState extends State<_SeasonPager> {
                       Text('${'season'.tr} ${season.season}',
                           style: SeenlyText.serif(italic: true, size: 14)),
                       const SizedBox(height: 2),
-                      Text('$watchedCount/${season.episodes.length} ${ruPluralForm(season.episodes.length, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}',
+                      Text('$watchedCount/${season.episodes.length} ${nOnly('nEpisodes', season.episodes.length)}',
                           style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
                     ],
                   ),
@@ -761,7 +765,7 @@ class _SeasonPagerState extends State<_SeasonPager> {
               ],
             ),
           ),
-          Divider(height: 1, thickness: 1, color: SeenlyPalette.paper),
+          CozyDivider(height: 1, thickness: 1, color: SeenlyPalette.paper),
           SizedBox(
             height: 220,
             child: PageView.builder(
@@ -811,10 +815,10 @@ class _SeasonPagerState extends State<_SeasonPager> {
             ),
         ],
       ),
+      ),
     );
   }
 }
-
 
 class _EpisodeListRow extends StatelessWidget {
   final Episode episode;
@@ -847,7 +851,7 @@ class _EpisodeListRow extends StatelessWidget {
     final hasTitle = episode.title != null && episode.title!.trim().isNotEmpty;
     return Column(
       children: [
-        if (showDivider) Divider(height: 1, thickness: 1, color: SeenlyPalette.paper),
+        if (showDivider) CozyDivider(height: 1, thickness: 1, color: SeenlyPalette.paper),
         InkWell(
           onTap: watched ? onTap : null,
           child: Opacity(

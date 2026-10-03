@@ -1,0 +1,26 @@
+# Official Flutter localization config — read by `flutter gen-l10n`
+# (also run automatically by `flutter pub get` / `flutter run` because
+# pubspec.yaml sets `generate: true`, see the `flutter:` section there).
+#
+# `app_en.arb` is the template: every other ARB file is validated against
+# it (same keys, same placeholders) when the generator runs, which is
+# what catches a translation silently falling behind the English source —
+# something the old two-hand-written-dictionaries setup had no way to
+# check at all. If `flutter gen-l10n` reports a missing key or a
+# placeholder mismatch, that's it doing its job — fix the ARB file, not
+# the generator's complaint.
+#
+# See changes/CHANGES_localization_migration.md for the full
+# story: why this replaced lib/services/app_translations.dart's two
+# opposite-direction dictionaries, and what still calls the compatibility
+# layer that file now provides.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+# Nullable getters would make every one of the ~1500 keys optional at the
+# call site for no benefit — every key here always has both an `en` and a
+# `ru` entry by construction (see tools/l10n/build_arb.py), so a missing
+# translation is a bug to fix in the ARB file, not a null to handle at
+# every call site.
+nullable-getter: false

@@ -10,8 +10,23 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Camera access for scanning a partner's co-viewing pairing QR code (mobile_scanner). -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- Push notifications (audit 4.4.1) — required on Android 13+ (API
+         33) for a notification to actually show at all; on older
+         versions this permission is granted automatically and the
+         runtime request (see PushNotificationManager.registerDeviceToken
+         -> FirebaseMessaging.requestPermission) is a no-op. Without this
+         line present, the runtime request itself has nothing to ask
+         for and every notification this app sends is silently dropped
+         by the OS on 13+, not just unstyled or delayed. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- Co-view rooms: free voice chat (LiveKit, audio only, never recorded). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <application
-        android:label="teamira"
+        android:label="tanè"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -67,6 +82,33 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Push notifications (audit 4.4.1) — must match
+             PushNotificationManager._androidChannel's id exactly
+             (services/push_notification_manager.dart) so a notification
+             FCM displays on its own (app backgrounded/terminated —
+             system default channel) looks the same as one this app
+             draws itself via flutter_local_notifications while it's
+             open (foreground — that same explicit channel). Without
+             this meta-data, FCM falls back to its own auto-created
+             channel for the backgrounded case, which has no relation to
+             this app's channel importance/description at all. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="default_channel" />
+        <!-- Premium home-screen widget (streak / today's pick / co-
+             viewing countdown — see services/home_widget_service.dart
+             and SeenlyWidgetProvider.kt). android:name matches the
+             androidName the Dart side passes to HomeWidget.updateWidget. -->
+        <receiver
+            android:name=".SeenlyWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/seenly_widget_info"/>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

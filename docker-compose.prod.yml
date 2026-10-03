@@ -1,0 +1,82 @@
+version: "3.9"
+
+# Production compose file — run with:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differs from docker-compose.yml (local dev) in exactly the ways that
+# matter for a real deployment:
+#   - no `volumes: - ./backend:/app` — the image runs what was baked in
+#     at `docker build` time, not whatever happens to be on the host's
+#     disk. Ship a new image to deploy a change, don't rely on the
+#     running container picking up an edited file.
+#   - no `--reload` — uvicorn's autoreloader is a dev convenience, not
+#     something a long-running production process wants.
+#   - Postgres is NOT published to the host (no `ports: 5432:5432`) —
+#     only the `api` service, on the same compose network, can reach
+#     `db:5432`. If you need a shell into prod Postgres, use
+#     `docker compose -f docker-compose.prod.yml exec db psql ...`
+#     rather than opening the port.
+#   - the API port is bound to 127.0.0.1 only, not 0.0.0.0 — this
+#     assumes a reverse proxy (nginx/Caddy/Traefik) on the same host
+#     terminates TLS and forwards to 127.0.0.1:8000. If your setup
+#     reaches this container a different way (a separate proxy
+#     container on the same compose network, a cloud load balancer
+#     hitting the host on a different path), adjust this mapping
+#     accordingly — the point is "not directly world-reachable on
+#     plain HTTP", not this exact syntax.
+#   - Postgres credentials have no built-in default (`${VAR:?...}`) —
+#     `docker compose` itself refuses to run this file at all until
+#     they're set, rather than silently falling back to dev's
+#     seenly/seenly. Put real values in a `.env` file next to this one
+#     (docker compose reads that automatically for `${...}`
+#     substitution — a DIFFERENT file from backend/.env below, which is
+#     injected into the api container's own environment instead).
+#   - ENVIRONMENT=production is set explicitly, so app/main.py's
+#     on_startup refuses to boot if backend/.env still has
+#     JWT_SECRET=change-me or a non-smtp EMAIL_BACKEND, instead of only
+#     logging critical (see app/config.py, app/main.py).
+#
+# backend/.env (referenced by api's env_file: below) still needs to
+# exist and carry real values for JWT_SECRET, EMAIL_BACKEND + SMTP_*,
+# and every third-party API key — this file only covers what's
+# specific to running the containers themselves in production.
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env before deploying}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env before deploying — do not reuse the seenly/seenly dev default}
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env before deploying}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      # Derived from the same POSTGRES_* values the db service above
+      # requires, so the two can't drift out of sync the way two
+      # independently-set values could — this line intentionally
+      # overrides whatever DATABASE_URL backend/.env itself contains.
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      ENVIRONMENT: production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    # No `command:` override and no `volumes:` mount — this runs the
+    # Dockerfile's own CMD (uvicorn, --workers ${UVICORN_WORKERS:-1},
+    # no --reload) against exactly what `docker build` produced.
+
+volumes:
+  db_data:

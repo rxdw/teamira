@@ -361,7 +361,7 @@ class AchievementBadge extends StatelessWidget {
         children: [
           badge,
           SizedBox(height: large ? 8 : 5),
-          Text(label,
+          Text(label.tr,
               textAlign: TextAlign.center,
               maxLines: 2,
               style: SeenlyText.mono(
@@ -544,7 +544,7 @@ class RoundBadgeMedallion extends StatelessWidget {
           SizedBox(
             width: diameter + 14,
             child: Text(
-              title,
+              title.tr,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -565,6 +565,24 @@ class RoundBadgeMedallion extends StatelessWidget {
     if (onTap == null) return content;
     return GestureDetector(onTap: onTap, behavior: HitTestBehavior.opaque, child: content);
   }
+}
+
+/// Localizes an achievement's caption for display. Almost every caption
+/// is one of a small fixed set of strings baked into
+/// backend/app/routers/profile.py (movie/genre/streak/level milestones,
+/// craft achievements) — those translate with a plain `.tr` lookup, same
+/// as everything else in this file. Saga captions are the one exception:
+/// they're assembled server-side as "watched all {N} in the saga" with a
+/// franchise-specific N, so no single literal string can be in the
+/// translation table. For those we rebuild the sentence client-side from
+/// [Achievement.progressTarget] (the same number the caption embeds) and
+/// translated fragments instead, so franchise completions read in
+/// Russian too rather than silently falling back to English.
+String _localizedCaption(Achievement a) {
+  if (a.category == 'saga') {
+    return '${'watched all'.tr} ${a.progressTarget} ${'in the saga'.tr}';
+  }
+  return a.caption.tr;
 }
 
 /// Turns the backend's terse `Achievement.caption` ("watched all 9 in
@@ -602,7 +620,7 @@ Future<void> showBadgeDetailCard(
 }) {
   return showGeneralDialog(
     context: context,
-    barrierLabel: achievement.title,
+    barrierLabel: achievement.title.tr,
     barrierDismissible: true,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 220),
@@ -712,7 +730,7 @@ class _BadgeDetailCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(a.title,
+                      Text(a.title.tr,
                           textAlign: TextAlign.center,
                           style: SeenlyText.serif(size: 17, weight: FontWeight.w600)),
                       const SizedBox(height: 6),
@@ -726,12 +744,12 @@ class _BadgeDetailCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        a.unlocked ? 'why you have it' : 'how to earn it',
+                        a.unlocked ? 'why you have it'.tr : 'how to earn it'.tr,
                         style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _sentenceCase(a.caption),
+                        _sentenceCase(_localizedCaption(a)),
                         textAlign: TextAlign.center,
                         style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
                       ),

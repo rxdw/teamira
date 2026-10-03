@@ -8,6 +8,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'building.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the city theme — the counterpart to
 /// `TicketJar`/`PassportBook`/`RouteBoard`: a little skyline sitting on
@@ -46,7 +47,7 @@ class CityMap extends StatelessWidget {
       child: Container(
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           borderRadius: BorderRadius.circular(24),
           boxShadow: SeenlyPalette.softShadow,
         ),

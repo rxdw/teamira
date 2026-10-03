@@ -2,15 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/user_list.dart';
+import '../../services/locale_service.dart';
+import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../premium/premium_screen.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/soft_limit_meter.dart';
+import '../together/together_screen.dart' show kTogetherListName;
 import 'list_detail_screen.dart';
 import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// Profile → "your lists": the user's own made-up collections, distinct
 /// from the editorial shelves on the Collections tab. "Cozy rainy-day
@@ -37,7 +44,43 @@ class _ListsScreenState extends State<ListsScreen> {
     await _future;
   }
 
+  /// Free accounts keep up to [PremiumService.freeListsLimit] custom
+  /// lists; premium removes the cap entirely — same "count what's
+  /// already there, gate right before creating" shape as
+  /// PremiumService.canAddFavorite. Reads off whatever [_future]'s
+  /// already resolved to rather than a fresh fetch, since the screen
+  /// showing this button already has the current count on screen.
+  ///
+  /// The auto-created "watch together" list (see kTogetherListName,
+  /// together_screen.dart) doesn't count toward the limit — nobody
+  /// spent a slot choosing to make it, the app made it for them the
+  /// first time they matched on something. Matched by name, same as
+  /// together_screen.dart's own lookup for it — if it's ever renamed
+  /// it just quietly starts counting like any other list rather than
+  /// breaking anything.
   Future<void> _createList() async {
+    // Fails open on a bad count (network hiccup, etc.) — better to let
+    // someone through than to block list creation over a failed check
+    // that has nothing to do with the thing they're actually trying to
+    // do.
+    List<UserList> currentLists = const [];
+    try {
+      currentLists = await _future;
+    } catch (_) {
+      // ignore — see comment above
+    }
+    if (!mounted) return;
+    final billableCount = currentLists.where((l) => l.name != kTogetherListName).length;
+    if (!context.read<PremiumService>().canAddList(billableCount)) {
+      await showPremiumUpsellSheet(
+        context,
+        triggerSource: 'lists_limit',
+        icon: Icons.playlist_add_outlined,
+        title: 'lists limit reached'.tr,
+        message: 'the free tier holds up to 5 lists — premium removes the limit'.tr,
+      );
+      return;
+    }
     final result = await showModalBottomSheet<_NewListResult>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -108,60 +151,97 @@ class _ListsScreenState extends State<ListsScreen> {
                     );
                   }
                   final lists = snapshot.data!;
-                  if (lists.isEmpty) {
-                    return RefreshIndicator(
-                      onRefresh: _refresh,
-                      color: SeenlyPalette.accent,
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
-                        children: [
-                          Entrance(
-                            child: Text('no lists yet'.tr,
-                                textAlign: TextAlign.center,
-                                style: SeenlyText.serif(italic: true, size: 15)),
-                          ),
-                          const SizedBox(height: 8),
-                          Entrance(
-                            delay: const Duration(milliseconds: 60),
-                            child: Text(
-                              'group whatever you like together — a mood, a marathon, favorites you keep coming back to'.tr,
-                              textAlign: TextAlign.center,
-                              style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder),
+                  // Billable count only (see [_createList]'s own doc
+                  // comment on why the auto-created "watch together"
+                  // list doesn't count toward the free ceiling) — the
+                  // soft meter below should read exactly like the hard
+                  // check it's warning about ahead of time, not a
+                  // slightly different number that would only confuse
+                  // someone comparing the two.
+                  final billableCount =
+                      lists.where((l) => l.name != kTogetherListName).length;
+                  final meter = context.watch<PremiumService>().isPremium
+                      ? null
+                      : SoftLimitMeter(
+                          used: billableCount,
+                          limit: PremiumService.freeListsLimit,
+                          label: LocaleService.appIsRussian
+                              ? '$billableCount из ${PremiumService.freeListsLimit} списков'
+                              : '$billableCount of ${PremiumService.freeListsLimit} lists',
+                          onTapUpgrade: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PremiumScreen(triggerSource: 'lists_limit_soft'),
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          Entrance(
-                            delay: const Duration(milliseconds: 110),
-                            riseBy: 14,
-                            child: PrimaryButton(label: 'new list'.tr, onTap: _createList),
+                        );
+                  if (lists.isEmpty) {
+                    return Column(
+                      children: [
+                        if (meter != null) Padding(padding: const EdgeInsets.only(top: 6), child: meter),
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: _refresh,
+                            color: SeenlyPalette.accent,
+                            child: ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 80),
+                              children: [
+                                Entrance(
+                                  child: Text('no lists yet'.tr,
+                                      textAlign: TextAlign.center,
+                                      style: SeenlyText.serif(italic: true, size: 15)),
+                                ),
+                                const SizedBox(height: 8),
+                                Entrance(
+                                  delay: const Duration(milliseconds: 60),
+                                  child: Text(
+                                    'group whatever you like together — a mood, a marathon, favorites you keep coming back to'.tr,
+                                    textAlign: TextAlign.center,
+                                    style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder),
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Entrance(
+                                  delay: const Duration(milliseconds: 110),
+                                  riseBy: 14,
+                                  child: PrimaryButton(label: 'new list'.tr, onTap: _createList),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     );
                   }
-                  return RefreshIndicator(
-                    onRefresh: _refresh,
-                    color: SeenlyPalette.accent,
-                    child: ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
-                      itemCount: lists.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) => ScrollRevealEntrance(
-                        index: i,
-                        child: _ListRow(
-                          list: lists[i],
-                          onTap: () async {
-                            await Navigator.of(context).push(
-                                MaterialPageRoute(
-                                    builder: (_) => ListDetailScreen(listId: lists[i].id)),
-                            );
-                            _refresh();
-                          },
+                  return Column(
+                    children: [
+                      if (meter != null) Padding(padding: const EdgeInsets.only(top: 6), child: meter),
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _refresh,
+                          color: SeenlyPalette.accent,
+                          child: ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
+                            itemCount: lists.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 10),
+                            itemBuilder: (context, i) => ScrollRevealEntrance(
+                              index: i,
+                              child: _ListRow(
+                                list: lists[i],
+                                onTap: () async {
+                                  await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                          builder: (_) => ListDetailScreen(listId: lists[i].id)),
+                                  );
+                                  _refresh();
+                                },
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   );
                 },
               ),
@@ -184,7 +264,8 @@ class _ListRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(16),
         ),
@@ -202,7 +283,7 @@ class _ListRow extends StatelessWidget {
                       style: SeenlyText.cardTitle),
                   const SizedBox(height: 4),
                   Text(
-                    ruCount(list.itemCount, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'),
+                    nCount('nTitles', list.itemCount),
                     style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint),
                   ),
                 ],
@@ -284,7 +365,8 @@ class _NewListSheetState extends State<_NewListSheet> {
       child: Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
         ),

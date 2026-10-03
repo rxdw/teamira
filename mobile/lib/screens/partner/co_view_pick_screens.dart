@@ -11,7 +11,7 @@ import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import '../decide/decide_random_screen.dart';
 import '../decide/decide_roulette_screen.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
-import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSourcePicker, proposeToCircle;
+import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSetupHero, PoolSetupLayout, proposeToCircle;
 import '../../services/app_translations.dart';
 
 enum CoViewPickMethod { random, reel }
@@ -143,54 +143,26 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
               ),
             ),
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Entrance(
-                      child: Icon(
-                        _isReel ? Icons.rotate_right_rounded : Icons.casino_outlined,
-                        size: 28,
-                        color: SeenlyPalette.accent,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Entrance(
-                      delay: const Duration(milliseconds: 60),
-                      child: Text(
-                        "what should it come from?".tr,
-                        style: SeenlyText.serif(size: 18.5, weight: FontWeight.w600),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Entrance(
-                      delay: const Duration(milliseconds: 110),
-                      child: Text(
-                        _isReel
-                            ? "the reel draws from whichever pool you pick, then everyone votes on where it lands."
-                            : "one title gets drawn from whichever pool you pick, then everyone votes on it.",
-                        style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Entrance(
-                      delay: const Duration(milliseconds: 160),
-                      child: PoolSourcePicker(value: _source, onChanged: (v) => setState(() => _source = v)),
-                    ),
-                  ],
+              child: PoolSetupLayout(
+                padding: const EdgeInsets.fromLTRB(22, 18, 22, 22),
+                hero: PoolSetupHero(
+                  icon: _isReel ? Icons.rotate_right_rounded : Icons.casino_outlined,
+                  title: "what should it come from?".tr,
+                  titleStyle: SeenlyText.serif(size: 21, weight: FontWeight.w600),
+                  subtitle: _isReel
+                      ? "the reel draws from whichever pool you pick, then everyone votes on where it lands."
+                      : "one title gets drawn from whichever pool you pick, then everyone votes on it.",
                 ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(22, 12, 22, 22),
-              child: Entrance(
-                delay: const Duration(milliseconds: 210),
-                riseBy: 14,
-                child: NarrowDownPrompt(
-                  onNarrowDown: _narrowDown,
-                  onTakeItAll: _takeItAll,
-                  loading: _loading,
+                value: _source,
+                onChanged: (v) => setState(() => _source = v),
+                footer: Entrance(
+                  delay: const Duration(milliseconds: 210),
+                  riseBy: 14,
+                  child: NarrowDownPrompt(
+                    onNarrowDown: _narrowDown,
+                    onTakeItAll: _takeItAll,
+                    loading: _loading,
+                  ),
                 ),
               ),
             ),

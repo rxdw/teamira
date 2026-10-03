@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../partner/room/room_launcher.dart';
+import '../partner/room/room_strings.dart' show at;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,10 +9,12 @@ import '../../services/sources_display_prefs_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../theme/notebook_paper.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import 'add_source_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// "Your sources" — Settings > your sources. The same watched / watching
 /// / plan-to-watch shelves Profile shows for movies/series, but scoped to
@@ -93,7 +97,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 0, 22, 14),
               child: Text(
-                'YouTube and Twitch, brought in by link — kept separate from your movies and shows so it never skews those stats.'.tr,
+                'brought in via YouTube and Twitch links — kept separate from your movies and shows so it never skews those stats.'.tr,
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
               ),
             ),
@@ -103,7 +107,8 @@ class _SourcesScreenState extends State<SourcesScreen> {
                 final sourcesPrefs = context.watch<SourcesDisplayPrefsService>();
                 return Container(
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
+                    boxShadow: SeenlyPalette.flatCardShadow,
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -118,7 +123,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                             child: Text('mix these into your main list?'.tr,
                                 style: SeenlyText.serif(size: 13)),
                           ),
-                          Switch(
+                          CozySwitch(
                             value: sourcesPrefs.mergeIntoMainList,
                             activeColor: SeenlyPalette.accent,
                             onChanged: (value) =>
@@ -192,7 +197,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                           Text(
                             'nothing here yet — paste a YouTube or Twitch link to bring something over'.tr,
                             textAlign: TextAlign.center,
-                            style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+                            style: SeenlyText.emptyState(),
                           ),
                           const SizedBox(height: 18),
                           PrimaryButton(label: 'add a source'.tr, onTap: _addSource, expand: false),
@@ -221,7 +226,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(21, 14, 21, 6),
                           sliver: SliverToBoxAdapter(
-                            child: Text(ruCount(shelf.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'item', englishOther: 'items'),
+                            child: Text(nCount('nTitlesAsItems', shelf.length),
                                 style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                           ),
                         ),
@@ -237,7 +242,7 @@ class _SourcesScreenState extends State<SourcesScreen> {
                                           : _tab == 1
                                               ? 'nothing in progress right now'
                                               : 'nothing queued yet',
-                                      style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder),
+                                      style: SeenlyText.emptyState(),
                                     ),
                                   ),
                                 )
@@ -256,6 +261,13 @@ class _SourcesScreenState extends State<SourcesScreen> {
                                         thumbnailUrl: e.posterUrl,
                                         platformIcon: _platformIcon(e.source),
                                         onTap: () => _openExternally(e),
+                                        onWatchTogether: () => RoomLauncher.startForVideo(
+                                          context,
+                                          source: e.source,
+                                          videoId: e.mediaId,
+                                          title: e.displayTitle,
+                                          thumbnailUrl: e.posterUrl,
+                                        ),
                                       );
                                     },
                                     childCount: shelf.length,
@@ -287,12 +299,15 @@ class _VideoThumbTile extends StatelessWidget {
   final String? thumbnailUrl;
   final IconData platformIcon;
   final VoidCallback onTap;
+  // Opens a co-view room with this video. Null hides the button.
+  final VoidCallback? onWatchTogether;
 
   const _VideoThumbTile({
     required this.title,
     required this.thumbnailUrl,
     required this.platformIcon,
     required this.onTap,
+    this.onWatchTogether,
   });
 
   @override
@@ -324,6 +339,24 @@ class _VideoThumbTile extends StatelessWidget {
                 child: Icon(platformIcon, size: 12, color: SeenlyPalette.paper),
               ),
             ),
+            if (onWatchTogether != null)
+              Positioned(
+                top: 6,
+                left: 6,
+                child: GestureDetector(
+                  onTap: onWatchTogether,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.groups_rounded, size: 12, color: SeenlyPalette.paper),
+                      const SizedBox(width: 4),
+                      Text(at('вместе', 'together'),
+                          style: TextStyle(fontSize: 10.5, color: SeenlyPalette.paper, fontStyle: FontStyle.italic)),
+                    ]),
+                  ),
+                ),
+              ),
             Positioned(
               left: 0,
               right: 0,

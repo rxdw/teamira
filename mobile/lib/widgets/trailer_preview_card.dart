@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/media_item.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../theme/clay_kit.dart';
 
 /// A calm, poster-backed preview card for Home's "for you" trailer shelf.
 ///
@@ -51,7 +52,7 @@ class TrailerPreviewCard extends StatelessWidget {
               aspectRatio: 2 / 3,
               child: Container(
                 clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
+                decoration: ClayBoxDecoration(
                   color: SeenlyPalette.mediaColor(item.mediaType),
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: SeenlyPalette.softShadow,
@@ -111,7 +112,7 @@ class TrailerPreviewCard extends StatelessWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: SeenlyText.serif(
-                                italic: true, size: 12.5, color: SeenlyPalette.paper),
+                                italic: true, size: 12.5, color: SeenlyPalette.paperOnDark),
                           ),
                           if (item.year != null || item.genres.isNotEmpty) ...[
                             const SizedBox(height: 2),
@@ -121,7 +122,7 @@ class TrailerPreviewCard extends StatelessWidget {
                                 if (item.genres.isNotEmpty) item.genres.first,
                               ].join(' · '),
                               style: SeenlyText.mono(
-                                  size: 8.5, color: SeenlyPalette.paper.withOpacity(0.8)),
+                                  size: 8.5, color: SeenlyPalette.paperOnDark.withOpacity(0.8)),
                             ),
                           ],
                         ],

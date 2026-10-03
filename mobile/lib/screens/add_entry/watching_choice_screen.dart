@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/diary_entry.dart';
 import '../../models/media_item.dart';
 import '../../services/episode_continuation.dart';
 import '../../services/log_theme_service.dart';
@@ -14,8 +15,12 @@ import 'episode_log_followup.dart';
 import 'garden_log_screen.dart';
 import 'journey_select_screen.dart';
 import 'shuttle_log_screen.dart';
+import '../../widgets/achievement_unlock_overlay.dart';
+import '../../widgets/level_up_celebration.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 import '../../services/app_translations.dart';
+import '../../widgets/saved_celebration.dart';
 
 /// First step of logging a title — whether tonight's evening already
 /// happened or is happening right now. Full-bleed split screen: the top
@@ -38,13 +43,31 @@ class WatchingChoiceScreen extends StatelessWidget {
   // series — both null logs the title as a whole, same as before.
   final int? season;
   final int? episode;
-  const WatchingChoiceScreen({super.key, required this.item, this.season, this.episode});
+  // Pre-checks the themed screens' own "watched with partner" toggle —
+  // for a title that's demonstrably already a shared evening (opened
+  // from the co-viewing planned grid's "смотрю" button, see
+  // CoViewHubScreen._openPlannedLogging) rather than a solo log where
+  // the person has to opt in themselves. Still just the toggle's
+  // starting position: nothing stops the person flipping it back off on
+  // the rating screen if this evening wasn't actually together.
+  final bool initialWatchedWithPartner;
+  const WatchingChoiceScreen({
+    super.key,
+    required this.item,
+    this.season,
+    this.episode,
+    this.initialWatchedWithPartner = false,
+  });
 
   Widget _ratingScreen(LogTheme theme) => switch (theme) {
-        LogTheme.coach => CoachLogScreen(item: item, season: season, episode: episode),
-        LogTheme.ticket => CinemaLogScreen(item: item, season: season, episode: episode),
-        LogTheme.garden => GardenLogScreen(item: item, season: season, episode: episode),
-        LogTheme.shuttle => ShuttleLogScreen(item: item, season: season, episode: episode),
+        LogTheme.coach => CoachLogScreen(
+            item: item, season: season, episode: episode, initialWatchedWithPartner: initialWatchedWithPartner),
+        LogTheme.ticket => CinemaLogScreen(
+            item: item, season: season, episode: episode, initialWatchedWithPartner: initialWatchedWithPartner),
+        LogTheme.garden => GardenLogScreen(
+            item: item, season: season, episode: episode, initialWatchedWithPartner: initialWatchedWithPartner),
+        LogTheme.shuttle => ShuttleLogScreen(
+            item: item, season: season, episode: episode, initialWatchedWithPartner: initialWatchedWithPartner),
       };
 
   /// The whole ritual, skipped — no seat/venue pick, no journey, no
@@ -53,6 +76,7 @@ class WatchingChoiceScreen extends StatelessWidget {
   /// "log it now" tap and automatically whenever [RitualPrefsService.
   /// skipRitual] is on — see this screen's own `build`.
   Future<void> _quickLog(BuildContext context) async {
+    DiaryEntry? loggedEntry;
     if (season != null && episode != null) {
       await markEpisodeWatched(context: context, item: item, season: season!, episode: episode!);
       if (!context.mounted) return;
@@ -62,24 +86,63 @@ class WatchingChoiceScreen extends StatelessWidget {
         // season is done — same as the rating ritual, this specific
         // episode's own evening still needs its own row so it shows up
         // in "watched now" right away, not just once the season wraps.
-        await context.read<AppState>().diary.logEntry(
+        loggedEntry = await context.read<AppState>().diary.logEntry(
               item: item,
               watchedAt: DateTime.now(),
               season: season,
               episode: episode,
+              watchedWithPartner: initialWatchedWithPartner,
             );
       } catch (_) {
         // Best-effort — same as below.
       }
     } else {
       try {
-        await context.read<AppState>().diary.logEntry(item: item, watchedAt: DateTime.now());
+        loggedEntry = await context.read<AppState>().diary.logEntry(
+              item: item,
+              watchedAt: DateTime.now(),
+              watchedWithPartner: initialWatchedWithPartner,
+            );
       } catch (_) {
         // Best-effort — the person asked for speed over ceremony, not a
         // hard failure dialog; the diary just stays a beat behind.
       }
     }
-    if (context.mounted) Navigator.of(context).pop(true);
+    if (!context.mounted) return;
+    if (loggedEntry != null) showSincerityToasts(context, loggedEntry.sincerityAwarded);
+    // "Speed over ceremony" was never meant to mean "no celebration
+    // ever" — every themed rating ritual (CoachLogScreen,
+    // CinemaLogScreen, ...) checks for a fresh level-up/achievement
+    // right after its own save; this quick path used to skip that
+    // entirely, so anyone who taps "log it now" or has Settings' "skip
+    // the ritual" on — i.e. most saves, for exactly the kind of
+    // frequent logger who'd actually notice a missing celebration —
+    // never saw one, even on a genuine level-up. refreshLevel() is
+    // awaited here (unlike the ritual screens' fire-and-forget call)
+    // because there's no several-second ritual animation left for the
+    // network round trip to hide inside before we'd otherwise pop and
+    // lose the moment.
+    await context.read<AppState>().refreshLevel();
+    if (!context.mounted) return;
+    final leveledUp = context.read<AppState>().consumePendingLevelUp();
+    if (leveledUp != null && context.mounted) {
+      await showLevelUpCelebration(context, leveledUp);
+    }
+    if (context.mounted) {
+      await checkAndCelebrateNewAchievements(context);
+    }
+    if (context.mounted) {
+      // The quick path has no ritual of its own — this is its moment.
+      showSavedCelebration(
+        context,
+        kind: SavedKind.logged,
+        title: item.title.display,
+        posterUrl: item.posterUrl,
+        mediaType: item.mediaType,
+        together: initialWatchedWithPartner,
+      );
+      Navigator.of(context).pop(true);
+    }
   }
 
   Future<void> _alreadyWatched(BuildContext context, LogTheme theme) async {
@@ -109,7 +172,12 @@ class WatchingChoiceScreen extends StatelessWidget {
           final chained = await Navigator.of(context).push<bool>(
             MaterialPageRoute(
               fullscreenDialog: true,
-              builder: (_) => WatchingChoiceScreen(item: item, season: next.$1, episode: next.$2),
+              builder: (_) => WatchingChoiceScreen(
+                item: item,
+                season: next.$1,
+                episode: next.$2,
+                initialWatchedWithPartner: initialWatchedWithPartner,
+              ),
             ),
           );
           if (context.mounted) Navigator.of(context).pop(chained ?? true);
@@ -140,7 +208,13 @@ class WatchingChoiceScreen extends StatelessWidget {
       saved = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           fullscreenDialog: true,
-          builder: (_) => JourneySelectScreen(item: item, theme: theme, season: season, episode: episode),
+          builder: (_) => JourneySelectScreen(
+            item: item,
+            theme: theme,
+            season: season,
+            episode: episode,
+            initialWatchedWithPartner: initialWatchedWithPartner,
+          ),
         ),
       );
     }

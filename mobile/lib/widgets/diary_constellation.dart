@@ -9,7 +9,7 @@ import '../theme/text_styles.dart';
 import 'series_episodes_sheet.dart';
 import 'watched_preview_sheet.dart';
 import 'wow_motion.dart' show PressScale, FadeInNetworkImage;
-import '../services/app_translations.dart' show TrString, ruCount;
+import '../services/app_translations.dart' show TrString, ruCount, nCount;
 
 /// One star per logged evening: brighter and bigger for a higher rating,
 /// a quiet dim speck for an unrated one — so the shape of a life on
@@ -881,9 +881,7 @@ class DiaryConstellationPanel extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        ruCount(entries.length,
-                            one: 'вечер', few: 'вечера', many: 'вечеров',
-                            englishOne: 'evening', englishOther: 'evenings'),
+                        nCount('nEvenings', entries.length),
                         style: SeenlyText.mono(size: 10.5, color: Colors.white70),
                       ),
                       Row(
@@ -1035,9 +1033,7 @@ class _ConstellationFullScreenState extends State<ConstellationFullScreen> {
                       top: 12,
                       right: 16,
                       child: Text(
-                        ruCount(widget.entries.length,
-                            one: 'вечер', few: 'вечера', many: 'вечеров',
-                            englishOne: 'evening', englishOther: 'evenings'),
+                        nCount('nEvenings', widget.entries.length),
                         style: SeenlyText.mono(size: 11, color: Colors.white70),
                       ),
                     ),

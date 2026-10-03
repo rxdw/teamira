@@ -9,6 +9,7 @@ import 'heart_rating.dart';
 import 'scroll_reveal.dart';
 import 'watched_preview_sheet.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the "Garden" theme — a window-box
 /// planter that reads as denser and more in-bloom the more evenings
@@ -76,7 +77,7 @@ class _GardenBoxState extends State<GardenBox> with SingleTickerProviderStateMix
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(24),
           boxShadow: SeenlyPalette.softShadow,
@@ -93,7 +94,7 @@ class _GardenBoxState extends State<GardenBox> with SingleTickerProviderStateMix
             ),
             const SizedBox(height: 16),
             Text(
-              isEmpty ? 'an empty box, waiting'.tr : '${ruCount(widget.entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')}, ${'blooming'.tr}',
+              isEmpty ? 'an empty box, waiting'.tr : '${nCount('nEvenings', widget.entries.length)}, ${'blooming'.tr}',
               style: SeenlyText.serif(italic: true, size: 19),
             ),
             const SizedBox(height: 5),
@@ -332,7 +333,7 @@ class GardenBedScreen extends StatelessWidget {
                         Text(
                           entries.isEmpty
                               ? 'nothing planted yet'.tr
-                              : '${ruCount(entries.length, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')} ${'grown'.tr}',
+                              : '${nCount('nEvenings', entries.length)} ${'grown'.tr}',
                           style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                         ),
                       ],
@@ -342,7 +343,7 @@ class GardenBedScreen extends StatelessWidget {
                       child: Container(
                         width: 32,
                         height: 32,
-                        decoration: BoxDecoration(
+                        decoration: ClayBoxDecoration(
                             color: SeenlyPalette.paper, shape: BoxShape.circle, boxShadow: SeenlyPalette.softShadow),
                         child: Icon(Icons.close, size: 16, color: SeenlyPalette.ink),
                       ),
@@ -432,7 +433,7 @@ class _BloomCard extends StatelessWidget {
             onTap: () => _openBloom(context, entry),
             child: Container(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: SeenlyPalette.softShadow,

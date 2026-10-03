@@ -1,3 +1,5 @@
+import '../utils/server_time.dart';
+
 /// Mirrors backend/app/schemas.py: EpisodeOut, SeasonOut, EpisodesOut.
 
 class Episode {
@@ -83,7 +85,7 @@ class SeriesProgress {
       {
         for (final e in list)
           '${e['season']}:${e['episode']}':
-              DateTime.tryParse(e['watched_at'] as String? ?? '') ?? DateTime.now(),
+              tryParseServerUtc(e['watched_at'] as String?) ?? DateTime.now(),
       },
       ratings: ratings,
       notes: notes,

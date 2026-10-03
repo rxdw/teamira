@@ -7,6 +7,7 @@ import '../../services/geo_city_service.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// Lets the person set an arbitrary "from" city for the coach route
 /// picker — searches live against OpenStreetMap (any real place on
@@ -99,7 +100,8 @@ class _CityPickerScreenState extends State<CityPickerScreen> {
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
+                decoration: ClayBoxDecoration(
+                  boxShadow: SeenlyPalette.flatCardShadow,
                   color: SeenlyPalette.paper,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: SeenlyPalette.border),

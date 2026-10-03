@@ -1,4 +1,5 @@
 import 'media_item.dart';
+import '../utils/server_time.dart';
 
 /// Mirrors `CoViewEntryOut` in backend/app/schemas.py — one title on a
 /// linked pair's shared co-viewing screen. Fed from three places: the
@@ -24,6 +25,11 @@ class CoViewEntry {
   final DateTime? scheduledDate;
   final int? scheduledHour;
   final int? scheduledMinute;
+  // Set only on the response to "mark watched": how many of the partner's
+  // sealed album notes that call just opened for this person. Non-zero is
+  // the cue to play the reveal (see screens/partner/album/). Always 0 on
+  // every list read.
+  final int albumRevealCount;
 
   const CoViewEntry({
     required this.id,
@@ -41,6 +47,7 @@ class CoViewEntry {
     this.scheduledDate,
     this.scheduledHour,
     this.scheduledMinute,
+    this.albumRevealCount = 0,
   });
 
   bool get isWatched => status == 'watched';
@@ -93,12 +100,13 @@ class CoViewEntry {
         watchedAt: json['watched_at'] != null
             ? DateTime.parse(json['watched_at'] as String)
             : null,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
         scheduledDate: json['scheduled_date'] != null
             ? DateTime.parse(json['scheduled_date'] as String)
             : null,
         scheduledHour: json['scheduled_hour'] as int?,
         scheduledMinute: json['scheduled_minute'] as int?,
+        albumRevealCount: json['album_reveal_count'] as int? ?? 0,
       );
 }
 

@@ -10,14 +10,17 @@ import '../../models/together_session.dart';
 import '../../models/user_list.dart';
 import '../../services/api_client.dart';
 import '../../services/coview_prefs_service.dart';
+import '../../services/realtime_socket.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/how_it_works_sheet.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/soft_motion.dart';
 import '../../widgets/themed_poster_tile.dart';
+import '../../widgets/together_motion.dart';
+import '../../widgets/wow_motion.dart' show Entrance, Breathe;
 import '../lists/list_detail_screen.dart';
-import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
 
 /// Every match — from any session, any device this account has logged in
@@ -28,7 +31,6 @@ import '../../services/app_translations.dart';
 /// network sessions, so both modes end up in the same place.
 const kTogetherListName = 'watch together';
 
-const _pollInterval = Duration(seconds: 2);
 
 /// TMDB's own genre vocabulary (see the id->name tables in
 /// backend/app/adapters/tmdb.py) — every MediaItem.genres entry the deck
@@ -96,7 +98,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
   int _index = 0;
   final List<MediaItem> _matches = [];
   String? _listId;
-  // Bumped on every local "together" decision so _MatchPulse knows to play
+  // Bumped on every local "together" decision so the MatchBeat knows to play
   // — a one-phone yes is already the both-of-you decision (see
   // how_it_works_sheet.dart, step 3), so this is just a warm little beat
   // confirming it landed, never a second question asking if it's real.
@@ -104,8 +106,16 @@ class _TogetherScreenState extends State<TogetherScreen> {
 
   // --- network state ---
   TogetherSession? _session;
-  Timer? _pollTimer;
+  RealtimeSocket<TogetherSession>? _socket;
+  StreamSubscription<TogetherSession>? _socketSub;
   int _netIndex = 0;
+  // Bumped when the person you sent a code to turns up, and when a title
+  // becomes a match while you're both swiping — each plays a short beat
+  // over the deck (see MatchBeat). Both are otherwise silent: the only
+  // other sign is a badge count ticking up.
+  int _partnerJoinedTick = 0;
+  int _netMatchTick = 0;
+  String? _netMatchTitle;
   final TextEditingController _codeController = TextEditingController();
   String? _joinError;
   bool _joining = false;
@@ -160,7 +170,8 @@ class _TogetherScreenState extends State<TogetherScreen> {
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    _socketSub?.cancel();
+    _socket?.close();
     _codeController.dispose();
     super.dispose();
   }
@@ -307,8 +318,9 @@ class _TogetherScreenState extends State<TogetherScreen> {
   }
 
   void _backToSetup() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
+    _socketSub?.cancel();
+    _socket?.close();
+    _socket = null;
     _session = null;
     _netIndex = 0;
     _joinError = null;
@@ -330,7 +342,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
         _netIndex = 0;
         _phase = _Phase.netHostWaiting;
       });
-      _startPolling();
+      _startWatching();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => _showMessage(
@@ -355,7 +367,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
   Future<void> _joinNetworkSession() async {
     final code = _codeController.text.trim();
     if (code.length != 6) {
-      setState(() => _joinError = 'codes are 6 characters');
+      setState(() => _joinError = 'codes are 6 characters'.tr);
       return;
     }
     setState(() {
@@ -374,7 +386,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
         _joining = false;
         _phase = _Phase.netSwiping;
       });
-      _startPolling();
+      _startWatching();
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -385,34 +397,52 @@ class _TogetherScreenState extends State<TogetherScreen> {
       if (!mounted) return;
       setState(() {
         _joining = false;
-        _joinError = 'check the connection and try again';
+        _joinError = 'check the connection and try again'.tr;
       });
     }
   }
 
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(_pollInterval, (_) => _pollSession());
-  }
-
-  Future<void> _pollSession() async {
+  void _startWatching() {
+    _socketSub?.cancel();
+    _socket?.close();
     final session = _session;
-    if (session == null || !mounted) return;
-    try {
-      final updated = await context.read<AppState>().together.poll(session.id);
-      if (!mounted) return;
-      setState(() {
-        _session = updated;
-        // The host's screen advances from "waiting for a partner" to
-        // swiping the moment someone actually joins.
-        if (_phase == _Phase.netHostWaiting && updated.partnerJoined) {
-          _phase = _Phase.netSwiping;
-        }
-      });
-    } catch (_) {
-      // A missed poll just tries again on the next tick — no need to
-      // interrupt the person over one dropped request.
-    }
+    if (session == null) return;
+    _socket = context.read<AppState>().together.watch(session.id);
+    _socketSub = _socket!.updates.listen(_onSessionUpdate);
+  }
+
+  void _onSessionUpdate(TogetherSession updated) {
+    if (!mounted) return;
+    setState(() {
+      // A title that just became a match (from this push, or from the
+      // response to your own swipe — whichever arrives first announces it).
+      _noteNetMatches(updated);
+      _session = updated;
+      // The host's screen advances from "waiting for a partner" to
+      // swiping the moment someone actually joins.
+      if (_phase == _Phase.netHostWaiting && updated.partnerJoined) {
+        _phase = _Phase.netSwiping;
+        _partnerJoinedTick++;
+      }
+    });
+  }
+
+  /// Compares [updated] with the session as it currently stands and, if it
+  /// has a match the screen hasn't shown yet, arms the "it's a match" beat
+  /// (with the title that matched). Run right before `_session = updated`,
+  /// from both the live socket's push and a swipe's own response, so
+  /// whichever one sees the match first is the one that announces it —
+  /// never both.
+  void _noteNetMatches(TogetherSession updated) {
+    final before = _session;
+    if (before == null) return;
+    final known = {for (final m in before.matches) '${m.source}:${m.id}'};
+    final fresh = updated.matches.where((m) => !known.contains('${m.source}:${m.id}')).toList();
+    if (fresh.isEmpty) return;
+    _netMatchTick++;
+    _netMatchTitle = fresh.length > 1
+        ? nCount('nMatches', fresh.length)
+        : fresh.first.title.display;
   }
 
   Future<void> _netDecide(MediaItem item, bool together) async {
@@ -428,12 +458,13 @@ class _TogetherScreenState extends State<TogetherScreen> {
           );
       if (!mounted) return;
       setState(() {
+        _noteNetMatches(updated);
         _session = updated;
         if (_netIndex >= updated.deck.length) _phase = _Phase.netRecap;
       });
     } catch (_) {
       // Keep the deck moving even if one swipe failed to save — the
-      // person can't easily go back to a card anyway, and the poll loop
+      // person can't easily go back to a card anyway, and the live socket
       // will keep the match list itself accurate regardless.
       if (!mounted) return;
       setState(() {
@@ -444,7 +475,8 @@ class _TogetherScreenState extends State<TogetherScreen> {
 
   Future<void> _endNetworkSession() async {
     final session = _session;
-    _pollTimer?.cancel();
+    _socketSub?.cancel();
+    _socket?.close();
     if (session != null) {
       try {
         await context.read<AppState>().together.end(session.id);
@@ -496,22 +528,24 @@ class _TogetherScreenState extends State<TogetherScreen> {
                     tooltip: 'how this works'.tr,
                     onPressed: () => showHowItWorksSheet(context),
                   ),
-                  if (_showMatchBadge)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 14),
-                      child: Row(
-                        children: [
-                          Icon(Icons.favorite, size: 13, color: SeenlyPalette.accent),
-                          const SizedBox(width: 4),
-                          Text('$_liveMatchCount',
-                              style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
-                        ],
-                      ),
-                    ),
+                  MatchCounter(count: _liveMatchCount, visible: _showMatchBadge),
                 ],
               ),
             ),
-            Expanded(child: _buildBody()),
+            Expanded(
+              // Setup → loading → deck → recap glide into one another
+              // instead of cutting. Keyed on the phase only, so the deck
+              // itself (which changes every swipe) updates in place.
+              child: SoftSwap(
+                expand: true,
+                alignment: Alignment.topCenter,
+                rise: 0.02,
+                child: KeyedSubtree(
+                  key: ValueKey<_Phase>(_phase),
+                  child: _buildBody(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -537,18 +571,8 @@ class _TogetherScreenState extends State<TogetherScreen> {
         );
       case _Phase.loadingDeck:
       case _Phase.netStarting:
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
-              const SizedBox(height: 14),
-              Text(
-                _phase == _Phase.netStarting ? 'setting up a session…' : 'gathering cards…',
-                style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
-              ),
-            ],
-          ),
+        return CardShuffleLoader(
+          caption: _phase == _Phase.netStarting ? 'setting up a session…'.tr : 'gathering cards…'.tr,
         );
       case _Phase.error:
       case _Phase.empty:
@@ -563,7 +587,9 @@ class _TogetherScreenState extends State<TogetherScreen> {
           alignment: Alignment.center,
           children: [
             _SwipeDeck(deck: _deck, index: _index, onDecide: _decide),
-            IgnorePointer(child: _MatchPulse(tick: _matchPulseTick)),
+            IgnorePointer(
+              child: MatchBeat(tick: _matchPulseTick, headline: 'settled, together'.tr),
+            ),
           ],
         );
       case _Phase.recap:
@@ -592,16 +618,35 @@ class _TogetherScreenState extends State<TogetherScreen> {
       case _Phase.netSwiping:
         final session = _session;
         if (session == null || _netIndex >= session.deck.length) {
-          return Center(
-            child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
-          );
+          return CardShuffleLoader(caption: 'gathering cards…'.tr);
         }
-        return _NetSwipeDeck(
-          deck: session.deck,
-          index: _netIndex,
-          partnerSwiped: session.partnerSwiped,
-          partnerUsername: session.partnerUsername,
-          onDecide: _netDecide,
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            _SwipeDeck(
+              deck: session.deck,
+              index: _netIndex,
+              partnerSwiped: session.partnerSwiped,
+              partnerUsername: session.partnerUsername,
+              onDecide: _netDecide,
+            ),
+            // Someone you sent a code to has just shown up…
+            IgnorePointer(
+              child: MatchBeat(
+                tick: _partnerJoinedTick,
+                headline: '${session.partnerUsername ?? 'they'.tr} ${'is here'.tr}',
+                subtitle: "let's swipe together".tr,
+              ),
+            ),
+            // …and one of you has said yes to something the other already had.
+            IgnorePointer(
+              child: MatchBeat(
+                tick: _netMatchTick,
+                headline: "it's a match!".tr,
+                subtitle: _netMatchTitle,
+              ),
+            ),
+          ],
         );
       case _Phase.netRecap:
         final session = _session;
@@ -667,112 +712,182 @@ class _SetupView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isNetwork = mode == 'network';
+
+    // The page settles in from the top: each block a beat after the one
+    // above it.
+    Widget settle(int n, Widget child) => Entrance(
+          delay: Duration(milliseconds: 60 * n),
+          duration: const Duration(milliseconds: 460),
+          riseBy: 12,
+          child: child,
+        );
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 12, 22, 24),
       children: [
-        Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            color: SeenlyPalette.accent.withOpacity(0.14),
-            shape: BoxShape.circle,
+        settle(
+          0,
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: SeenlyPalette.accent.withOpacity(0.14),
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            // A slow, resting heartbeat — this whole feature is about two
+            // people, and the heart at the top says so.
+            child: const HeartbeatIcon(size: 26),
           ),
-          alignment: Alignment.center,
-          child: Icon(Icons.favorite, size: 26, color: SeenlyPalette.accent),
         ),
         const SizedBox(height: 18),
-        Text('decide together, one card at a time'.tr, style: SeenlyText.screenTitle),
+        settle(1, Text('decide together, one card at a time'.tr, style: SeenlyText.screenTitle)),
         const SizedBox(height: 8),
-        Text(
-          isNetwork
-              ? 'each on your own phone — whatever you both say yes to '
-                  'gets tucked into your "watch together" list, ready for movie night.'
-              : 'pass the phone, or just lean in — whatever you both say yes to '
-                  'gets tucked into your "watch together" list, ready for movie night.',
-          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+        settle(
+          2,
+          // The line under the title follows the chosen mode.
+          SoftSwap(
+            child: Text(
+              isNetwork
+                  ? 'each on your own phone — whatever you both say yes to '
+                      'gets tucked into your "watch together" list, ready for movie night.'
+                  : 'pass the phone, or just lean in — whatever you both say yes to '
+                      'gets tucked into your "watch together" list, ready for movie night.',
+              key: ValueKey<bool>(isNetwork),
+              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+            ),
+          ),
         ),
         const SizedBox(height: 26),
-        Text('how are you swiping?'.tr, style: SeenlyText.metaLabel),
+        settle(3, Text('how are you swiping?'.tr, style: SeenlyText.metaLabel)),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            PillChip(
-              label: 'one phone'.tr,
-              active: mode == 'local',
-              onTap: () => onModeChange('local'),
-            ),
-            const SizedBox(width: 8),
-            PillChip(
-              label: 'over the network'.tr,
-              active: isNetwork,
-              onTap: () => onModeChange('network'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 22),
-        Text('what are we in the mood for?'.tr, style: SeenlyText.metaLabel),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            for (final f in filters) ...[
+        settle(
+          3,
+          Row(
+            children: [
               PillChip(
-                label: f.$2,
-                active: filter == f.$1,
-                onTap: () => onFilterChange(f.$1),
+                label: 'one phone'.tr,
+                active: mode == 'local',
+                onTap: () => onModeChange('local'),
               ),
-              if (f != filters.last) const SizedBox(width: 8),
+              const SizedBox(width: 8),
+              PillChip(
+                label: 'over the network'.tr,
+                active: isNetwork,
+                onTap: () => onModeChange('network'),
+              ),
             ],
-          ],
+          ),
         ),
         const SizedBox(height: 22),
-        Row(
-          children: [
-            Text('any particular genre?'.tr, style: SeenlyText.metaLabel),
-            const SizedBox(width: 8),
-            if (selectedGenres.isNotEmpty)
-              Text('${selectedGenres.length} ${'picked'.tr}',
-                  style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
-          ],
+        settle(4, Text('what are we in the mood for?'.tr, style: SeenlyText.metaLabel)),
+        const SizedBox(height: 10),
+        settle(
+          4,
+          Row(
+            children: [
+              for (final f in filters) ...[
+                PillChip(
+                  label: f.$2,
+                  active: filter == f.$1,
+                  onTap: () => onFilterChange(f.$1),
+                ),
+                if (f != filters.last) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 22),
+        settle(
+          5,
+          Row(
+            children: [
+              Text('any particular genre?'.tr, style: SeenlyText.metaLabel),
+              const SizedBox(width: 8),
+              // How many are picked: the number swaps with a little pop,
+              // and the whole label is simply absent at zero.
+              SoftSwap(
+                pop: true,
+                child: selectedGenres.isEmpty
+                    ? const SizedBox(key: ValueKey<int>(0), height: 1)
+                    : Text(
+                        '${selectedGenres.length} ${'picked'.tr}',
+                        key: ValueKey<int>(selectedGenres.length),
+                        style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent),
+                      ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 4),
-        Text(
-          'leave this alone for anything — pick a few to narrow the deck down to just those'.tr,
-          style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
+        settle(
+          5,
+          Text(
+            'leave this alone for anything — pick a few to narrow the deck down to just those'.tr,
+            style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
+          ),
         ),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            for (final g in kTogetherGenreChoices)
-              PillChip(
-                label: g.toLowerCase(),
-                active: selectedGenres.contains(g),
-                onTap: () => onGenreToggle(g),
+            // The genres drift in one after another, left to right.
+            for (int i = 0; i < kTogetherGenreChoices.length; i++)
+              Entrance(
+                delay: Duration(milliseconds: 320 + 24 * i),
+                duration: const Duration(milliseconds: 380),
+                riseBy: 8,
+                child: PillChip(
+                  label: kTogetherGenreChoices[i].toLowerCase(),
+                  active: selectedGenres.contains(kTogetherGenreChoices[i]),
+                  onTap: () => onGenreToggle(kTogetherGenreChoices[i]),
+                ),
               ),
           ],
         ),
         const SizedBox(height: 30),
-        if (!isNetwork)
-          PrimaryButton(label: 'start swiping'.tr, onTap: onStartLocal)
-        else ...[
-          PrimaryButton(label: 'start a session'.tr, onTap: onCreateNetworkSession),
-          const SizedBox(height: 10),
-          Center(
-            child: TextButton(
-              onPressed: onJoinNetworkSession,
-              child: Text('have a code already? join instead'.tr,
-                  style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+        settle(
+          6,
+          // Switching mode swaps the buttons under it, and the page eases
+          // to the new height rather than jumping.
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: SoftSwap(
+              alignment: Alignment.topCenter,
+              rise: 0.05,
+              child: KeyedSubtree(
+                key: ValueKey<bool>(isNetwork),
+                child: !isNetwork
+                    ? PrimaryButton(label: 'start swiping'.tr, onTap: onStartLocal)
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PrimaryButton(label: 'start a session'.tr, onTap: onCreateNetworkSession),
+                          const SizedBox(height: 10),
+                          TextButton(
+                            onPressed: onJoinNetworkSession,
+                            child: Text('have a code already? join instead'.tr,
+                                style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+                          ),
+                        ],
+                      ),
+              ),
             ),
           ),
-        ],
+        ),
       ],
     );
   }
 }
 
 /// Shown to whoever started the session — a code to send to the other
-/// person, and a quiet wait while polling for them to type it in.
+/// person, and a quiet wait while polling for them to type it in. The
+/// code's characters are stamped in one by one, and the wait is a heart
+/// with rings spreading from it, like a signal sent out and not yet
+/// answered.
 class _HostWaitingView extends StatelessWidget {
   final String code;
   final VoidCallback onCancel;
@@ -782,36 +897,32 @@ class _HostWaitingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('send them this code'.tr, style: SeenlyText.serif(italic: true, size: 15)),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 16),
-              decoration: BoxDecoration(
-                color: SeenlyPalette.paper,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SeenlyPalette.border),
-              ),
-              child: Text(
-                code,
-                style: SeenlyText.mono(size: 26, color: SeenlyPalette.ink, weight: FontWeight.w700)
-                    .copyWith(letterSpacing: 6),
-              ),
+            Entrance(
+              riseBy: 10,
+              child: Text('send them this code'.tr, style: SeenlyText.serif(italic: true, size: 15)),
+            ),
+            const SizedBox(height: 20),
+            CodeTiles(code: code),
+            const SizedBox(height: 26),
+            Entrance(
+              delay: const Duration(milliseconds: 500),
+              duration: const Duration(milliseconds: 700),
+              riseBy: 6,
+              child: const WaitingRipples(size: 124),
+            ),
+            const SizedBox(height: 6),
+            Entrance(
+              delay: const Duration(milliseconds: 650),
+              riseBy: 6,
+              child: Text('waiting for them to join…'.tr,
+                  style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ),
             const SizedBox(height: 22),
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accent),
-            ),
-            const SizedBox(height: 10),
-            Text('waiting for them to join…'.tr,
-                style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
-            const SizedBox(height: 24),
             TextButton(
               onPressed: onCancel,
               child: Text('cancel'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.placeholder)),
@@ -844,39 +955,61 @@ class _JoinCodeView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
       children: [
-        Text('got a code?'.tr, style: SeenlyText.screenTitle),
+        Entrance(riseBy: 12, child: Text('got a code?'.tr, style: SeenlyText.screenTitle)),
         const SizedBox(height: 8),
-        Text(
-          'type in the 6-character code the other person sent you.'.tr,
-          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+        Entrance(
+          delay: const Duration(milliseconds: 70),
+          riseBy: 12,
+          child: Text(
+            'type in the 6-character code the other person sent you.'.tr,
+            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+          ),
         ),
         const SizedBox(height: 22),
-        TextField(
-          controller: controller,
-          textCapitalization: TextCapitalization.characters,
-          textAlign: TextAlign.center,
-          maxLength: 6,
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
-          ],
-          style: SeenlyText.mono(size: 22, color: SeenlyPalette.ink, weight: FontWeight.w700)
-              .copyWith(letterSpacing: 6),
-          decoration: InputDecoration(
-            counterText: '',
-            filled: true,
-            fillColor: SeenlyPalette.paper,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: SeenlyPalette.border),
+        Entrance(
+          delay: const Duration(milliseconds: 140),
+          riseBy: 12,
+          // A wrong code makes the field shake its head, briefly.
+          child: ShakeOnChange(
+            trigger: error,
+            child: TextField(
+              controller: controller,
+              textCapitalization: TextCapitalization.characters,
+              textAlign: TextAlign.center,
+              maxLength: 6,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp('[A-Za-z0-9]')),
+              ],
+              style: SeenlyText.mono(size: 22, color: SeenlyPalette.ink, weight: FontWeight.w700)
+                  .copyWith(letterSpacing: 6),
+              decoration: InputDecoration(
+                counterText: '',
+                filled: true,
+                fillColor: SeenlyPalette.paper,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: SeenlyPalette.border),
+                ),
+              ),
             ),
           ),
         ),
-        if (error != null) ...[
-          const SizedBox(height: 10),
-          Text(error!, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
-        ],
+        SoftSwap(
+          rise: 0.3,
+          child: error == null
+              ? const SizedBox(key: ValueKey<String>('no-error'), width: double.infinity)
+              : Padding(
+                  key: ValueKey<String>(error!),
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(error!, style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
+                ),
+        ),
         const SizedBox(height: 22),
-        PrimaryButton(label: 'join'.tr, onTap: onJoin, loading: busy),
+        Entrance(
+          delay: const Duration(milliseconds: 210),
+          riseBy: 12,
+          child: PrimaryButton(label: 'join'.tr, onTap: onJoin, loading: busy),
+        ),
         const SizedBox(height: 10),
         Center(
           child: TextButton(
@@ -889,219 +1022,31 @@ class _JoinCodeView extends StatelessWidget {
   }
 }
 
+/// The swiping surface — for both modes (one phone, or over the network).
+/// With [partnerSwiped] set it also shows how far the other person has got:
+/// two pills, each filling like a tide as its owner works through the same
+/// deck — the only sense of "togetherness" possible when the two of you
+/// aren't looking at the same screen.
 class _SwipeDeck extends StatelessWidget {
   final List<MediaItem> deck;
   final int index;
-  final void Function(MediaItem item, bool together) onDecide;
-
-  const _SwipeDeck({required this.deck, required this.index, required this.onDecide});
-
-  @override
-  Widget build(BuildContext context) {
-    final remaining = deck.length - index;
-    final current = deck[index];
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 2, 22, 14),
-          child: _CountPill('$remaining ${'left'.tr}'),
-        ),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxIndex = min(index + 2, deck.length - 1);
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    for (var i = maxIndex; i >= index; i--)
-                      Transform.translate(
-                        offset: Offset(
-                          (i - index) * ((i - index).isOdd ? 9.0 : -9.0),
-                          (i - index) * 9.0,
-                        ),
-                        child: Transform.scale(
-                          scale: 1 - (i - index) * 0.045,
-                          child: i == index
-                              ? _SwipeCard(
-                                  key: ValueKey('${deck[i].source}:${deck[i].id}'),
-                                  item: deck[i],
-                                  maxWidth: constraints.maxWidth,
-                                  maxHeight: constraints.maxHeight,
-                                  onDecide: (together) => onDecide(deck[i], together),
-                                )
-                              : _CardFace(
-                                  item: deck[i],
-                                  maxWidth: constraints.maxWidth,
-                                  maxHeight: constraints.maxHeight,
-                                  rotation: (i - index).isOdd ? 0.035 : -0.035,
-                                ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _DecisionButton(
-                icon: Icons.close,
-                label: 'not tonight'.tr,
-                iconColor: SeenlyPalette.inkMuted,
-                background: SeenlyPalette.paper,
-                bordered: true,
-                onTap: () => onDecide(current, false),
-              ),
-              _DecisionButton(
-                icon: Icons.favorite,
-                label: 'together'.tr,
-                iconColor: SeenlyPalette.accentOnAccent,
-                background: SeenlyPalette.accent,
-                large: true,
-                onTap: () => onDecide(current, true),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// A quiet little beat that plays over the deck right after a one-phone
-/// "together" swipe — a soft pop-and-fade, gone in under a second. In
-/// this mode the decision is already final the moment it's made (see
-/// how_it_works_sheet.dart, step 3: one shared decision, nobody's
-/// waiting on anybody), so this is never a question — no "does your
-/// partner agree too?" — just a warm little acknowledgment that it
-/// landed, the same way a heart might catch someone's eye and neither
-/// of you needs to say anything out loud about it.
-class _MatchPulse extends StatefulWidget {
-  final int tick;
-  const _MatchPulse({required this.tick});
-
-  @override
-  State<_MatchPulse> createState() => _MatchPulseState();
-}
-
-class _MatchPulseState extends State<_MatchPulse> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 950),
-  );
-  late final Animation<double> _scale = TweenSequence<double>([
-    TweenSequenceItem(
-      tween: Tween(begin: 0.72, end: 1.08).chain(CurveTween(curve: Curves.easeOutBack)),
-      weight: 40,
-    ),
-    TweenSequenceItem(tween: Tween(begin: 1.08, end: 1.0), weight: 15),
-    TweenSequenceItem(tween: ConstantTween(1.0), weight: 25),
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.95), weight: 20),
-  ]).animate(_controller);
-  late final Animation<double> _opacity = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 12),
-    TweenSequenceItem(tween: ConstantTween(1.0), weight: 55),
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 33),
-  ]).animate(_controller);
-
-  @override
-  void didUpdateWidget(covariant _MatchPulse old) {
-    super.didUpdateWidget(old);
-    if (widget.tick != old.tick && widget.tick > 0) {
-      _controller.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        if (_controller.isDismissed) return const SizedBox.shrink();
-        return Opacity(
-          opacity: _opacity.value,
-          child: Transform.scale(scale: _scale.value, child: child),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        decoration: BoxDecoration(
-          color: SeenlyPalette.paper,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: [
-            BoxShadow(color: SeenlyPalette.ink.withOpacity(0.16), blurRadius: 24, offset: const Offset(0, 10)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.favorite, size: 22, color: SeenlyPalette.accent),
-            const SizedBox(height: 6),
-            Text('settled, together'.tr,
-                style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent, weight: FontWeight.w600)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The small "N left" readout at the top of a deck — a soft pill instead
-/// of bare mono text, so it reads as a gentle status rather than a counter
-/// ticking down.
-class _CountPill extends StatelessWidget {
-  final String label;
-
-  const _CountPill(this.label);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-      decoration: BoxDecoration(
-        color: SeenlyPalette.paper,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: SeenlyPalette.border),
-      ),
-      child: Text(label, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
-    );
-  }
-}
-
-/// Same swiping surface as [_SwipeDeck], with a quiet line showing how far
-/// along the other person is — the only sense of "togetherness" possible
-/// when the two of you aren't looking at the same screen.
-class _NetSwipeDeck extends StatelessWidget {
-  final List<MediaItem> deck;
-  final int index;
-  final int partnerSwiped;
+  final int? partnerSwiped;
   final String? partnerUsername;
   final void Function(MediaItem item, bool together) onDecide;
 
-  const _NetSwipeDeck({
+  const _SwipeDeck({
     required this.deck,
     required this.index,
-    required this.partnerSwiped,
-    required this.partnerUsername,
     required this.onDecide,
+    this.partnerSwiped,
+    this.partnerUsername,
   });
 
   @override
   Widget build(BuildContext context) {
     final remaining = deck.length - index;
     final current = deck[index];
+    final partner = partnerSwiped;
     return Column(
       children: [
         Padding(
@@ -1109,8 +1054,12 @@ class _NetSwipeDeck extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _CountPill('$remaining ${'left'.tr}'),
-              _CountPill('${partnerUsername ?? 'they'.tr}: $partnerSwiped ${'of'.tr} ${deck.length}'),
+              DeckPill('$remaining ${'left'.tr}', progress: index / deck.length),
+              if (partner != null)
+                DeckPill(
+                  '${partnerUsername ?? 'they'.tr}: $partner ${'of'.tr} ${deck.length}',
+                  progress: partner / deck.length,
+                ),
             ],
           ),
         ),
@@ -1119,35 +1068,36 @@ class _NetSwipeDeck extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final maxIndex = min(index + 2, deck.length - 1);
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    for (var i = maxIndex; i >= index; i--)
-                      Transform.translate(
-                        offset: Offset(
-                          (i - index) * ((i - index).isOdd ? 9.0 : -9.0),
-                          (i - index) * 9.0,
-                        ),
-                        child: Transform.scale(
-                          scale: 1 - (i - index) * 0.045,
-                          child: i == index
-                              ? _SwipeCard(
-                                  key: ValueKey('${deck[i].source}:${deck[i].id}'),
-                                  item: deck[i],
-                                  maxWidth: constraints.maxWidth,
-                                  maxHeight: constraints.maxHeight,
-                                  onDecide: (together) => onDecide(deck[i], together),
-                                )
-                              : _CardFace(
-                                  item: deck[i],
-                                  maxWidth: constraints.maxWidth,
-                                  maxHeight: constraints.maxHeight,
-                                  rotation: (i - index).isOdd ? 0.035 : -0.035,
-                                ),
-                        ),
-                      ),
-                  ],
+                String keyOf(int i) => '${deck[i].source}:${deck[i].id}';
+                return DeckStack(
+                  index: index,
+                  count: deck.length,
+                  keyOf: keyOf,
+                  topBuilder: (i) => SwipeableCard(
+                    key: ValueKey<String>(keyOf(i)),
+                    yes: SwipeSide(
+                      icon: Icons.favorite,
+                      label: 'together'.tr,
+                      color: SeenlyPalette.accent,
+                    ),
+                    no: SwipeSide(
+                      icon: Icons.close,
+                      label: 'not tonight'.tr,
+                      color: SeenlyPalette.inkMuted,
+                    ),
+                    onDecide: (together) => onDecide(deck[i], together),
+                    child: _CardFace(
+                      item: deck[i],
+                      maxWidth: constraints.maxWidth,
+                      maxHeight: constraints.maxHeight,
+                      elevated: true,
+                    ),
+                  ),
+                  backBuilder: (i) => _CardFace(
+                    item: deck[i],
+                    maxWidth: constraints.maxWidth,
+                    maxHeight: constraints.maxHeight,
+                  ),
                 );
               },
             ),
@@ -1158,7 +1108,7 @@ class _NetSwipeDeck extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _DecisionButton(
+              DecisionButton(
                 icon: Icons.close,
                 label: 'not tonight'.tr,
                 iconColor: SeenlyPalette.inkMuted,
@@ -1166,7 +1116,7 @@ class _NetSwipeDeck extends StatelessWidget {
                 bordered: true,
                 onTap: () => onDecide(current, false),
               ),
-              _DecisionButton(
+              DecisionButton(
                 icon: Icons.favorite,
                 label: 'together'.tr,
                 iconColor: SeenlyPalette.accentOnAccent,
@@ -1178,90 +1128,6 @@ class _NetSwipeDeck extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The top card in the stack — draggable horizontally; releasing far
-/// enough either commits the same decision as tapping a button below.
-class _SwipeCard extends StatelessWidget {
-  final MediaItem item;
-  final double maxWidth;
-  final double maxHeight;
-  final ValueChanged<bool> onDecide;
-
-  const _SwipeCard({
-    super.key,
-    required this.item,
-    required this.maxWidth,
-    required this.maxHeight,
-    required this.onDecide,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dismissible(
-      key: key!,
-      direction: DismissDirection.horizontal,
-      onDismissed: (direction) => onDecide(direction == DismissDirection.startToEnd),
-      background: _SwipeHint(
-        alignment: Alignment.centerLeft,
-        icon: Icons.favorite,
-        label: 'together'.tr,
-        color: SeenlyPalette.accent,
-      ),
-      secondaryBackground: _SwipeHint(
-        alignment: Alignment.centerRight,
-        icon: Icons.close,
-        label: 'not tonight'.tr,
-        color: SeenlyPalette.inkMuted,
-      ),
-      child: _CardFace(item: item, maxWidth: maxWidth, maxHeight: maxHeight, elevated: true),
-    );
-  }
-}
-
-class _SwipeHint extends StatelessWidget {
-  final Alignment alignment;
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  const _SwipeHint({
-    required this.alignment,
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(26),
-        boxShadow: [
-          BoxShadow(color: SeenlyPalette.ink.withOpacity(0.14), blurRadius: 20, offset: const Offset(0, 8)),
-        ],
-      ),
-      alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 26),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.16),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: SeenlyPalette.paper, size: 22),
-          ),
-          const SizedBox(height: 8),
-          Text(label,
-              style: SeenlyText.mono(size: 10, color: SeenlyPalette.paper, weight: FontWeight.w600)),
-        ],
-      ),
     );
   }
 }
@@ -1432,62 +1298,48 @@ class _TapeAccent extends StatelessWidget {
   }
 }
 
-/// One decision button — a soft circle with a warm, ink-toned shadow
-/// (never the flat black kind) and a small mono label underneath so the
-/// two choices are legible on their own, without a caption line elsewhere
-/// on the screen doing the explaining for them.
-class _DecisionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color iconColor;
-  final Color background;
-  final bool large;
-  final bool bordered;
-  final VoidCallback onTap;
-
-  const _DecisionButton({
-    required this.icon,
-    required this.label,
-    required this.iconColor,
-    required this.background,
-    required this.onTap,
-    this.large = false,
-    this.bordered = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final size = large ? 64.0 : 52.0;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: background,
-              shape: BoxShape.circle,
-              border: bordered ? Border.all(color: SeenlyPalette.border) : null,
-              boxShadow: [
-                BoxShadow(
-                  color: SeenlyPalette.ink.withOpacity(large ? 0.16 : 0.08),
-                  blurRadius: large ? 18 : 12,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, size: large ? 26 : 20, color: iconColor),
+/// How a recap's matched posters arrive: one after another, each rising
+/// into place a beat after the last. Keyed by the title, so a match that
+/// turns up later (a network session keeps updating) animates in on its own
+/// instead of the whole grid replaying.
+Widget _matchGrid(List<MediaItem> matches) {
+  return GridView.count(
+    crossAxisCount: 3,
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    mainAxisSpacing: 8,
+    crossAxisSpacing: 8,
+    childAspectRatio: 2 / 3,
+    children: [
+      for (int i = 0; i < matches.length; i++)
+        Entrance(
+          key: ValueKey<String>('${matches[i].source}:${matches[i].id}'),
+          delay: Duration(milliseconds: 260 + 90 * (i > 8 ? 8 : i)),
+          duration: const Duration(milliseconds: 480),
+          riseBy: 16,
+          child: ThemedPosterTile(
+            title: matches[i].title.display,
+            posterUrl: matches[i].posterUrl,
+            fallbackColor: SeenlyPalette.mediaColor(matches[i].mediaType),
+            mediaType: matches[i].mediaType,
           ),
-          const SizedBox(height: 8),
-          Text(label, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
-        ],
-      ),
-    );
-  }
+        ),
+    ],
+  );
+}
+
+/// The picture at the top of a recap: with matches, a beating heart that
+/// opens with a little shower of hearts; without, a moon that slowly
+/// breathes — a quiet round, not a failed one.
+Widget _recapHeader(bool hasMatches) {
+  return SizedBox(
+    height: 96,
+    child: Center(
+      child: hasMatches
+          ? const HeartsBurst(reach: 0.55, child: HeartbeatIcon(size: 32))
+          : Breathe(child: Icon(Icons.nights_stay_outlined, size: 30, color: SeenlyPalette.accent)),
+    ),
+  );
 }
 
 class _RecapView extends StatelessWidget {
@@ -1501,54 +1353,50 @@ class _RecapView extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasMatches = matches.isNotEmpty;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
+      padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
       children: [
-        Icon(hasMatches ? Icons.favorite : Icons.nights_stay_outlined,
-            size: 30, color: SeenlyPalette.accent),
-        const SizedBox(height: 14),
-        Text(
-          hasMatches
-              ? '${ruCount(matches.length, one: 'совпадение', few: 'совпадения', many: 'совпадений', englishOne: 'match', englishOther: 'matches')}!'
-              : 'no matches this round'.tr,
-          style: SeenlyText.screenTitle,
+        _recapHeader(hasMatches),
+        Entrance(
+          delay: const Duration(milliseconds: 120),
+          riseBy: 12,
+          child: Text(
+            hasMatches
+                ? '${nCount('nMatches', matches.length)}!'
+                : 'no matches this round'.tr,
+            style: SeenlyText.screenTitle,
+          ),
         ),
         const SizedBox(height: 8),
-        Text(
-          hasMatches
-              ? 'tucked into your "watch together" list — pick tonight\'s from there.'
-              : 'happens sometimes — try a different mood, or shuffle again.',
-          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+        Entrance(
+          delay: const Duration(milliseconds: 180),
+          riseBy: 12,
+          child: Text(
+            hasMatches
+                ? 'tucked into your "watch together" list — pick tonight\'s from there.'
+                : 'happens sometimes — try a different mood, or shuffle again.',
+            style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+          ),
         ),
         if (hasMatches) ...[
           const SizedBox(height: 20),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2 / 3,
-            children: [
-              for (final m in matches)
-                ThemedPosterTile(
-                  title: m.title.display,
-                  posterUrl: m.posterUrl,
-                  fallbackColor: SeenlyPalette.mediaColor(m.mediaType),
-                  mediaType: m.mediaType,
-                ),
-            ],
-          ),
+          _matchGrid(matches),
         ],
         const SizedBox(height: 26),
-        if (onOpenList != null) ...[
-          PrimaryButton(label: 'open the list'.tr, onTap: onOpenList),
-          const SizedBox(height: 10),
-        ],
-        Center(
-          child: TextButton(
-            onPressed: onSwipeAgain,
-            child: Text('shuffle again'.tr,
-                style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+        Entrance(
+          delay: Duration(milliseconds: hasMatches ? 500 + 60 * (matches.length > 6 ? 6 : matches.length) : 260),
+          riseBy: 12,
+          child: Column(
+            children: [
+              if (onOpenList != null) ...[
+                PrimaryButton(label: 'open the list'.tr, onTap: onOpenList),
+                const SizedBox(height: 10),
+              ],
+              TextButton(
+                onPressed: onSwipeAgain,
+                child: Text('shuffle again'.tr,
+                    style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+              ),
+            ],
           ),
         ),
       ],
@@ -1558,7 +1406,10 @@ class _RecapView extends StatelessWidget {
 
 /// Recap for a network session — you've reached the end of your own deck,
 /// but the other person might still be swiping, so this keeps refreshing
-/// (via the same poll loop) rather than treating the session as final.
+/// (via the same live updates) rather than treating the session as final. The
+/// other person's progress is a pill you can watch fill, the sentence under
+/// the title changes softly as it does, and a match that lands while you're
+/// looking arrives on its own.
 class _NetRecapView extends StatelessWidget {
   final List<MediaItem> matches;
   final String? partnerUsername;
@@ -1580,58 +1431,68 @@ class _NetRecapView extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasMatches = matches.isNotEmpty;
     final partnerDone = deckSize > 0 && partnerSwiped >= deckSize;
+    final title = hasMatches
+        ? '${nCount('nMatches', matches.length)} ${'so far'.tr}!'
+        : "you're through the deck".tr;
+    final status = partnerDone
+        ? (hasMatches
+            ? 'tucked into your "watch together" list — pick tonight\'s from there.'
+            : 'no matches this round — try again with a different mood.')
+        : '${partnerUsername ?? 'they'} is still swiping ($partnerSwiped of $deckSize) — '
+            'this updates as soon as they catch up.';
     return ListView(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 24),
+      padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
       children: [
-        Icon(hasMatches ? Icons.favorite : Icons.nights_stay_outlined,
-            size: 30, color: SeenlyPalette.accent),
-        const SizedBox(height: 14),
-        Text(
-          hasMatches
-              ? '${ruCount(matches.length, one: 'совпадение', few: 'совпадения', many: 'совпадений', englishOne: 'match', englishOther: 'matches')} ${'so far'.tr}!'
-              : "you're through the deck".tr,
-          style: SeenlyText.screenTitle,
+        _recapHeader(hasMatches),
+        Entrance(
+          delay: const Duration(milliseconds: 120),
+          riseBy: 12,
+          child: SoftSwap(
+            child: Text(title, key: ValueKey<String>(title), style: SeenlyText.screenTitle),
+          ),
         ),
         const SizedBox(height: 8),
-        Text(
-          partnerDone
-              ? (hasMatches
-                  ? 'tucked into your "watch together" list — pick tonight\'s from there.'
-                  : 'no matches this round — try again with a different mood.')
-              : '${partnerUsername ?? 'they'} is still swiping ($partnerSwiped of $deckSize) — '
-                  'this updates as soon as they catch up.',
-          style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+        Entrance(
+          delay: const Duration(milliseconds: 180),
+          riseBy: 12,
+          child: SoftSwap(
+            child: Text(
+              status,
+              key: ValueKey<String>(status),
+              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
+            ),
+          ),
         ),
-        if (hasMatches) ...[
-          const SizedBox(height: 20),
-          GridView.count(
-            crossAxisCount: 3,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2 / 3,
-            children: [
-              for (final m in matches)
-                ThemedPosterTile(
-                  title: m.title.display,
-                  posterUrl: m.posterUrl,
-                  fallbackColor: SeenlyPalette.mediaColor(m.mediaType),
-                  mediaType: m.mediaType,
-                ),
-            ],
+        if (!partnerDone && deckSize > 0) ...[
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: DeckPill(
+              '${partnerUsername ?? 'they'.tr}: $partnerSwiped ${'of'.tr} $deckSize',
+              progress: partnerSwiped / deckSize,
+            ),
           ),
         ],
-        const SizedBox(height: 26),
-        if (onOpenList != null) ...[
-          PrimaryButton(label: 'open the list'.tr, onTap: onOpenList),
-          const SizedBox(height: 10),
+        if (hasMatches) ...[
+          const SizedBox(height: 20),
+          _matchGrid(matches),
         ],
-        Center(
-          child: TextButton(
-            onPressed: onEnd,
-            child: Text('end session'.tr,
-                style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+        const SizedBox(height: 26),
+        Entrance(
+          delay: const Duration(milliseconds: 300),
+          riseBy: 12,
+          child: Column(
+            children: [
+              if (onOpenList != null) ...[
+                PrimaryButton(label: 'open the list'.tr, onTap: onOpenList),
+                const SizedBox(height: 10),
+              ],
+              TextButton(
+                onPressed: onEnd,
+                child: Text('end session'.tr,
+                    style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
+              ),
+            ],
           ),
         ),
       ],
@@ -1657,19 +1518,22 @@ class _MessageView extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(title,
-                textAlign: TextAlign.center,
-                style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.inkMuted)),
-            const SizedBox(height: 8),
-            Text(subtitle,
-                textAlign: TextAlign.center,
-                style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
-            const SizedBox(height: 20),
-            PrimaryButton(label: buttonLabel, onTap: onButtonTap, expand: false),
-          ],
+        child: Entrance(
+          riseBy: 14,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title,
+                  textAlign: TextAlign.center,
+                  style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.inkMuted)),
+              const SizedBox(height: 8),
+              Text(subtitle,
+                  textAlign: TextAlign.center,
+                  style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder)),
+              const SizedBox(height: 20),
+              PrimaryButton(label: buttonLabel, onTap: onButtonTap, expand: false),
+            ],
+          ),
         ),
       ),
     );

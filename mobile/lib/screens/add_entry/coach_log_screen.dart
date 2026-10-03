@@ -1,3 +1,4 @@
+import '../partner/room/together_verdict_card.dart';
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -6,10 +7,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../data/coach_routes.dart';
+import '../../models/diary_entry.dart';
 import '../../models/media_item.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/together_wrapped_teaser.dart';
 import '../../widgets/boarding_drop_overlay.dart';
 import '../../widgets/boarding_pass.dart';
 import '../../widgets/coach_submit_button.dart';
@@ -18,6 +21,7 @@ import '../../widgets/light_bloom.dart';
 import '../../widgets/log_flow_kit.dart';
 import '../../widgets/mood_tag_picker.dart' show vibePresetTags, vibePromptTitle;
 import '../../widgets/review_composer.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../services/log_theme_service.dart';
@@ -27,6 +31,12 @@ import '../../widgets/favorite_toggle.dart';
 import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
+import '../../theme/notebook_paper.dart';
+import '../../widgets/saved_celebration.dart';
+import '../../widgets/share_card.dart';
+import '../../widgets/share_sheet.dart';
+import '../../widgets/decide_motion.dart' show SecondaryActionButton;
+import '../../theme/clay_kit.dart';
 
 // This route's own verdict words — same shape VerdictRating expects
 // from the cinema flow (10 entries, low to high), just spoken the way
@@ -75,7 +85,19 @@ class CoachLogScreen extends StatefulWidget {
   // season has, so the diary row's runtime reflects the whole season
   // rather than one episode (see DiaryService.logEntry).
   final int? episodeCount;
-  const CoachLogScreen({super.key, required this.item, this.season, this.episode, this.episodeCount});
+  // Pre-checks the "watched with partner" toggle below — see
+  // WatchingChoiceScreen's own doc comment for why (the co-viewing
+  // planned grid's "смотрю" button opens this already knowing the
+  // evening was shared).
+  final bool initialWatchedWithPartner;
+  const CoachLogScreen({
+    super.key,
+    required this.item,
+    this.season,
+    this.episode,
+    this.episodeCount,
+    this.initialWatchedWithPartner = false,
+  });
 
   @override
   State<CoachLogScreen> createState() => _CoachLogScreenState();
@@ -116,6 +138,13 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
   String? _partnerUsername;
   bool _saving = false;
   String? _error;
+  // Stashed the moment `_confirmAndSave` succeeds, purely so the pass
+  // step's share button (below) has a real logged entry to build an
+  // [EveningShareCard] from — nothing before that point needs it. Named
+  // distinctly from the local `_loggedEntry` used inside
+  // `_confirmAndSave` itself, so that local declaration doesn't shadow
+  // this field.
+  DiaryEntry? _savedDiaryEntry;
   // widget.item only carries cast when it came straight off a detail
   // fetch (title screen's own GET /media/detail) — an item handed in
   // from a lighter source like the home feed or a search result never
@@ -130,6 +159,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
   @override
   void initState() {
     super.initState();
+    _watchedWithPartner = widget.initialWatchedWithPartner;
     final item = widget.item;
     final seed = item.title.display;
     _route = routeForRuntime(runtimeMinutes: item.runtimeMinutes, mediaType: item.mediaType, seed: seed);
@@ -259,8 +289,9 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
     // sitting on a blank spinner.
     setState(() { _saving = true; _error = null; _step = _Step.departing; });
     bool failed = false;
+    DiaryEntry? _loggedEntry;
     try {
-      await Future.wait([
+      final results = await Future.wait([
         context.read<AppState>().diary.logEntry(
               item: widget.item,
               rating: _rating > 0 ? _rating : null,
@@ -276,6 +307,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
             ),
         Future.delayed(const Duration(milliseconds: 1500)),
       ]);
+      _loggedEntry = results[0] as DiaryEntry;
     } catch (_) {
       failed = true;
     }
@@ -284,6 +316,8 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
       setState(() { _saving = false; _step = _Step.confirm; _error = "couldn't save that just now — try again"; });
       return;
     }
+    if (_loggedEntry != null) showSincerityToasts(context, _loggedEntry.sincerityAwarded);
+    _savedDiaryEntry = _loggedEntry;
     HapticFeedback.mediumImpact();
     // A save is exactly the moment a level-up (and possibly a new
     // badge unlocking) could just have happened — refresh the cached
@@ -305,6 +339,23 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
     );
     if (!mounted) return;
     setState(() => _step = _Step.pass);
+  }
+
+  // Opens the same share-card sheet as everywhere else in the app (see
+  // widgets/watched_preview_sheet.dart), built straight from the entry
+  // that was just logged — so "share" on this last screen isn't a
+  // separate, lesser path, it's the exact same card someone would get
+  // to later from the diary.
+  void _shareLoggedEntry() {
+    final entry = _savedDiaryEntry;
+    if (entry == null) return;
+    showShareCardSheet(
+      context,
+      card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
+      fileName: 'seenly-${entry.id}',
+      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      rewardKey: 'seenly-${entry.id}',
+    );
   }
 
   @override
@@ -528,7 +579,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
             child: _BusWindowFrame(
               child: Container(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: SeenlyPalette.softShadow,
@@ -660,7 +711,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
             child: _BusWindowFrame(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                decoration: BoxDecoration(
+                decoration: ClayBoxDecoration(
                   color: SeenlyPalette.paper,
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: SeenlyPalette.softShadow,
@@ -752,7 +803,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
             child: _BusWindowFrame(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
-                decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18), boxShadow: SeenlyPalette.softShadow),
+                decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18), boxShadow: SeenlyPalette.softShadow),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -815,7 +866,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                 _BusWindowFrame(
                   child: Container(
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
+              decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -845,7 +896,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                       ),
                     ],
                   ),
-                  Divider(height: 28, color: SeenlyPalette.border),
+                  CozyDivider(height: 28, color: SeenlyPalette.border),
                   ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
@@ -970,27 +1021,65 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
         ),
         const _PassStepMascot(),
         const Spacer(flex: 2),
+        if (_watchedWithPartner && _partnerUsername != null)
+          TogetherWrappedTeaser(partnerName: _partnerUsername!),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(
-            label: 'check in'.tr,
-            onTap: () async {
-              // Right as the person is about to leave the boarding
-              // ritual behind — one more beat (or two), if this save
-              // leveled them up and/or a badge just came with it,
-              // before actually stepping away.
-              final leveledUp = context.read<AppState>().consumePendingLevelUp();
-              if (leveledUp != null && context.mounted) {
-                await showLevelUpCelebration(context, leveledUp);
-              }
-              if (context.mounted) {
-                await checkAndCelebrateNewAchievements(context);
-              }
-              if (context.mounted) Navigator.of(context).pop(true);
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: SecondaryActionButton(
+                  icon: Icons.ios_share_rounded,
+                  label: 'share'.tr,
+                  onTap: _shareLoggedEntry,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: PrimaryButton(
+                  label: 'check in'.tr,
+                  onTap: () async {
+                    // Right as the person is about to leave the boarding
+                    // ritual behind — one more beat (or two), if this save
+                    // leveled them up and/or a badge just came with it,
+                    // before actually stepping away.
+                    final leveledUp = context.read<AppState>().consumePendingLevelUp();
+                    if (leveledUp != null && context.mounted) {
+                      await showLevelUpCelebration(context, leveledUp);
+                    }
+                    if (context.mounted) {
+                      await checkAndCelebrateNewAchievements(context);
+                    }
+                    if (context.mounted && _watchedWithPartner) {
+                      // The shared rating, in its own soft sheet: sealed with
+                      // yours, or opening right now if the others have rated.
+                      await showTogetherVerdictSheet(context, widget.item);
+                    }
+                    if (context.mounted) {
+                      // The closing flourish: it lives in the root overlay, so it
+                      // carries on over the screen this one is about to reveal.
+                      showSavedCelebration(
+                        context,
+                        kind: SavedKind.logged,
+                        title: widget.item.title.display,
+                        posterUrl: widget.item.posterUrl,
+                        mediaType: widget.item.mediaType,
+                        rating: _rating > 0 ? _rating : null,
+                        partnerName: _watchedWithPartner ? _partnerUsername : null,
+                        compact: true,
+                        haptics: false,
+                      );
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ],
+
     );
   }
 
@@ -1153,7 +1242,7 @@ class _BusWindowFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.ink,
         borderRadius: BorderRadius.circular(24),
         boxShadow: SeenlyPalette.softShadow,

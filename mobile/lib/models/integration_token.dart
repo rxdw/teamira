@@ -1,3 +1,5 @@
+import '../utils/server_time.dart';
+
 /// Mirrors `IntegrationTokenOut` in backend/app/schemas.py — everything
 /// the Integrations screen needs to render: the raw token (for anything
 /// these ready-made URLs don't cover) plus a URL already built per source.
@@ -60,6 +62,6 @@ class ScrobbleEvent {
         matchedSource: json['matched_source'] as String?,
         action: json['action'] as String,
         detail: json['detail'] as String?,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }

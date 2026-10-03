@@ -1,0 +1,25 @@
+# Grafana reads the app's Postgres through a READ-ONLY role that can see the
+# analytics tables and the aggregated v_analytics_* views — and nothing else
+# (no users, no password hashes). Create the role once; the SQL is in
+# docs/analytics.md ("Grafana"). Credentials come from the environment
+# (docker-compose.yml passes GRAFANA_DB_USER / GRAFANA_DB_PASSWORD through).
+apiVersion: 1
+
+datasources:
+  - name: Seenly analytics
+    uid: seenly-pg
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: ${GRAFANA_DB_HOST}
+    user: ${GRAFANA_DB_USER}
+    isDefault: true
+    editable: false
+    jsonData:
+      database: ${GRAFANA_DB_NAME}
+      sslmode: disable          # db is on the private docker network; nothing crosses the internet
+      postgresVersion: 1600
+      timescaledb: false
+      maxOpenConns: 5
+      maxIdleConns: 2
+    secureJsonData:
+      password: ${GRAFANA_DB_PASSWORD}

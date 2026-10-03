@@ -200,6 +200,165 @@ class ShikimoriAdapter:
             "poster_ru": poster_url,
         }
 
+    async def genres_for(self, shikimori_ids: List[int]) -> dict:
+        """{shikimori_id: [genre, ...]} for the given anime ids — one
+        GraphQL round trip per 50 ids (the /calendar REST rows have no
+        genres, and /animes/{id} one at a time would be a hundred requests
+        on a cold cache). Same best-effort contract as calendar(): any
+        failure returns what was gathered so far (possibly {}), so the
+        calendar just has anime without genre chips rather than failing."""
+        ids = [i for i in dict.fromkeys(shikimori_ids) if i is not None]
+        if not ids:
+            return {}
+        result: dict = {}
+        async with httpx.AsyncClient(
+            timeout=8.0, headers={"User-Agent": SHIKIMORI_USER_AGENT}
+        ) as client:
+            for start in range(0, len(ids), _GRAPHQL_BATCH):
+                chunk = ids[start:start + _GRAPHQL_BATCH]
+                query = (
+                    '{ animes(ids: "%s", limit: %d) { id genres { name kind } } }'
+                    % (",".join(str(i) for i in chunk), _GRAPHQL_BATCH)
+                )
+                try:
+                    resp = await client.post(SHIKIMORI_GRAPHQL, json={"query": query})
+                    resp.raise_for_status()
+                    data = resp.json()
+                except (httpx.HTTPError, ValueError) as exc:
+                    logger.warning("Shikimori genres fetch failed: %s", exc)
+                    break
+                animes = ((data or {}).get("data") or {}).get("animes") or []
+                for a in animes:
+                    if not isinstance(a, dict) or a.get("id") is None:
+                        continue
+                    try:
+                        result[int(a["id"])] = _normalize_genres(a.get("genres"))
+                    except (TypeError, ValueError):
+                        continue
+        return result
+
+    async def calendar(self) -> List[dict]:
+        """GET /api/calendar — Shikimori's own next-episode-airing calendar:
+        one row per ongoing anime it tracks, each carrying exactly when its
+        next episode airs. Unlike anime_supplement() above, this is not a
+        title-matching lookup at all — Shikimori hands back its *own*
+        anime objects (with their *own* Shikimori id), so there's no
+        candidate-scoring/lossiness question here the way there is there.
+
+        This is why it's only ever used for the Home screen's discovery
+        calendar (app/routers/calendar.py's release_calendar), never to
+        find the next episode of something already in *this* app's own
+        library: a title in this app's watchlist/diary came in through
+        TMDB (see this module's own docstring — TMDB is the primary
+        catalog, Shikimori only overlays Russian text onto it) and has no
+        Shikimori id recorded anywhere. Matching it back to a Shikimori
+        anime by title just to read this calendar would reintroduce
+        exactly the same-name/remake ambiguity anime_supplement's own
+        docstring warns about — acceptable for "maybe the Russian text is
+        a little off," not for "which title this personal reminder is
+        even about." A watching-list title's next episode instead comes
+        straight from TMDB's own next_episode_to_air/last_episode_to_air
+        (see app/adapters/tmdb.py::next_episode) — an exact id lookup,
+        never a guess.
+
+        `censored=true` keeps hentai/yaoi/yuri entries off a calendar
+        nobody explicitly opted into seeing that content on (Shikimori's
+        own flag for this, same param anime_supplement's search could in
+        principle take but never needs to since a title search is already
+        scoped to what the user typed).
+
+        Returns [] on any failure — same "best-effort overlay, degrade
+        quietly" contract as anime_supplement() above; a Shikimori hiccup
+        should just mean the discovery calendar has less anime in it, not
+        that Home fails to load."""
+        async with httpx.AsyncClient(
+            timeout=8.0, headers={"User-Agent": SHIKIMORI_USER_AGENT}
+        ) as client:
+            try:
+                resp = await client.get(
+                    f"{SHIKIMORI_BASE}/calendar", params={"censored": "true"}
+                )
+                resp.raise_for_status()
+            except httpx.HTTPError as exc:
+                logger.warning("Shikimori calendar fetch failed: %s", exc)
+                return []
+        raw = resp.json()
+        if not isinstance(raw, list):
+            return []
+
+        items: List[dict] = []
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            anime = entry.get("anime") or {}
+            anime_id = anime.get("id")
+            air_at = entry.get("next_episode_at")
+            if anime_id is None or not air_at:
+                continue
+            poster = anime.get("image") or {}
+            poster_url = poster.get("original") or poster.get("preview") or None
+            if poster_url and poster_url.startswith("/"):
+                poster_url = f"https://shikimori.io{poster_url}"
+            items.append({
+                "shikimori_id": anime_id,
+                "title_ru": (anime.get("russian") or "").strip() or None,
+                "title_en": (anime.get("name") or "").strip() or None,
+                "poster_url": poster_url,
+                "episode": entry.get("next_episode"),
+                "air_at": air_at,
+                "url": f"https://shikimori.io/animes/{anime_id}",
+            })
+
+        # Best-effort genre overlay (see genres_for). Never allowed to
+        # break the calendar itself.
+        try:
+            genre_map = await self.genres_for([i["shikimori_id"] for i in items])
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Shikimori genre overlay failed: %s", exc)
+            genre_map = {}
+        for i in items:
+            try:
+                i["genres"] = genre_map.get(int(i["shikimori_id"]), [])
+            except (TypeError, ValueError):
+                i["genres"] = []
+        return items
+
+
+# Genre labels for the release calendar's genre filter. Shikimori's
+# /api/calendar rows carry no genres, so ShikimoriAdapter.calendar asks its
+# GraphQL endpoint for them in one batch. Names are folded into the same
+# English vocabulary TMDB uses for MediaItem.genres, so an anime "Sci-Fi"
+# and a movie "Science Fiction" land on one chip when the calendar's "all"
+# tab shows both.
+SHIKIMORI_GRAPHQL = "https://shikimori.io/api/graphql"
+_GRAPHQL_BATCH = 50  # Shikimori caps `limit` at 50 per animes() query
+_GENRE_ALIASES = {
+    "Sci-Fi": "Science Fiction",
+    "Suspense": "Thriller",
+    "Slice of Life": "Slice of Life",
+}
+# Audience tags (Shounen/Seinen/...) and adult labels are not genres a
+# person browses a calendar by; adult titles are already excluded upstream
+# by censored=true, this is just belt and braces.
+_SKIP_GENRE_KINDS = {"demographic"}
+_SKIP_GENRE_NAMES = {"Hentai", "Erotica", "Yaoi", "Yuri"}
+
+
+def _normalize_genres(raw_genres) -> List[str]:
+    out: List[str] = []
+    for g in raw_genres or []:
+        if not isinstance(g, dict):
+            continue
+        name = (g.get("name") or "").strip()
+        if not name or name in _SKIP_GENRE_NAMES:
+            continue
+        if (g.get("kind") or "") in _SKIP_GENRE_KINDS:
+            continue
+        name = _GENRE_ALIASES.get(name, name)
+        if name not in out:
+            out.append(name)
+    return out
+
 
 # ---------------------------------------------------------------------------
 # Manga — a full catalog adapter (search/discover/named_collections/

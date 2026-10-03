@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
 
 /// Whether "your sources" (YouTube/Twitch, see SourcesScreen) should also
 /// show up inside the main Profile watched / watching / plan-to-watch
@@ -20,22 +21,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// That's the whole reason this needs an explicit warning in the UI
 /// rather than just being on by default.
 class SourcesDisplayPrefsService extends ChangeNotifier {
-  static const _mergeKey = 'seenly_sources_merged_into_main_list';
+  final _mergeIntoMainList = PersistedPref.boolean('seenly_sources_merged_into_main_list');
 
-  bool _mergeIntoMainList = false;
-  bool get mergeIntoMainList => _mergeIntoMainList;
+  bool get mergeIntoMainList => _mergeIntoMainList.value;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _mergeIntoMainList = prefs.getBool(_mergeKey) ?? false;
+    await _mergeIntoMainList.load();
     notifyListeners();
   }
 
   Future<void> setMergeIntoMainList(bool value) async {
-    if (_mergeIntoMainList == value) return;
-    _mergeIntoMainList = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_mergeKey, value);
+    await _mergeIntoMainList.save(value, onChanged: notifyListeners);
   }
 }

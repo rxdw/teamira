@@ -8,9 +8,12 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/poster_lightbox.dart' show scopedPosterHeroTag;
+import '../../widgets/scroll_reveal.dart' show ScrollRevealEntrance;
+import '../../widgets/wow_motion.dart' show PressScale;
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../../theme/clay_kit.dart';
 
 /// The "for you" trailer feed — reached by tapping a [TrailerPreviewCard] or
 /// Home's "watch all" link, never shown by default.
@@ -119,12 +122,21 @@ class _TrailerReelsScreenState extends State<TrailerReelsScreen> {
                 final heroTag = scopedPosterHeroTag('home-foryou', item.source, item.id);
                 return Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: AspectRatio(
+                  // Each card lifts and fades in as it's scrolled into
+                  // view — driven by scroll offset, not a timer, so it
+                  // plays exactly once per card, the moment it actually
+                  // appears (see ScrollRevealEntrance).
+                  child: ScrollRevealEntrance(
+                    index: i,
+                    driftDistance: 0,
+                    child: AspectRatio(
                     aspectRatio: 0.62,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(28),
                       child: _ReelCard(
                         item: item,
+                        liked: _reactedKeys.contains('${item.source}:${item.id}:like'),
+                        watchedMarked: _reactedKeys.contains('${item.source}:${item.id}:watched'),
                         // Same tag Home's TrailerPreviewCard used for this
                         // item (see _homePosterHeroTag there), and reused
                         // again below for the detail push — so the poster
@@ -151,6 +163,7 @@ class _TrailerReelsScreenState extends State<TrailerReelsScreen> {
                       ),
                     ),
                   ),
+                  ),
                 );
               },
             ),
@@ -159,8 +172,9 @@ class _TrailerReelsScreenState extends State<TrailerReelsScreen> {
             top: 8,
             right: 8,
             child: SafeArea(
-              child: GestureDetector(
+              child: PressScale(
                 onTap: () => Navigator.of(context).pop(),
+                scaleTo: 0.88,
                 child: Container(
                   width: 36,
                   height: 36,
@@ -246,6 +260,18 @@ class _FallbackCover extends StatelessWidget {
       urls[i],
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => _build(i + 1),
+      // Fades the art in once it's actually decoded — already-cached
+      // images (a re-scroll, coming back to the feed) show up straight
+      // away instead of replaying a fade that was never needed.
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded) return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+          child: child,
+        );
+      },
     );
   }
 
@@ -265,7 +291,7 @@ class _CardBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper.withOpacity(0.92),
         borderRadius: BorderRadius.circular(20),
         boxShadow: SeenlyPalette.softShadow,
@@ -305,6 +331,8 @@ IconData _mediaTypeIcon(String mediaType) {
 /// title, a short blurb, and the action row.
 class _ReelCard extends StatelessWidget {
   final MediaItem item;
+  final bool liked;
+  final bool watchedMarked;
   final VoidCallback onLike;
   final VoidCallback onWatched;
   final VoidCallback onShare;
@@ -313,6 +341,8 @@ class _ReelCard extends StatelessWidget {
 
   const _ReelCard({
     required this.item,
+    required this.liked,
+    required this.watchedMarked,
     required this.onLike,
     required this.onWatched,
     required this.onShare,
@@ -330,8 +360,9 @@ class _ReelCard extends StatelessWidget {
       if (item.genres.isNotEmpty) item.genres.take(2).join(' · '),
     ].join(' · ');
 
-    return GestureDetector(
+    return PressScale(
       onTap: onOpenDetail,
+      scaleTo: 0.985,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -417,12 +448,12 @@ class _ReelCard extends StatelessWidget {
                         italic: true,
                         size: 21,
                         weight: FontWeight.w600,
-                        color: SeenlyPalette.paper)),
+                        color: SeenlyPalette.paperOnDark)),
                 if (meta.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(meta,
                       style: SeenlyText.mono(
-                          size: 11, color: SeenlyPalette.paper.withOpacity(0.75))),
+                          size: 11, color: SeenlyPalette.paperOnDark.withOpacity(0.75))),
                 ],
                 if ((item.description.display).isNotEmpty &&
                     item.description.display != '—') ...[
@@ -432,7 +463,7 @@ class _ReelCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: SeenlyText.serif(
-                        size: 13, color: SeenlyPalette.paper.withOpacity(0.85)),
+                        size: 13, color: SeenlyPalette.paperOnDark.withOpacity(0.85)),
                   ),
                 ],
                 if (hasTrailer) ...[
@@ -446,13 +477,26 @@ class _ReelCard extends StatelessWidget {
                   children: [
                     _RoundIconButton(icon: Icons.ios_share_rounded, onTap: onShare),
                     const SizedBox(width: 10),
-                    _RoundIconButton(icon: Icons.check_circle_outline, onTap: onWatched),
+                    // Marking watched here is the quick path (no rating,
+                    // no ritual) — it just needs to visibly land: the
+                    // icon fills and pops with a small ring, then stays
+                    // that way.
+                    _RoundIconButton(
+                      icon: Icons.check_circle_outline,
+                      activeIcon: Icons.check_circle,
+                      active: watchedMarked,
+                      activeColor: SeenlyPalette.accent,
+                      onTap: watchedMarked ? null : onWatched,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: _PrimaryPill(
                         icon: Icons.favorite_border,
+                        activeIcon: Icons.favorite,
                         label: 'plan to watch'.tr,
-                        onTap: onLike,
+                        activeLabel: 'on your plan'.tr,
+                        active: liked,
+                        onTap: liked ? null : onLike,
                       ),
                     ),
                   ],
@@ -475,27 +519,28 @@ class _WatchTrailerButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
+      scaleTo: 0.96,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
         decoration: BoxDecoration(
-          color: SeenlyPalette.paper.withOpacity(0.14),
+          color: SeenlyPalette.paperOnDark.withOpacity(0.14),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: SeenlyPalette.paper.withOpacity(0.4)),
+          border: Border.all(color: SeenlyPalette.paperOnDark.withOpacity(0.4)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.paper),
+            Icon(Icons.play_circle_fill, size: 20, color: SeenlyPalette.paperOnDark),
             const SizedBox(width: 9),
             Text('watch trailer'.tr,
                 style: SeenlyText.serif(
                     italic: true,
                     size: 14.5,
                     weight: FontWeight.w600,
-                    color: SeenlyPalette.paper)),
+                    color: SeenlyPalette.paperOnDark)),
           ],
         ),
       ),
@@ -509,15 +554,27 @@ class _WatchTrailerButton extends StatelessWidget {
 /// buttons competing for attention.
 class _PrimaryPill extends StatelessWidget {
   final IconData icon;
+  final IconData? activeIcon;
   final String label;
-  final VoidCallback onTap;
+  final String? activeLabel;
+  final bool active;
+  final VoidCallback? onTap;
 
-  const _PrimaryPill({required this.icon, required this.label, required this.onTap});
+  const _PrimaryPill({
+    required this.icon,
+    this.activeIcon,
+    required this.label,
+    this.activeLabel,
+    this.active = false,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return PressScale(
       onTap: onTap,
+      scaleTo: 0.96,
+      haptics: true,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 13),
         decoration: BoxDecoration(
@@ -532,24 +589,27 @@ class _PrimaryPill extends StatelessWidget {
           ],
         ),
         alignment: Alignment.center,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: SeenlyPalette.accentOnAccent),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: SeenlyText.serif(
-                    italic: true,
-                    size: 14,
-                    weight: FontWeight.w600,
-                    color: SeenlyPalette.accentOnAccent),
+        child: _Landed(
+          active: active,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(active ? (activeIcon ?? icon) : icon, size: 16, color: SeenlyPalette.accentOnAccent),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  active ? (activeLabel ?? label) : label,
+                  overflow: TextOverflow.ellipsis,
+                  style: SeenlyText.serif(
+                      italic: true,
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: SeenlyPalette.accentOnAccent),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -561,23 +621,108 @@ class _PrimaryPill extends StatelessWidget {
 /// primary pill.
 class _RoundIconButton extends StatelessWidget {
   final IconData icon;
-  final VoidCallback onTap;
-  const _RoundIconButton({required this.icon, required this.onTap});
+  final IconData? activeIcon;
+  final bool active;
+  final Color? activeColor;
+  final VoidCallback? onTap;
+
+  const _RoundIconButton({
+    required this.icon,
+    this.activeIcon,
+    this.active = false,
+    this.activeColor,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    final color = active ? (activeColor ?? SeenlyPalette.paperOnDark) : SeenlyPalette.paperOnDark;
+    return PressScale(
       onTap: onTap,
-      child: Container(
+      scaleTo: 0.88,
+      haptics: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
         width: 46,
         height: 46,
         decoration: BoxDecoration(
-          color: SeenlyPalette.paper.withOpacity(0.16),
+          color: active
+              ? (activeColor ?? SeenlyPalette.paperOnDark).withOpacity(0.22)
+              : SeenlyPalette.paperOnDark.withOpacity(0.16),
           shape: BoxShape.circle,
-          border: Border.all(color: SeenlyPalette.paper.withOpacity(0.35)),
+          border: Border.all(color: color.withOpacity(active ? 0.7 : 0.35)),
         ),
-        child: Icon(icon, color: SeenlyPalette.paper, size: 20),
+        child: _Landed(
+          active: active,
+          child: Icon(active ? (activeIcon ?? icon) : icon, color: color, size: 20),
+        ),
       ),
+    );
+  }
+}
+
+/// Marks the moment a quick action actually "lands": when [active] turns
+/// true, [child] pops in with a small overshoot and a thin ring spreads
+/// out from it once. Purely decorative on the way there — [child] itself
+/// carries the real before/after look (a filled vs outline icon, a
+/// changed label); this only plays the arrival.
+class _Landed extends StatefulWidget {
+  final bool active;
+  final Widget child;
+  const _Landed({required this.active, required this.child});
+
+  @override
+  State<_Landed> createState() => _LandedState();
+}
+
+class _LandedState extends State<_Landed> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 560),
+  );
+
+  @override
+  void didUpdateWidget(_Landed oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.active && !oldWidget.active) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).disableAnimations) return widget.child;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = _c.value;
+        final pop = t <= 0 || t >= 1 ? 1.0 : Curves.easeOutBack.transform((t / 0.55).clamp(0.0, 1.0).toDouble());
+        final ring = Curves.easeOutCubic.transform(t);
+        return Stack(
+          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          children: [
+            if (t > 0 && t < 1)
+              Container(
+                width: 20 + 30 * ring,
+                height: 20 + 30 * ring,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: SeenlyPalette.paperOnDark.withOpacity(0.4 * (1 - ring)),
+                    width: 1.6 * (1 - ring) + 0.3,
+                  ),
+                ),
+              ),
+            Transform.scale(scale: 0.6 + 0.4 * pop, child: widget.child),
+          ],
+        );
+      },
     );
   }
 }

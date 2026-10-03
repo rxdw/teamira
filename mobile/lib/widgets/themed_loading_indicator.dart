@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/log_theme_service.dart';
+import '../theme/clay_kit.dart';
+import '../theme/seenly_skin.dart';
 
 /// The app's one loading spinner, dressed in whichever [LogTheme] is
 /// active — a sprout growing two leaves, a ticket printing out of a
@@ -44,6 +46,7 @@ class _ThemedLoadingIndicatorState extends State<ThemedLoadingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    if (SeenlySkin.isClay) return ClayLoader(size: widget.size);
     final theme = context.watch<LogThemeService>().theme;
 
     return SizedBox(

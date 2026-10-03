@@ -8,6 +8,7 @@ import '../theme/text_styles.dart';
 import '../screens/trailers/trailer_reels_screen.dart';
 import '../services/app_translations.dart';
 import '../services/locale_service.dart';
+import '../theme/clay_kit.dart';
 
 /// "about this franchise / how it was made" — opened from a small pill on
 /// [CollectionFullScreen] for franchise shelves only.
@@ -76,7 +77,8 @@ class _FranchiseInfoSheet extends StatelessWidget {
       builder: (context, scrollController) {
         return Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.circular(20),
           ),

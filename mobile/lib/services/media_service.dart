@@ -6,6 +6,7 @@ import '../models/tmdb_review.dart';
 import '../models/watch_provider.dart';
 import 'api_client.dart';
 import 'locale_service.dart';
+import '../analytics/analytics.dart';
 
 class MediaService {
   final ApiClient _client;
@@ -38,6 +39,11 @@ class MediaService {
       'include_manga': includeManga.toString(),
       'lang': lang ?? (LocaleService.contentPrefersRussian ? 'ru' : 'en'),
     }) as List;
+    Analytics.instance.track('search_performed', {
+      // The shape of the search, never the text that was typed.
+      'query_len': query.trim().length,
+      'results': json.length,
+    });
     return json
         .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -62,6 +68,10 @@ class MediaService {
         'media_type': mediaType,
         'source': source,
       }) as Map<String, dynamic>;
+      Analytics.instance.track('title_detail_loaded', {
+        'media_type': mediaType,
+        'source': source,
+      });
       return MediaDetail.fromJson(json);
     } on ApiException catch (e) {
       if (e.statusCode == 404) return null;

@@ -10,9 +10,11 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/achievement_unlock_overlay.dart';
 import '../../widgets/level_up_celebration.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/watch_complete_celebration.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// Call this once a single episode has actually been watched — whether
 /// that's the "already watched" instant path (see watching_choice_screen)
@@ -109,12 +111,21 @@ Future<void> maybeLogCompletedSeason({
     final avgRating =
         ratings.isEmpty ? null : (ratings.reduce((a, b) => a + b) / ratings.length).round();
 
-    await app.diary.logEntry(
+    final entry = await app.diary.logEntry(
       item: item,
       season: season,
       episodeCount: thisSeason.episodes.length,
       rating: avgRating,
+      // Explicit, same as every other logEntry call site (see
+      // watching_choice_screen.dart, the themed log screens' own
+      // _resolvedDate) — left out, this falls through to the backend's
+      // own default (datetime.utcnow(), a real UTC instant with no
+      // timezone marker), which DiaryEntry.fromJson then reads back as
+      // if it were local wall-clock time. Near a midnight boundary that
+      // can land the auto-logged entry on the wrong calendar day.
+      watchedAt: DateTime.now(),
     );
+    if (context.mounted) showSincerityToasts(context, entry.sincerityAwarded);
     // A save here is exactly the same kind of moment the themed log
     // screens refresh level after — this path just never called it, so
     // a season/series finish never nudged the cached level even when
@@ -217,7 +228,8 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
       child: Container(
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
         ),

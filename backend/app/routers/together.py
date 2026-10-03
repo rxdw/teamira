@@ -1,15 +1,16 @@
 import json
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import WebSocket
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from app import cache, models
+from app import cache, models, realtime
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_ws_user
 from app.routers.feed import add_watchlist_status
 from app.routers.partner import add_coview_entries, find_link_between
 from app.adapters.tmdb import TmdbAdapter
@@ -109,8 +110,15 @@ async def _build_deck(db: Session, type_filter: str, genres_filter: List[str] | 
     return pool
 
 
-def _get_session_for_participant(db: Session, session_id: str, user_id: str) -> models.TogetherSession:
-    row = db.get(models.TogetherSession, session_id)
+def _get_session_for_participant(
+    db: Session, session_id: str, user_id: str, *, for_update: bool = False,
+) -> models.TogetherSession:
+    """`for_update=True` takes a row lock (`SELECT ... FOR UPDATE`) on the
+    session for the rest of this transaction — see swipe()'s own comment
+    for why that matters there. Plain reads (get_session, join_session)
+    stay unlocked; there's no correctness reason for those to block on a
+    concurrent swipe."""
+    row = db.get(models.TogetherSession, session_id, with_for_update=for_update)
     if row is None:
         raise HTTPException(status_code=404, detail="Session not found")
     if user_id not in (row.owner_id, row.guest_id):
@@ -283,13 +291,19 @@ def join_session(
         raise HTTPException(status_code=410, detail="This session has ended")
     if row.guest_id is not None and row.guest_id != current_user.id:
         raise HTTPException(status_code=409, detail="Someone already joined this session")
-    if datetime.utcnow() - row.created_at > _SESSION_TTL:
+    if datetime.now(timezone.utc) - row.created_at > _SESSION_TTL:
         raise HTTPException(status_code=410, detail="This code has expired — ask for a new one")
 
     if row.guest_id is None:
         row.guest_id = current_user.id
         row.guest_sync_to_list = payload.sync_to_own_list
         row.status = models.TogetherSessionStatus.active
+        # The host's own screen is likely sitting on its socket right
+        # now waiting for exactly this ("waiting for a partner" ->
+        # swiping — see together_screen.dart's _phase transition) —
+        # same transaction as the commit below, see realtime.py's own
+        # docstring for why that ordering matters.
+        realtime.publish(db, realtime.topic_for("together", row.id))
         db.commit()
         db.refresh(row)
     return _to_out(db, row, current_user)
@@ -315,7 +329,16 @@ def swipe(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    row = _get_session_for_participant(db, session_id, current_user.id)
+    # Locked (see _get_session_for_participant's own comment): two
+    # partners swiping "yes" on the same title within milliseconds of
+    # each other used to both read row.swipes before the other's cast
+    # was committed, so each independently saw only its own swipe and
+    # neither ever concluded "partner said yes too" — the match
+    # silently didn't fire until someone swiped again. Locking the row
+    # here serializes the two requests: the second one now blocks until
+    # the first commits, then reads row.swipes fresh and actually sees
+    # the first swipe. Same fix as co_view_vote.py::cast_vote.
+    row = _get_session_for_participant(db, session_id, current_user.id, for_update=True)
     if row.status != models.TogetherSessionStatus.active:
         raise HTTPException(status_code=409, detail="Session isn't active")
 
@@ -354,6 +377,11 @@ def swipe(
             if matched_item:
                 _add_match_to_both_lists(db, row, matched_item)
 
+    # A swipe always changes something the partner's screen shows
+    # (swiped-so-far progress at minimum, possibly a new match), so
+    # this publishes unconditionally, same reasoning as
+    # co_view_vote.py::cast_vote.
+    realtime.publish(db, realtime.topic_for("together", row.id))
     db.commit()
     db.refresh(row)
     return _to_out(db, row, current_user)
@@ -367,4 +395,34 @@ def end_session(
 ):
     row = _get_session_for_participant(db, session_id, current_user.id)
     row.status = models.TogetherSessionStatus.done
+    realtime.publish(db, realtime.topic_for("together", row.id))
     db.commit()
+
+
+@router.websocket("/{session_id}/ws")
+async def watch_session(
+    websocket: WebSocket,
+    session_id: str,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Pushed updates for an open Watch Together network session —
+    replaces the mobile client's old `Timer.periodic(2s)` GET poll (see
+    TogetherService.poll and the `_pollTimer` in together_screen.dart).
+    Same shape as co_view_vote.py's watch_vote; see that one's docstring
+    and app/realtime.py for the actual mechanism.
+    """
+    await websocket.accept()
+    user = await get_ws_user(token, db)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    def _fetch() -> str | None:
+        try:
+            row = _get_session_for_participant(db, session_id, user.id)
+        except HTTPException:
+            return None
+        return _to_out(db, row, user).model_dump_json()
+
+    await realtime.run_ws_loop(websocket, realtime.topic_for("together", session_id), _fetch)

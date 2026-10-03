@@ -35,6 +35,13 @@ class PlannedEvening {
   final int? minute; // 0-59
   final bool coViewing;
   final String? partnerUsername; // snapshot only, for the ticket's own text
+  // The backend CoViewEntry this ticket mirrors, when it was actually
+  // synced (co-viewing AND linked at the time it was planned — see
+  // _PlanEveningSheet._confirm). Lets the "смотрю" button flip that
+  // same shared row to watched (via PartnerService.markCoViewWatched's
+  // already_logged) instead of writing a second, duplicate diary entry
+  // for it once this ticket's own logging ritual already wrote one.
+  final String? coViewEntryId;
   final DateTime createdAt;
 
   PlannedEvening({
@@ -50,6 +57,7 @@ class PlannedEvening {
     this.minute,
     this.coViewing = false,
     this.partnerUsername,
+    this.coViewEntryId,
     required this.createdAt,
   }) : id = id ?? '$mediaId-${createdAt.microsecondsSinceEpoch}';
 
@@ -116,6 +124,7 @@ class PlannedEvening {
         'minute': minute,
         'co_viewing': coViewing,
         'partner_username': partnerUsername,
+        'co_view_entry_id': coViewEntryId,
         'created_at': createdAt.toIso8601String(),
       };
 
@@ -135,6 +144,7 @@ class PlannedEvening {
         minute: json['minute'] as int?,
         coViewing: json['co_viewing'] as bool? ?? false,
         partnerUsername: json['partner_username'] as String?,
+        coViewEntryId: json['co_view_entry_id'] as String?,
         createdAt: json['created_at'] != null
             ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
             : DateTime.now(),

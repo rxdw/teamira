@@ -15,33 +15,47 @@ import '../../models/friend.dart';
 import '../../models/media_item.dart';
 import '../../models/partner_status.dart';
 import '../../models/profile_stats.dart' hide ActivityItem;
+import '../../models/referral.dart';
+import '../../models/release_calendar_item.dart';
 import '../../models/suggestion.dart';
 import '../../models/watchlist_entry.dart';
 import '../../services/api_client.dart';
 import '../../services/auto_tracking_prefs_service.dart';
+import '../../services/calendar_filters_prefs_service.dart';
+import '../../utils/release_genres.dart';
 import '../../services/log_theme_service.dart';
 import '../../services/on_this_day_prefs_service.dart';
 import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../theme/notebook_paper.dart';
+import '../../utils/server_time.dart';
 import '../../widgets/active_journey_badge.dart';
+import '../../widgets/app_video_background.dart';
+import '../../widgets/challenge_claim_celebration.dart';
 import '../../widgets/heart_rating.dart';
 import '../../widgets/coview_bunnies_corner.dart';
 import '../../widgets/evening_plan_card.dart';
 import '../../widgets/invite_friends_sheet.dart';
+import '../../widgets/notification_count_pill.dart';
 import '../../widgets/pairing_qr.dart';
 import '../../widgets/parallax_poster.dart';
 import '../../widgets/polaroid_card.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/series_episodes_sheet.dart';
 import '../../widgets/small_pieces.dart';
+import '../calendar/release_calendar_screen.dart';
+import '../collections/collection_interests_screen.dart';
 import '../../widgets/today_pick_card.dart';
 import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/themed_poster_tile.dart';
+import '../../widgets/trial_banner.dart';
+import '../../widgets/winback_banner.dart';
 import '../../widgets/card_snap_scroll_physics.dart';
 import '../../widgets/trailer_preview_card.dart';
 import '../../widgets/poster_lightbox.dart' show scopedPosterHeroTag;
+import '../premium/my_referrals_screen.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import '../friends/friends_screen.dart';
@@ -50,7 +64,6 @@ import '../friends/friends_activity_feed_screen.dart';
 import '../shell/root_shell.dart';
 import '../partner/co_viewing_screen.dart';
 import '../profile/integrations_screen.dart';
-import '../scan/ticket_scan_screen.dart';
 import '../search/search_screen.dart';
 import '../title/title_detail_screen.dart';
 import '../trailers/trailer_reels_screen.dart';
@@ -59,6 +72,12 @@ import '../../widgets/themed_pull_to_refresh.dart';
 import 'ask_teamira_results_screen.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../../models/challenge.dart';
+import '../../services/challenges_service.dart';
+import '../../widgets/challenge_card.dart';
+import '../profile/challenges_screen.dart';
+import '../../theme/clay_kit.dart';
+import '../../theme/seenly_skin.dart';
 
 /// Home-specific shorthand for [scopedPosterHeroTag] — every call site in
 /// this file scopes under 'home', trailer reels under 'foryou' (see
@@ -148,13 +167,37 @@ class _HomeData {
   // quietly falls back to whatever live journeys AppState already has
   // (or doesn't show at all), never a blocked Home load.
   final ProfileCollections? profileCollections;
+  // Both best-effort, same reasoning as forYou/profileCollections —
+  // back _ReleaseCalendarSection and _NewReleasesSection respectively.
+  // Neither is essential to Home loading; a failed fetch just means
+  // that block doesn't render this time.
+  final List<ReleaseCalendarItem> releaseCalendar;
+  final List<WatchingReleaseItem> watchingReleases;
   const _HomeData(this.diary, this.stats, this.collections,
-      {this.collectionsFailed = false, this.forYou = const [], this.profileCollections});
+      {this.collectionsFailed = false,
+      this.forYou = const [],
+      this.profileCollections,
+      this.releaseCalendar = const [],
+      this.watchingReleases = const []});
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late Future<_HomeData> _future;
   DateTime _lastLoadedAt = DateTime.now();
+
+  // Which title types (see widgets/interest_picker.dart's kInterests) the
+  // release calendar section should show — same picker Collections uses
+  // for "your interests", opened from the tune icon next to that
+  // section's header. Loaded independently of `_future`/`_load` below:
+  // it's a plain on-device display preference, not something the backend
+  // needs to know about, so it shouldn't gate or reset alongside the rest
+  // of Home's data. Empty means no filter — every type shown.
+  final _calendarFiltersPrefs = CalendarFiltersPrefsService();
+  Set<String> _calendarTypeFilter = {};
+  // Genres picked in the full-screen calendar (see ReleaseCalendarScreen).
+  // Same on-device, empty-means-off rule as the type filter; applied to the
+  // strip here so Home and the full screen never disagree.
+  Set<String> _calendarGenreFilter = {};
 
   // Coming back to the app counts as "probably wants fresh data" without
   // anyone needing to remember to pull down — but only past this interval,
@@ -169,6 +212,53 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _future = _load();
+    _loadCalendarTypeFilter();
+  }
+
+  Future<void> _loadCalendarTypeFilter() async {
+    final selected = await _calendarFiltersPrefs.loadSelected();
+    final genres = await _calendarFiltersPrefs.loadGenres();
+    if (!mounted) return;
+    setState(() {
+      _calendarTypeFilter = selected;
+      _calendarGenreFilter = genres;
+    });
+  }
+
+  void _openCalendarTypeFilter() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => CollectionInterestsScreen(
+          isFirstRun: false,
+          initialSelected: _calendarTypeFilter,
+          backLabel: 'back',
+          subtitle: 'change what the release calendar shows, any time.',
+          onSave: _saveCalendarTypeFilter,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveCalendarTypeFilter(Set<String> selected) async {
+    await _calendarFiltersPrefs.saveSelected(selected);
+    if (!mounted) return;
+    setState(() => _calendarTypeFilter = selected);
+  }
+
+  Future<void> _openReleaseCalendar(List<ReleaseCalendarItem> items) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ReleaseCalendarScreen(
+          items: items,
+          initialGenres: _calendarGenreFilter,
+        ),
+      ),
+    );
+    // The genre pick is made over there — pick up whatever it left behind.
+    if (!mounted) return;
+    final genres = await _calendarFiltersPrefs.loadGenres();
+    if (!mounted) return;
+    setState(() => _calendarGenreFilter = genres);
   }
 
   @override
@@ -236,11 +326,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // Ignored on purpose — see doc comment above.
     }
 
+    // Best-effort, same reasoning as collections/forYou above — feeds
+    // _ReleaseCalendarSection, the Steam-style discovery grid. Shared,
+    // non-personal data (see backend/app/routers/calendar.py's own
+    // docstring), so this stays useful even for a brand-new account
+    // with nothing logged yet.
+    List<ReleaseCalendarItem> releaseCalendar = const [];
+    try {
+      releaseCalendar = await app.calendar.releases();
+    } catch (_) {
+      // Ignored on purpose — see doc comment above.
+    }
+
+    // Best-effort — feeds _NewReleasesSection ("new episodes"/"it's
+    // out"). Empty by design for anyone with nothing on watch_later/
+    // watching right now, same as forYou above for a fresh account.
+    List<WatchingReleaseItem> watchingReleases = const [];
+    try {
+      watchingReleases = await app.calendar.watching();
+    } catch (_) {
+      // Ignored on purpose — see doc comment above.
+    }
+
     _lastLoadedAt = DateTime.now();
     return _HomeData(diaryEntries, stats, collections,
         collectionsFailed: collectionsFailed,
         forYou: forYou,
-        profileCollections: profileCollections);
+        profileCollections: profileCollections,
+        releaseCalendar: releaseCalendar,
+        watchingReleases: watchingReleases);
   }
 
   Future<void> _refresh() async {
@@ -340,6 +454,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           return _fadeSwitch(_ErrorState(key: const ValueKey('home-error'), onRetry: _refresh));
         }
         final data = snapshot.data!;
+        // Applies the picker opened from the release calendar header's
+        // tune icon (see _openCalendarTypeFilter) — an on-device display
+        // filter over data.releaseCalendar itself, nothing re-fetched.
+        // Empty selection means no filter, same "nothing picked yet is
+        // fine too" default the picker uses for Collections.
+        final calendarTypeItems = _calendarTypeFilter.isEmpty
+            ? data.releaseCalendar
+            : data.releaseCalendar
+                .where((item) => _calendarTypeFilter.contains(item.mediaType))
+                .toList();
+        // Then the genre pick from the full-screen calendar. "See all"
+        // below still gets [calendarTypeItems]: the full screen applies
+        // the genre pick itself, so its genre sheet can offer every genre.
+        final releaseCalendarItems =
+            filterReleasesByGenres(calendarTypeItems, _calendarGenreFilter);
         final recentSeries = data.diary
             .where((e) => e.mediaType == 'series' || e.mediaType == 'anime')
             .cast<DiaryEntry?>()
@@ -449,6 +578,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             // not just when content happens to exceed the viewport.
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
+              const SliverToBoxAdapter(child: TrialBanner()),
+              const SliverToBoxAdapter(child: WinbackBanner()),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(22, 16, 22, 4),
                 sliver: SliverToBoxAdapter(
@@ -526,23 +657,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             ],
                           ),
                         ),
-                        PressScale(
-                          haptics: true,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                                builder: (_) => const TicketScanScreen()),
-                          ),
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            margin: const EdgeInsets.only(top: 2, right: 8),
-                            decoration: BoxDecoration(
-                              color: SeenlyPalette.paper,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.confirmation_number_outlined,
-                                size: 16, color: SeenlyPalette.ink),
-                          ),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: AppBackgroundVideo.instance.enabled,
+                          builder: (context, videoEnabled, _) {
+                            return PressScale(
+                              haptics: true,
+                              onTap: () => AppBackgroundVideo.instance.toggle(),
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                margin: const EdgeInsets.only(top: 2, right: 8),
+                                decoration: BoxDecoration(
+                                  color: SeenlyPalette.paper,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  videoEnabled
+                                      ? Icons.videocam_outlined
+                                      : Icons.videocam_off_outlined,
+                                  size: 16,
+                                  color: SeenlyPalette.ink,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                         PressScale(
                           haptics: true,
@@ -612,12 +750,48 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     ),
                   ),
                 ),
+              if (data.watchingReleases.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+                  sliver: SliverToBoxAdapter(
+                    child: ScrollReveal(
+                      delay: nextStagger(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                            child: SectionHeader(title: 'new episodes'.tr),
+                          ),
+                          _NewReleasesSection(items: data.watchingReleases),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
                 sliver: SliverToBoxAdapter(
                   child: ScrollReveal(
                     delay: nextStagger(),
                     child: const _AskTeamiraCard(),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                sliver: SliverToBoxAdapter(
+                  child: ScrollReveal(
+                    delay: nextStagger(),
+                    // Self-contained, not fed from `data`: challenges
+                    // fetch their own state the same way the achievement
+                    // toast does, rather than becoming another field on
+                    // _HomeData that every other section would have to
+                    // wait on. Renders nothing at all (not even a
+                    // placeholder) on any failure — a challenge card is
+                    // a nice-to-have, and Home's own load must never be
+                    // held up by it or show an error for it.
+                    child: const _ChallengesHomeCard(),
                   ),
                 ),
               ),
@@ -654,6 +828,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   child: ScrollReveal(
                     delay: nextStagger(),
                     child: const _FriendsActivityCard(),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+                sliver: SliverToBoxAdapter(
+                  child: ScrollReveal(
+                    delay: nextStagger(),
+                    child: const _ReferralCard(),
                   ),
                 ),
               ),
@@ -710,8 +893,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         padding: const EdgeInsets.fromLTRB(22, 4, 22, 22),
                         child: Text(
                           'nothing logged yet — find something and tuck it in'.tr,
-                          style: SeenlyText.serif(
-                              italic: true, color: SeenlyPalette.placeholder),
+                          style: SeenlyText.emptyState(),
                         ),
                       )
                     : Padding(
@@ -754,6 +936,64 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       ),
                 ),
               ),
+              // Sits right after "fresh in your diary" and before "for
+              // you, with trailers" — a discovery block (what's coming
+              // out) reads more naturally right after a look back at
+              // what's already logged, rather than up in the "what's
+              // happening with your shelf right now" cluster above.
+              if (data.releaseCalendar.isNotEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(0, 0, 0, 10),
+                  sliver: SliverToBoxAdapter(
+                    child: ScrollReveal(
+                      delay: nextStagger(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(22, 0, 22, 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: SectionHeader(
+                                    title: 'release calendar'.tr,
+                                    // Same "all →" every other section has:
+                                    // the whole calendar as a full screen,
+                                    // narrowed by the tune-icon filter the
+                                    // same way the strip below is.
+                                    trailing: calendarTypeItems.isNotEmpty ? 'see all →'.tr : null,
+                                    onTrailingTap: calendarTypeItems.isEmpty
+                                        ? null
+                                        : () => _openReleaseCalendar(calendarTypeItems),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                PressScale(
+                                  haptics: true,
+                                  onTap: _openCalendarTypeFilter,
+                                  child: WobblyCircle(
+                                    size: 26,
+                                    color: SeenlyPalette.paper,
+                                    child: Icon(Icons.tune, size: 13, color: SeenlyPalette.ink),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (releaseCalendarItems.isNotEmpty)
+                            _ReleaseCalendarSection(items: releaseCalendarItems)
+                          else
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(22, 0, 22, 4),
+                              child: Text('no matches'.tr,
+                                  style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (onThisDay.isNotEmpty &&
                   !context.watch<OnThisDayPrefsService>().isDismissed(_onThisDayDateKey(today)))
                 SliverPadding(
@@ -1044,6 +1284,11 @@ class _AskTeamiraCard extends StatefulWidget {
 }
 
 class _AskTeamiraCardState extends State<_AskTeamiraCard> {
+  /// Tonight's time budget in minutes, or null for "не важно" — the
+  /// default, so the card behaves exactly as it did for anyone who
+  /// ignores this row entirely.
+  int? _minutes;
+
   // A bigger pool than we show at once, so the row of examples changes
   // between visits instead of showing the same three every time.
   static const _examplePool = [
@@ -1095,14 +1340,20 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
     if (!allowed) {
       showPremiumUpsellSheet(
         context,
+        triggerSource: 'ai_ask_limit',
         icon: Icons.auto_awesome_outlined,
-        title: 'вопросы к teamira на этот месяц закончились',
-        message: 'на бесплатном тарифе доступно 3 вопроса в месяц — с премиумом их можно задавать сколько угодно',
+        title: 'out of tanè asks for this month'.tr,
+        message: 'the free tier includes 3 questions a month — premium removes the limit'.tr,
       );
       return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AskTeamiraResultsScreen(query: query)),
+      MaterialPageRoute(
+        builder: (_) => AskTeamiraResultsScreen(
+          query: query,
+          minutesAvailable: _minutes,
+        ),
+      ),
     );
   }
 
@@ -1117,7 +1368,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(20),
         boxShadow: SeenlyPalette.softShadow,
@@ -1129,7 +1380,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
             children: [
               Icon(Icons.auto_awesome_outlined, size: 16, color: SeenlyPalette.accent),
               const SizedBox(width: 7),
-              Text('ask teamira'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
+              Text('ask tanè'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
             ],
           ),
           const SizedBox(height: 6),
@@ -1137,9 +1388,12 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
               style: SeenlyText.serif(size: 16, weight: FontWeight.w600)),
           const SizedBox(height: 10),
           Container(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: SeenlyPalette.border, width: 1.4)),
-            ),
+            padding: SeenlySkin.isClay ? const EdgeInsets.symmetric(horizontal: 18, vertical: 2) : null,
+            decoration: SeenlySkin.isClay
+                ? clayWellDecoration()
+                : BoxDecoration(
+                    border: Border(bottom: BorderSide(color: SeenlyPalette.border, width: 1.4)),
+                  ),
             child: TextField(
               controller: _controller,
               focusNode: _focusNode,
@@ -1158,9 +1412,21 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
             ),
           ),
           const SizedBox(height: 10),
-          _ExampleChipsLayout(
-            examples: _examples,
-            onTap: _useExample,
+          _DriftingChipsRow(
+            children: [
+              for (final example in _examples)
+                _ExampleChip(label: example, onTap: () => _useExample(example)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // "Сколько у тебя времени" — the evening-shaped half of the
+          // question. Optional by design: an untapped row changes nothing
+          // about the request, and someone who'd rather type "есть часа
+          // полтора" into the field above gets the same result, because
+          // the backend parses that too (see AiService.ask).
+          _TimeBudgetChips(
+            selected: _minutes,
+            onChanged: (m) => setState(() => _minutes = m),
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -1193,32 +1459,41 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
   }
 }
 
-/// A single horizontal row of the mood examples under "ask teamira"'s
-/// input, rather than the old two-column grid — reads more like a hint
+/// A single horizontal, full-width row of chips under "ask teamira" —
+/// used both for the mood examples under the input and for the time-
+/// budget options below it, so the two rows read as one family instead
+/// of a chip style and a separate pill style. Reads more like a hint
 /// row (the way a search bar's own suggestion chips usually sit) than a
-/// block of options to scan. Three examples rarely all fit on one line
-/// at once, so the row scrolls horizontally; to make that scrollability
+/// block of options to scan. The chips rarely all fit on one line at
+/// once, so the row scrolls horizontally; to make that scrollability
 /// obvious without anyone having to discover it by touch, the row gently
 /// drifts on its own the moment it settles in — a slow, soft sway that
 /// peeks the next chip in and out from the edge, the same "there's more
 /// here" cue a carousel's own peeking edge gives, just for a row that's
-/// otherwise easy to mistake for exactly two options and nothing else.
-/// A real touch on the row pauses the drift for as long as someone's
-/// actually interacting with it; once they let go and it's been idle a
-/// moment, the row eases itself back to the start and the sway picks
-/// back up on its own — same as before anyone touched it, not stopped
-/// for good after a single swipe.
-class _ExampleChipsLayout extends StatefulWidget {
-  const _ExampleChipsLayout({required this.examples, required this.onTap});
+/// otherwise easy to mistake for exactly two or three options and
+/// nothing else. A real touch on the row pauses the drift for as long as
+/// someone's actually interacting with it; once they let go and it's
+/// been idle a moment, the row eases itself back to the start and the
+/// sway picks back up on its own — same as before anyone touched it, not
+/// stopped for good after a single swipe.
+class _DriftingChipsRow extends StatefulWidget {
+  const _DriftingChipsRow({required this.children, this.stretch = false});
 
-  final List<String> examples;
-  final ValueChanged<String> onTap;
+  final List<Widget> children;
+
+  /// Stretches the chips to share the row's full width equally (each one
+  /// wrapped in an [Expanded] — pass chips built to fill their width).
+  /// The row is then always a little wider than the viewport, so it
+  /// still has something to drift across even though the chips are few
+  /// and short enough that they'd otherwise all fit at once and sit
+  /// still.
+  final bool stretch;
 
   @override
-  State<_ExampleChipsLayout> createState() => _ExampleChipsLayoutState();
+  State<_DriftingChipsRow> createState() => _DriftingChipsRowState();
 }
 
-class _ExampleChipsLayoutState extends State<_ExampleChipsLayout>
+class _DriftingChipsRowState extends State<_DriftingChipsRow>
     with SingleTickerProviderStateMixin {
   final _scrollController = ScrollController();
   late final AnimationController _driftController = AnimationController(
@@ -1231,6 +1506,10 @@ class _ExampleChipsLayoutState extends State<_ExampleChipsLayout>
   // guided tour through every chip. Clamped down further at tick time
   // whenever the row's actual overflow is smaller than this.
   static const _maxPeek = 34.0;
+
+  // How much wider than the viewport a [stretch] row is laid out, so the
+  // idle drift always has a little distance to sway across.
+  static const _stretchOverflow = 24.0;
 
   // How long to wait, once someone lets go of the row, before it eases
   // back into the idle sway — long enough that a quick glance-and-swipe
@@ -1329,22 +1608,42 @@ class _ExampleChipsLayoutState extends State<_ExampleChipsLayout>
         }
         return false;
       },
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          children: [
-            for (var i = 0; i < widget.examples.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
-              _ExampleChip(
-                label: widget.examples[i],
-                onTap: () => widget.onTap(widget.examples[i]),
+      child: widget.stretch
+          ? LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minWidth: constraints.maxWidth + _stretchOverflow,
+                  ),
+                  child: IntrinsicWidth(
+                    child: Row(
+                      children: [
+                        for (var i = 0; i < widget.children.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 8),
+                          Expanded(child: widget.children[i]),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ],
-          ],
-        ),
-      ),
+            )
+          : SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  for (var i = 0; i < widget.children.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    widget.children[i],
+                  ],
+                ],
+              ),
+            ),
     );
   }
 }
@@ -1437,20 +1736,20 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
   }
 
   String _relativeTime(String iso) {
-    final parsed = DateTime.tryParse(iso);
+    final parsed = tryParseServerUtc(iso);
     if (parsed == null) return '';
-    final diff = DateTime.now().difference(parsed);
+    final diff = DateTime.now().difference(parsed.toLocal());
     if (diff.inMinutes < 1) return 'just now'.tr;
     if (diff.inMinutes < 60) {
-      return '${ruCount(diff.inMinutes, one: 'минуту', few: 'минуты', many: 'минут', englishOne: 'minute', englishOther: 'minutes')} ${'ago'.tr}';
+      return '${nCount('nMinutes', diff.inMinutes)} ${'ago'.tr}';
     }
     if (diff.inHours < 24) {
-      return '${ruCount(diff.inHours, one: 'час', few: 'часа', many: 'часов', englishOne: 'hour', englishOther: 'hours')} ${'ago'.tr}';
+      return '${nCount('nHours', diff.inHours)} ${'ago'.tr}';
     }
     if (diff.inDays < 7) {
-      return '${ruCount(diff.inDays, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'ago'.tr}';
+      return '${nCount('nDays', diff.inDays)} ${'ago'.tr}';
     }
-    return '${ruCount((diff.inDays / 7).floor(), one: 'неделю', few: 'недели', many: 'недель', englishOne: 'week', englishOther: 'weeks')} ${'ago'.tr}';
+    return '${nCount('nWeeks', (diff.inDays / 7).floor())} ${'ago'.tr}';
   }
 
   @override
@@ -1496,7 +1795,8 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
           ),
           child: Container(
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 14),
-          decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16)),
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16)),
           child: Column(
             children: [
               for (var i = 0; i < _items.length; i++)
@@ -1537,6 +1837,98 @@ class _FriendsActivityCardState extends State<_FriendsActivityCard> {
   }
 }
 
+// "Пригласи друга — получи месяц premium" (planning-doc UI spec) — a
+// soft, easy-to-ignore card in the same register as _FriendsActivityCard
+// right above it, not a banner competing for attention. Loads its own
+// data from GET /referrals/status (see backend/app/routers/referrals.py)
+// rather than being wired into the rest of this screen's home-feed
+// fetch, since it's a self-contained feature with its own refresh
+// cadence — same reasoning as _FriendsActivityCard's separate load().
+class _ReferralCard extends StatefulWidget {
+  const _ReferralCard();
+
+  @override
+  State<_ReferralCard> createState() => _ReferralCardState();
+}
+
+class _ReferralCardState extends State<_ReferralCard> {
+  ReferralStatus? _status;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final status = await context.read<AppState>().referrals.status();
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        _loaded = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loaded = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_loaded || _status == null) return const SizedBox.shrink();
+    final status = _status!;
+    final next = status.nextMilestoneAt;
+    final progress = next != null && next > 0 ? (status.verifiedCount / next).clamp(0.0, 1.0) : 1.0;
+
+    return PressScale(
+      scaleTo: 0.98,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MyReferralsScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16)),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.card_giftcard_rounded, size: 14, color: SeenlyPalette.accent),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text('invite a friend — you both get premium'.tr,
+                      style: SeenlyText.serif(size: 12.5, weight: FontWeight.w700, color: SeenlyPalette.ink)),
+                ),
+                Icon(Icons.chevron_right_rounded, size: 16, color: SeenlyPalette.inkFaint),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: SeenlyPalette.background,
+                valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              next != null
+                  ? '${status.verifiedCount}/$next ${'confirmed'.tr}'
+                  : '${status.verifiedCount} ${'confirmed'.tr}',
+              style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ContinueWatchingCard extends StatelessWidget {
   final DiaryEntry entry;
   const _ContinueWatchingCard({required this.entry});
@@ -1548,7 +1940,8 @@ class _ContinueWatchingCard extends StatelessWidget {
       scaleTo: 0.98,
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(12),
         ),
@@ -1778,11 +2171,11 @@ class _UnderPosterProgressBar extends StatelessWidget {
                     tween: Tween(begin: 0.0, end: progress),
                     duration: const Duration(milliseconds: 900),
                     curve: Curves.easeOutCubic,
-                    builder: (context, value, _) => LinearProgressIndicator(
+                    builder: (context, value, _) => RuledProgressBar(
                       value: value,
                       minHeight: 5,
                       backgroundColor: SeenlyPalette.border,
-                      valueColor: AlwaysStoppedAnimation<Color>(accent),
+                      valueColor: accent,
                     ),
                   ),
           ),
@@ -1935,7 +2328,7 @@ class _WatchingNowEntryCardState extends State<_WatchingNowEntryCard> {
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final label = _watched != null && _total != null
-        ? '$_watched/$_total ${ruPluralForm(_total!, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}'
+        ? '$_watched/$_total ${nOnly('nEpisodes', _total!)}'
         : 'in progress'.tr;
     // Only meaningful for the non-series tap path below (straight to
     // TitleDetailScreen) — series taps open a sheet instead, so this tag
@@ -2060,6 +2453,317 @@ class _WatchingNowCardChrome extends StatelessWidget {
         const SizedBox(height: 8),
         progressBar,
       ],
+    );
+  }
+}
+
+/// Fixed English 3-letter month abbreviations for a small decorative date
+/// badge — same "hand-rolled, not routed through .tr" convention as
+/// TicketWidget/StampWidget's own `_months` (widgets/ticket.dart,
+/// widgets/stamp.dart), reused here rather than reaching for `intl`'s
+/// DateFormat for a label this decorative.
+const _calendarMonths = [
+  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC',
+];
+
+String _calendarDateLabel(DateTime date) =>
+    '${_calendarMonths[date.month - 1]} ${date.day}';
+
+/// Opens a ReleaseCalendarItem — see [openReleaseCalendarItem] (shared with
+/// the full-screen calendar) for the Shikimori-vs-TitleDetailScreen split.
+/// All this adds is the Home strip's own scoped hero tag, so the poster
+/// flies into the detail screen from the tile that was tapped.
+Future<void> _openCalendarItem(BuildContext context, ReleaseCalendarItem entry) {
+  final item = entry.item;
+  return openReleaseCalendarItem(
+    context,
+    entry,
+    heroTag: item == null ? null : _homePosterHeroTag('calendar', entry.source, item.id),
+  );
+}
+
+/// The Home screen's "what's coming out" discovery grid — anime
+/// (Shikimori), games (IGDB) and movies (TMDB), merged and sorted by
+/// date (see backend/app/routers/calendar.py::release_calendar). Laid
+/// out the way Steam's own release calendar reads: pairs of posters
+/// stacked two-high, the whole thing scrolling sideways rather than a
+/// single long vertical list — so a quick horizontal swipe covers weeks
+/// of releases at a glance instead of a lot of scrolling.
+class _ReleaseCalendarSection extends StatelessWidget {
+  final List<ReleaseCalendarItem> items;
+  const _ReleaseCalendarSection({required this.items});
+
+  static const _tileWidth = 106.0;
+  static const _tileHeight = 150.0;
+  static const _rowGap = 8.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final columns = <List<ReleaseCalendarItem>>[
+      for (var i = 0; i < items.length; i += 2)
+        items.sublist(i, math.min(i + 2, items.length)),
+    ];
+    return SizedBox(
+      height: _tileHeight * 2 + _rowGap,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        physics: const CardSnapScrollPhysics(itemExtent: _tileWidth + 12, leadingPadding: 22),
+        itemCount: columns.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final column = columns[i];
+          return HorizontalReveal(
+            delay: Duration(milliseconds: 30 + i * 50),
+            child: SizedBox(
+              width: _tileWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _CalendarPosterTile(
+                    entry: column[0],
+                    width: _tileWidth,
+                    height: _tileHeight,
+                  ),
+                  if (column.length > 1) ...[
+                    const SizedBox(height: _rowGap),
+                    _CalendarPosterTile(
+                      entry: column[1],
+                      width: _tileWidth,
+                      height: _tileHeight,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _CalendarPosterTile extends StatelessWidget {
+  final ReleaseCalendarItem entry;
+  final double width;
+  final double height;
+  const _CalendarPosterTile({required this.entry, required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    // releaseDay (not releaseDateTime): the badge has to name the same day
+    // the full-screen calendar files this release under.
+    final date = entry.releaseDay;
+    final fallbackColor = SeenlyPalette.mediaColor(entry.mediaType);
+    final heroTag = entry.item != null
+        ? _homePosterHeroTag('calendar', entry.source, entry.item!.id)
+        : null;
+    final poster = ParallaxPoster(
+      url: entry.posterUrl,
+      tileHeight: height,
+      placeholder: Container(color: fallbackColor),
+    );
+    return PressScale(
+      scaleTo: 0.97,
+      onTap: () => _openCalendarItem(context, entry),
+      child: Container(
+        width: width,
+        height: height,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: fallbackColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            heroTag != null ? Hero(tag: heroTag, child: poster) : poster,
+            Container(
+              alignment: Alignment.bottomLeft,
+              padding: const EdgeInsets.fromLTRB(7, 7, 7, 6),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.5, 1],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.65)],
+                ),
+              ),
+              child: Text(
+                entry.title.display,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: SeenlyText.serif(italic: true, size: 10.5, color: SeenlyPalette.paper),
+              ),
+            ),
+            if (date != null)
+              Positioned(
+                left: 6,
+                top: 6,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    _calendarDateLabel(date),
+                    style: SeenlyText.mono(
+                        size: 8.5, color: SeenlyPalette.paperOnDark, weight: FontWeight.w600),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The Home screen's "new episodes" strip — see
+/// backend/app/routers/calendar.py::watching_releases for exactly which
+/// entries qualify. Every card here is about a title already on this
+/// user's own watching/watch-later shelf, never a discovery suggestion
+/// (that's _ReleaseCalendarSection's job) — so tapping one always opens
+/// TitleDetailScreen, no Shikimori-external-link branch needed the way
+/// the calendar grid has.
+class _NewReleasesSection extends StatelessWidget {
+  final List<WatchingReleaseItem> items;
+  const _NewReleasesSection({required this.items});
+
+  static const _tileWidth = 122.0;
+  static const _tileHeight = 172.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: _tileHeight,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 22),
+        physics: const CardSnapScrollPhysics(itemExtent: _tileWidth + 12, leadingPadding: 22),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) => HorizontalReveal(
+          delay: Duration(milliseconds: 30 + i * 50),
+          child: _NewReleaseTile(item: items[i], width: _tileWidth, height: _tileHeight),
+        ),
+      ),
+    );
+  }
+}
+
+class _NewReleaseTile extends StatelessWidget {
+  final WatchingReleaseItem item;
+  final double width;
+  final double height;
+  const _NewReleaseTile({required this.item, required this.width, required this.height});
+
+  @override
+  Widget build(BuildContext context) {
+    final fallbackColor = SeenlyPalette.mediaColor(item.mediaType);
+    final heroTag = _homePosterHeroTag('newrelease', item.source, item.mediaId);
+    final date = item.releaseDateTime;
+    final meta = item.isGame
+        ? null
+        : (item.season != null && item.episode != null
+            ? 'S${item.season}E${item.episode}'
+            : null);
+    final poster = ParallaxPoster(
+      url: item.posterUrl,
+      tileHeight: height,
+      placeholder: Container(color: fallbackColor),
+    );
+    return PressScale(
+      scaleTo: 0.97,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TitleDetailScreen(
+            mediaId: item.mediaId,
+            source: item.source,
+            mediaType: item.mediaType,
+            seedTitle: item.title.display,
+            seedPosterUrl: item.posterUrl,
+            heroTag: heroTag,
+          ),
+        ),
+      ),
+      child: Container(
+        width: width,
+        height: height,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: fallbackColor,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Hero(tag: heroTag, child: poster),
+            Container(
+              alignment: Alignment.bottomLeft,
+              padding: const EdgeInsets.fromLTRB(9, 9, 9, 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.45, 1],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.68)],
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title.display,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: SeenlyText.serif(italic: true, size: 12.5, color: SeenlyPalette.paper),
+                  ),
+                  if (meta != null) ...[
+                    const SizedBox(height: 3),
+                    Text(meta,
+                        style: SeenlyText.mono(
+                            size: 9, color: SeenlyPalette.paper.withOpacity(0.85))),
+                  ],
+                ],
+              ),
+            ),
+            Positioned(
+              left: 8,
+              top: 8,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                decoration: BoxDecoration(
+                  color: item.isOut ? SeenlyPalette.accent : Colors.black.withOpacity(0.55),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.isOut ? Icons.fiber_new_rounded : Icons.schedule_rounded,
+                      size: 12,
+                      color: item.isOut ? SeenlyPalette.accentOnAccent : SeenlyPalette.paperOnDark,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      item.isOut ? 'just out'.tr : (date != null ? _calendarDateLabel(date) : ''),
+                      style: SeenlyText.mono(
+                        size: 8.5,
+                        weight: FontWeight.w600,
+                        color: item.isOut ? SeenlyPalette.accentOnAccent : SeenlyPalette.paperOnDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2248,7 +2952,7 @@ class _OnThisDayCard extends StatelessWidget {
       scaleTo: 0.98,
       child: Container(
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(14),
           boxShadow: SeenlyPalette.softShadow,
@@ -2339,6 +3043,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
 
   PartnerStatus? _status;
   List<Suggestion> _suggestions = const [];
+  int _incomingInvites = 0;
   bool _loading = true;
   bool _busy = false; // pairing/joining/unlinking in flight
   bool _entering = false; // showing the "type a code" field
@@ -2378,10 +3083,17 @@ class _CoViewingCardState extends State<_CoViewingCard> {
       final status = await app.partner.status();
       final suggestions =
           status.linked ? await app.partner.suggestions() : const <Suggestion>[];
+      // Only meaningful pre-link — once in a circle, a fresh incoming
+      // invite isn't something this account can act on anyway, so
+      // there's no point paying for the extra call every poll tick.
+      final invites = status.linked
+          ? const <PartnerInvite>[]
+          : (await app.partner.invites()).incoming;
       if (!mounted) return;
       _rebuild(() {
         _status = status;
         _suggestions = suggestions;
+        _incomingInvites = invites.length;
         _loading = false;
       });
     } catch (_) {
@@ -2426,6 +3138,16 @@ class _CoViewingCardState extends State<_CoViewingCard> {
     try {
       final status = await context.read<AppState>().partner.join(code);
       if (!mounted) return;
+      // Fresh couple, just formed — see AppState.notePartnerJustLinked's
+      // own doc comment on why exactly-two is enough to mean that
+      // without extra bookkeeping. Checked before the premium screen
+      // exists to offer, not after — an already-premium account has
+      // nothing to soft-upsell into.
+      if (status.linked &&
+          status.members.length == 2 &&
+          !context.read<PremiumService>().isPremium) {
+        context.read<AppState>().notePartnerJustLinked();
+      }
       _rebuild(() {
         _status = status;
         _busy = false;
@@ -2702,7 +3424,18 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.accent),
+                    Row(
+                      children: [
+                        Icon(Icons.favorite_border, size: 17, color: SeenlyPalette.accent),
+                        const Spacer(),
+                        // Someone invited this account into their circle —
+                        // the one incoming-invite signal that had nowhere
+                        // to surface before (see push.py::notify_partner_invite
+                        // on the backend, added alongside this).
+                        if (_incomingInvites > 0)
+                          NotificationCountPill(count: _incomingInvites, label: 'waiting ›', glowSize: 24),
+                      ],
+                    ),
                     const SizedBox(height: 10),
                     Text('co-viewing'.tr, style: SeenlyText.sectionTitle),
                     const SizedBox(height: 3),
@@ -2721,7 +3454,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${ruCount(pendingSuggestions, one: 'предложение', few: 'предложения', many: 'предложений', englishOne: 'suggestion', englishOther: 'suggestions')} ${'waiting'.tr}',
+                          '${nCount('nSuggestions', pendingSuggestions)} ${'waiting'.tr}',
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.accent, weight: FontWeight.w700),
                         ),
                       )
@@ -2791,7 +3524,7 @@ class _StreakInfoSheet extends StatelessWidget {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '${ruCount(streakDays, one: 'вечер', few: 'вечера', many: 'вечеров', englishOne: 'evening', englishOther: 'evenings')} ${'in a row'.tr}',
+                            '${nCount('nEvenings', streakDays)} ${'in a row'.tr}',
                             style: SeenlyText.serif(size: 16, weight: FontWeight.w700),
                           ),
                         ),
@@ -2822,10 +3555,6 @@ class _StreakInfoSheet extends StatelessWidget {
   }
 }
 
-/// Taking the streak card's old spot beside co-viewing: a single tap
-/// into the whole "can't decide?" flow (filters → ask teamira / random
-/// pick / spin the reel / swipe through — see screens/decide/). This
-/// card itself holds no state at all; it's just the door in.
 /// Home teaser for Settings > auto-tracking (see integrations_screen.dart)
 /// — most people never open Settings on their own, so this puts the
 /// feature where they'll actually see it. Tapping it opens the real
@@ -2872,7 +3601,8 @@ class _AutoTrackingBannerState extends State<_AutoTrackingBanner> {
       scaleTo: 0.97,
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
         ),
@@ -2940,6 +3670,15 @@ class _AutoTrackingBannerState extends State<_AutoTrackingBanner> {
   }
 }
 
+/// Taking the streak card's old spot beside co-viewing: a single tap
+/// into the whole "can't decide?" flow (filters → ask teamira / random
+/// pick / spin the reel / swipe through — see screens/decide/). This
+/// card itself holds no state at all; it's just the door in.
+///
+/// Deliberately built to the same skeleton as [_CoViewingCard]'s teaser
+/// (icon row → section title → italic subtitle → mono hint, same 14px
+/// padding and gaps, faint decorative corner) so the two half-width cards
+/// sit side by side with their titles and text lines aligned.
 class _CantDecideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -2948,56 +3687,65 @@ class _CantDecideCard extends StatelessWidget {
         MaterialPageRoute(builder: (_) => const DecideFiltersScreen()),
       ),
       scaleTo: 0.97,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: SeenlyPalette.paper,
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.help_outline_rounded, size: 16, color: SeenlyPalette.accent),
-                const SizedBox(width: 6),
-                Text('can\'t decide?'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
-                const Spacer(),
-                Icon(Icons.chevron_right, size: 15, color: SeenlyPalette.inkFaint),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  margin: const EdgeInsets.only(top: 2),
-                  decoration: BoxDecoration(
-                    color: SeenlyPalette.accent.withOpacity(0.14),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.auto_awesome_outlined, size: 15, color: SeenlyPalette.accent),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'let\'s figure it out'.tr,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: SeenlyText.serif(size: 12.5, weight: FontWeight.w700),
-                      ),
-                    ],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(color: SeenlyPalette.paper),
+          child: Stack(
+            children: [
+              // Decorative, same idea as the bunnies in the co-viewing
+              // card: sits behind the content, bleeds past the corner
+              // and is trimmed by the ClipRRect above.
+              Positioned(
+                right: -6,
+                bottom: -10,
+                child: IgnorePointer(
+                  child: Transform.rotate(
+                    angle: -0.2,
+                    child: Icon(
+                      Icons.help_outline_rounded,
+                      size: 64,
+                      color: SeenlyPalette.accent.withOpacity(0.10),
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ],
+              ),
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome_outlined, size: 17, color: SeenlyPalette.accent),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'can\'t decide?'.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SeenlyText.sectionTitle,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'let\'s figure it out'.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SeenlyText.serif(italic: true, size: 11, color: SeenlyPalette.inkMuted),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'random, reel or swipe'.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3277,7 +4025,8 @@ class _SuggestionRow extends StatelessWidget {
                 onTap: busy ? null : onDecline,
                 child: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
+                    boxShadow: SeenlyPalette.flatCardShadow,
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -3392,13 +4141,13 @@ class _FeedTile extends StatelessWidget {
                     style: SeenlyText.serif(
                         italic: true,
                         size: large ? 14 : 11,
-                        color: SeenlyPalette.paper),
+                        color: SeenlyPalette.paperOnDark),
                   ),
                   if (large && meta.isNotEmpty) ...[
                     const SizedBox(height: 3),
                     Text(meta,
                         style: SeenlyText.mono(
-                            size: 9, color: SeenlyPalette.paper.withOpacity(0.8))),
+                            size: 9, color: SeenlyPalette.paperOnDark.withOpacity(0.8))),
                   ],
                 ],
               ),
@@ -3431,7 +4180,8 @@ class _ErrorState extends StatelessWidget {
                 onTap: onRetry,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
+                    boxShadow: SeenlyPalette.flatCardShadow,
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(999),
                   ),
@@ -3443,6 +4193,216 @@ class _ErrorState extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+
+/// The "сколько у тебя времени" row under Ask tanè.
+///
+/// Four options and an implicit fifth (tapping the active one clears it).
+/// The numbers are chosen as *evenings*, not as a scale: 40 minutes is an
+/// episode, an hour is a long one or a short film, an hour and a half is
+/// most films, and "вечер целиком" is everything else. A slider would
+/// have been more precise and much worse — nobody knows whether they have
+/// 47 minutes, and being asked implies a precision the answer doesn't
+/// have.
+class _TimeBudgetChips extends StatelessWidget {
+  final int? selected;
+  final ValueChanged<int?> onChanged;
+
+  const _TimeBudgetChips({required this.selected, required this.onChanged});
+
+  static const _options = <(int, String)>[
+    (40, '40 мин'),
+    (60, 'час'),
+    (90, 'полтора'),
+    (180, 'весь вечер'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    // Same sticky-note chip and same idle drift as the mood examples
+    // above, so the two rows read as one family rather than a chip
+    // style up top and a pill style below — and the row runs edge to
+    // edge, same as the examples row, instead of losing width to a
+    // leading icon.
+    return _DriftingChipsRow(
+      stretch: true,
+      children: [
+        for (final (minutes, label) in _options)
+          _TimeChip(
+            // The options below are written Russian-first (that's
+            // what the chip *means*), so `.tr` looks them up in
+            // the ru→en direction for the English interface.
+            label: label.tr,
+            active: selected == minutes,
+            // Tapping the active chip clears it — no separate
+            // "не важно" option taking up a slot for something
+            // that's already the default.
+            onTap: () => onChanged(selected == minutes ? null : minutes),
+          ),
+      ],
+    );
+  }
+}
+
+/// One of the tappable time-budget options under "ask teamira" — the
+/// same tagged-rectangle look as [_ExampleChip], so "40 мин" and "a movie
+/// like Interstellar" read as one family of chip rather than two
+/// different UI languages. Selecting one fills it solid in the accent
+/// color, the same feedback [PillChip] gives elsewhere, just carried
+/// over into this chip's own shape.
+class _TimeChip extends StatelessWidget {
+  const _TimeChip({required this.label, required this.active, this.onTap});
+
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final chip = ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: active ? SeenlyPalette.accent : SeenlyPalette.background,
+          border: Border.all(
+            color: active ? SeenlyPalette.accent : SeenlyPalette.border,
+          ),
+        ),
+        child: IntrinsicHeight(
+          child: Row(
+            mainAxisSize: MainAxisSize.max,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 3,
+                color: active
+                    ? SeenlyPalette.accentOnAccent.withOpacity(0.55)
+                    : SeenlyPalette.accent.withOpacity(0.55),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  child: Center(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SeenlyText.serif(
+                        size: 11.5,
+                        italic: true,
+                        color: active ? SeenlyPalette.accentOnAccent : SeenlyPalette.inkMuted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return PressScale(
+      onTap: onTap,
+      scaleTo: 0.96,
+      child: chip,
+    );
+  }
+}
+
+/// A single-challenge preview on Home — "самое близкое к завершению",
+/// tapping through to the full [ChallengesScreen] for everything else.
+///
+/// Deliberately shows exactly one challenge, not a row of three: Home is
+/// already a long scroll of sections, and a whole challenges dashboard
+/// here would compete with everything else on the page instead of
+/// pointing at it. See [Challenges.spotlight] for how the one shown is
+/// picked — collectable first, then closest to done.
+class _ChallengesHomeCard extends StatefulWidget {
+  const _ChallengesHomeCard();
+
+  @override
+  State<_ChallengesHomeCard> createState() => _ChallengesHomeCardState();
+}
+
+class _ChallengesHomeCardState extends State<_ChallengesHomeCard> {
+  late final ChallengesService _service = ChallengesService(ApiClient.instance);
+  Challenges? _data;
+  bool _claiming = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final russian = LocaleService.appIsRussian;
+      final data = await _service.load(russian: russian);
+      if (mounted) setState(() => _data = data);
+    } catch (_) {
+      // See this widget's own docstring — a failed fetch here just means
+      // the card doesn't render; Home carries on regardless.
+    }
+  }
+
+  Future<void> _claim(Challenge c) async {
+    setState(() => _claiming = true);
+    try {
+      final russian = LocaleService.appIsRussian;
+      final claim = await _service.claim(c.id, russian: russian);
+      if (!mounted) return;
+      setState(() => _claiming = false);
+      // Same celebrate-first-refresh-after order as the full Challenges
+      // screen's own claim flow — this compact card gets the exact same
+      // moment, not a quieter version of it.
+      await showChallengeClaimCelebration(context, claim);
+      if (!mounted) return;
+      await _load();
+      return;
+    } catch (_) {
+      // A double-tap or a stale card racing a claim — nothing worth
+      // surfacing here; the full screen (which is where a genuine retry
+      // belongs) shows its own error state if this keeps failing.
+    } finally {
+      if (mounted) setState(() => _claiming = false);
+    }
+  }
+
+  void _openAll() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ChallengesScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spotlight = _data?.spotlight;
+    if (spotlight == null) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'челлендж',
+          trailing: 'все',
+          onTrailingTap: _openAll,
+        ),
+        const SizedBox(height: 8),
+        ChallengeCard(
+          challenge: spotlight,
+          claiming: _claiming,
+          onClaim: () => _claim(spotlight),
+          onTap: _openAll,
+          compact: true,
+        ),
+      ],
     );
   }
 }

@@ -17,7 +17,7 @@ reasons:
 import asyncio
 import logging
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 
 import httpx
@@ -1010,6 +1010,14 @@ class TmdbAdapter:
         status = data_en.get("status")
         status = status.lower() if status else None
         tagline = data_en.get("tagline") or None
+        # `data_ru` is already fetched above for title_ru/overview_ru/
+        # poster_ru — TMDB's ru-RU detail response carries its own
+        # `tagline` too, just never read before now. Unlike title/
+        # overview there's no "quietly returns the original" ambiguity
+        # to guard against: TMDB simply returns an empty string when it
+        # has no Russian tagline, which `or None` already collapses to
+        # null the same as the English side.
+        tagline_ru = data_ru.get("tagline") or None
         country = None
         if data_en.get("origin_country"):
             country = data_en["origin_country"][0]
@@ -1032,6 +1040,7 @@ class TmdbAdapter:
             rating=data_en.get("vote_average") or None,
             source="tmdb",
             tagline=tagline,
+            tagline_ru=tagline_ru,
             runtime_minutes=runtime,
             certification=certification,
             release_date=date_str,
@@ -1381,6 +1390,91 @@ class TmdbAdapter:
                 seen.add(item.id)
                 pool.append(item)
         return pool
+
+    async def upcoming_movies_calendar(self, days_ahead: int = 60) -> List[MediaItem]:
+        """A dated slice of "what's coming to theaters" for the Home
+        screen's discovery release calendar
+        (app/routers/calendar.py::release_calendar) — TMDB has no
+        dedicated calendar endpoint the way Shikimori/IGDB do (see those
+        adapters' own calendar()/calendar() methods), but /discover/movie
+        sorted by release date and windowed to "today .. +days_ahead"
+        gets the same result: a real, date-sorted list rather than
+        /movie/upcoming's own popularity-ish ordering (and /movie/upcoming
+        is silently scoped to whatever region TMDB infers for the
+        request, which this app has never configured — discover's own
+        `region` param would need the same guess, so this skips it
+        entirely and accepts a mostly-US/UK skew, same as every other
+        undifferentiated discover call in this file).
+
+        `vote_count` is deliberately NOT filtered on (unlike most other
+        discover calls in this adapter) — an unreleased film often has
+        zero votes yet by definition, so requiring any would empty out
+        exactly the near-term end of the calendar this exists to show."""
+        if not settings.tmdb_api_key:
+            return []
+        today = date.today()
+        end = today + timedelta(days=days_ahead)
+        pages = await asyncio.gather(
+            *[
+                self._fetch_list("discover/movie", "movie", {
+                    "sort_by": "primary_release_date.asc",
+                    "primary_release_date.gte": today.isoformat(),
+                    "primary_release_date.lte": end.isoformat(),
+                    "page": page,
+                })
+                for page in (1, 2, 3)
+            ],
+            return_exceptions=True,
+        )
+        seen: set = set()
+        items: List[MediaItem] = []
+        for page in pages:
+            if isinstance(page, Exception):
+                continue
+            for item in page:
+                if item.id in seen:
+                    continue
+                seen.add(item.id)
+                items.append(item)
+        return items
+
+    async def next_episode(self, tmdb_id: str) -> Optional[dict]:
+        """A light GET /tv/{id} — no append_to_response, no ru-RU second
+        call — used only to answer "when's the next episode" for a title
+        already in someone's watching shelf
+        (app/routers/calendar.py::watching_releases). TMDB includes
+        next_episode_to_air/last_episode_to_air on every plain /tv/{id}
+        response by default; full_detail() above already receives them
+        too but is far too heavy to call once per watching-list title on
+        every Home load (it also pulls credits/images/videos/similar/a
+        second ru-RU request).
+
+        Returns {"next": {...} | None, "last": {...} | None} — each an
+        "episode_number"/"season_number"/"air_date"/"name" dict taken
+        straight from TMDB's own shape, or None when TMDB has nothing
+        there (a completed/cancelled series has no next_episode_to_air;
+        a series with literally zero aired episodes yet has no
+        last_episode_to_air either). None outright (not a dict of
+        None/None) on a 404 or any request failure, so the caller can
+        tell "nothing to report" apart from "TMDB has no record of this
+        id at all" if it ever needs to."""
+        if not settings.tmdb_api_key:
+            return None
+        url = f"{TMDB_BASE}/tv/{tmdb_id}"
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            try:
+                resp = await client.get(url, params={"api_key": settings.tmdb_api_key})
+                if resp.status_code == 404:
+                    return None
+                resp.raise_for_status()
+            except httpx.HTTPError as exc:
+                logger.warning("TMDB next_episode fetch failed [%s] -> %s", tmdb_id, exc)
+                return None
+        data = resp.json()
+        return {
+            "next": data.get("next_episode_to_air"),
+            "last": data.get("last_episode_to_air"),
+        }
 
     async def similar_by_genre(
         self, media_kind: str, genres: List[str], *, anime_only: bool = False, exclude_id: Optional[str] = None,

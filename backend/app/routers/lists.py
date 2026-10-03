@@ -1,9 +1,10 @@
-from typing import List as TypingList
+from typing import List as TypingList, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app import models
+from app import content_filter, models
 from app.database import get_db
 from app.deps import get_current_user
 from app.schemas import (
@@ -16,6 +17,10 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/lists", tags=["lists"])
+
+# Matches the page size routers/sincerity.py uses for the same
+# cursor-pagination shape (see get_lists below).
+_PAGE_SIZE = 30
 
 
 def _get_owned_list(db: Session, user_id: str, list_id: str) -> models.UserList:
@@ -43,16 +48,50 @@ def _to_overview(row: models.UserList) -> UserListOut:
 
 @router.get("", response_model=TypingList[UserListOut])
 def get_lists(
+    response: Response,
+    before: Optional[str] = Query(
+        default=None, description="list id to page before, for older lists"
+    ),
+    limit: int = Query(default=_PAGE_SIZE, ge=1, le=200),
+    full: bool = Query(
+        default=False,
+        description=(
+            "bypass pagination and return every list in one response — for "
+            "pickers (e.g. the \"add to list\" sheet) that need the complete "
+            "set to search through, not the lists screen's own scrolling view."
+        ),
+    ),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """The lists screen's overview — one card per list, newest first."""
-    rows = (
-        db.query(models.UserList)
-        .filter_by(user_id=current_user.id)
-        .order_by(models.UserList.created_at.desc())
-        .all()
-    )
+    """The lists screen's overview — one card per list, newest first.
+    The body is still the same bare array it's always been; pagination
+    rides in the `X-Has-More` response header instead of reshaping it
+    (see GET /diary's own docstring for why)."""
+    q = db.query(models.UserList).filter_by(user_id=current_user.id)
+
+    if full:
+        rows = q.order_by(models.UserList.created_at.desc(), models.UserList.id.desc()).all()
+        response.headers["X-Has-More"] = "false"
+        return [_to_overview(r) for r in rows]
+
+    if before:
+        anchor = (
+            db.query(models.UserList)
+            .filter(models.UserList.id == before, models.UserList.user_id == current_user.id)
+            .first()
+        )
+        if anchor is not None:
+            q = q.filter(
+                or_(
+                    models.UserList.created_at < anchor.created_at,
+                    and_(models.UserList.created_at == anchor.created_at, models.UserList.id < anchor.id),
+                )
+            )
+    rows = q.order_by(models.UserList.created_at.desc(), models.UserList.id.desc()).limit(limit + 1).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    response.headers["X-Has-More"] = "true" if has_more else "false"
     return [_to_overview(r) for r in rows]
 
 
@@ -62,10 +101,20 @@ def create_list(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # A list name and description are visible to friends on the profile
+    # screen (see routers/friends.py::get_friend_collections), which makes
+    # them user-generated content like any other — same filter as the
+    # nickname and status line. See app/content_filter.py.
+    try:
+        name = content_filter.check(payload.name.strip(), field="list name")
+        description = content_filter.check(payload.description, field="list description")
+    except content_filter.ContentRejected as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
     row = models.UserList(
         user_id=current_user.id,
-        name=payload.name.strip(),
-        description=payload.description,
+        name=name,
+        description=description,
     )
     db.add(row)
     db.commit()

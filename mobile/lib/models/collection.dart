@@ -48,21 +48,19 @@ class SeenlyCollection {
   /// LocalizedText.display: show the language the toggle asks for, fall
   /// back to whichever exists when it doesn't.
   ///
-  /// Lowercases just the first letter before returning — a look, not a
-  /// data change: every admin-typed/hand-written shelf name and the
-  /// backend's title_ru strings are stored/sent as normal sentence case,
-  /// this only touches how a shelf header renders. Only the first
-  /// character changes, so a title's own internal capitalization (a
-  /// franchise's second word, an acronym) is untouched.
+  /// Lowercases the whole name before returning ("Star Wars" -> "star
+  /// wars", "Top This Year" -> "top this year") — a look, not a data
+  /// change: every admin-typed/hand-written shelf name and the
+  /// backend's title_ru strings are stored/sent as normal sentence or
+  /// title case, this only touches how a shelf header renders. It has
+  /// to be the whole string: lowering just the first letter left every
+  /// later word of a multi-word name capitalized ("top This Year").
   String get displayTitle {
     final raw = LocaleService.contentPrefersRussian
         ? title
         : (titleEn?.trim().isNotEmpty ?? false) ? titleEn! : title;
-    return _lowerFirst(raw);
+    return raw.toLowerCase();
   }
-
-  static String _lowerFirst(String s) =>
-      s.isEmpty ? s : s[0].toLowerCase() + s.substring(1);
 
   /// Same fallback convention, mirrored for `description`/`descriptionRu`
   /// (TMDB's franchise overview, which — unlike `title`/`history` above —

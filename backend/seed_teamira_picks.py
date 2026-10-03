@@ -4,9 +4,9 @@ new multi-catalog admin_add_item path end to end so there's something
 real on the Collections tab immediately, not just an empty admin API.
 
 Talks to the DB directly rather than over HTTP: no running server and
-no TEAMIRA_ADMIN_KEY required, since whoever can run this already has
-direct access to this codebase/database (require_teamira_admin's header
-key exists to gate the *network* surface, not this). Each title is
+no admin login required, since whoever can run this already has direct
+access to this codebase/database (require_admin_user's User.is_admin
+check exists to gate the *network* surface, not this). Each title is
 resolved through the exact same adapters (TMDB/IGDB/Open Library) and
 lands in the DB in the exact same shape admin_add_item itself would
 produce — this is that endpoint's own logic, just called in a loop

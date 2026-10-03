@@ -5,16 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/diary_entry.dart';
 import '../../models/media_item.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/together_wrapped_teaser.dart';
 import '../../widgets/departure_scenes.dart';
 import '../../widgets/garden_submit_button.dart';
 import '../../widgets/light_bloom.dart';
 import '../../widgets/log_flow_kit.dart';
 import '../../widgets/mood_tag_picker.dart' show vibePresetTags, vibePromptTitle;
 import '../../widgets/review_composer.dart';
+import '../../widgets/sincerity_toast.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../services/log_theme_service.dart';
@@ -25,6 +28,12 @@ import '../../widgets/verdict_rating.dart';
 import '../../widgets/wow_motion.dart' show PressScale;
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../../theme/notebook_paper.dart';
+import '../../widgets/saved_celebration.dart';
+import '../../widgets/share_card.dart';
+import '../../widgets/share_sheet.dart';
+import '../../widgets/decide_motion.dart' show SecondaryActionButton;
+import '../../theme/clay_kit.dart';
 
 // This bed's own verdict words — same shape VerdictRating expects from
 // the cinema flow (10 entries, low to high), spoken the way you'd
@@ -63,7 +72,19 @@ class GardenLogScreen extends StatefulWidget {
   final int? season;
   final int? episode;
   final int? episodeCount;
-  const GardenLogScreen({super.key, required this.item, this.season, this.episode, this.episodeCount});
+  // Pre-checks the "watched with partner" toggle below — see
+  // WatchingChoiceScreen's own doc comment for why (the co-viewing
+  // planned grid's "смотрю" button opens this already knowing the
+  // evening was shared).
+  final bool initialWatchedWithPartner;
+  const GardenLogScreen({
+    super.key,
+    required this.item,
+    this.season,
+    this.episode,
+    this.episodeCount,
+    this.initialWatchedWithPartner = false,
+  });
 
   @override
   State<GardenLogScreen> createState() => _GardenLogScreenState();
@@ -94,6 +115,10 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
   List<CastMember> _favoriteCast = [];
   _When _when = _When.today;
   DateTime? _customDate;
+  // Stashed the moment `_confirmAndSave` succeeds, purely so the bloom
+  // step's share button (below) has a real logged entry to build an
+  // [EveningShareCard] from — nothing before that point needs it.
+  DiaryEntry? _savedDiaryEntry;
   final _noteController = TextEditingController();
   final _customTagController = TextEditingController();
   bool _watchedWithPartner = false;
@@ -114,6 +139,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
   @override
   void initState() {
     super.initState();
+    _watchedWithPartner = widget.initialWatchedWithPartner;
     final seed = widget.item.title.display;
     _taken = seededTakenSeats(seed, _slots, salt: 0x67726f77, minTaken: 1, extraRange: 3); // 'grow'
     _motes = seededMotes(seed, 10, salt: 0x67726f77);
@@ -232,8 +258,9 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
     // follows never lands on a blank wait.
     setState(() { _saving = true; _error = null; _step = _Step.dusk; });
     bool failed = false;
+    DiaryEntry? loggedEntry;
     try {
-      await Future.wait([
+      final results = await Future.wait([
         context.read<AppState>().diary.logEntry(
               item: widget.item,
               rating: _rating > 0 ? _rating : null,
@@ -249,6 +276,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
             ),
         Future.delayed(const Duration(milliseconds: 1500)),
       ]);
+      loggedEntry = results[0] as DiaryEntry;
     } catch (_) {
       failed = true;
     }
@@ -257,6 +285,8 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
       setState(() { _saving = false; _step = _Step.confirm; _error = "couldn't save that just now — try again"; });
       return;
     }
+    if (loggedEntry != null) showSincerityToasts(context, loggedEntry.sincerityAwarded);
+    _savedDiaryEntry = loggedEntry;
     HapticFeedback.mediumImpact();
     // A save is exactly the moment a level-up (and possibly a new
     // badge unlocking) could just have happened — refresh the cached
@@ -264,6 +294,23 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
     // waiting for the next profile visit. Best-effort, never blocks.
     unawaited(context.read<AppState>().refreshLevel());
     setState(() { _saving = false; _step = _Step.bloom; });
+  }
+
+  // Opens the same share-card sheet as everywhere else in the app (see
+  // widgets/watched_preview_sheet.dart), built straight from the entry
+  // that was just logged — so "share" on this last screen isn't a
+  // separate, lesser path, it's the exact same card someone would get
+  // to later from the diary.
+  void _shareLoggedEntry() {
+    final entry = _savedDiaryEntry;
+    if (entry == null) return;
+    showShareCardSheet(
+      context,
+      card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
+      fileName: 'seenly-${entry.id}',
+      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      rewardKey: 'seenly-${entry.id}',
+    );
   }
 
   @override
@@ -434,7 +481,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
             child: _PlanterBoxFrame(
               child: Container(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 color: SeenlyPalette.paper,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: SeenlyPalette.softShadow,
@@ -566,7 +613,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
             child: _PlanterBoxFrame(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
-                decoration: BoxDecoration(
+                decoration: ClayBoxDecoration(
                   color: SeenlyPalette.paper,
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: SeenlyPalette.softShadow,
@@ -658,7 +705,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
             child: _PlanterBoxFrame(
               child: Container(
                 padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
-                decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18), boxShadow: SeenlyPalette.softShadow),
+                decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18), boxShadow: SeenlyPalette.softShadow),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -721,7 +768,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                 _PlanterBoxFrame(
                   child: Container(
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
+              decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(16), boxShadow: SeenlyPalette.softShadow),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -751,7 +798,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                       ),
                     ],
                   ),
-                  Divider(height: 28, color: SeenlyPalette.border),
+                  CozyDivider(height: 28, color: SeenlyPalette.border),
                   ConfirmRow(label: 'when'.tr, value: _friendlyDate(_resolvedDate)),
                   const SizedBox(height: 10),
                   ConfirmRow(
@@ -882,27 +929,60 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
         ),
         const _BloomStepMascot(),
         const Spacer(flex: 2),
+        if (_watchedWithPartner && _partnerUsername != null)
+          TogetherWrappedTeaser(partnerName: _partnerUsername!),
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: PrimaryButton(
-            label: 'leave it growing'.tr,
-            onTap: () async {
-              // Right as the person is about to leave the planting
-              // ritual behind — one more beat (or two), if this save
-              // leveled them up and/or a badge just came with it,
-              // before actually stepping away.
-              final leveledUp = context.read<AppState>().consumePendingLevelUp();
-              if (leveledUp != null && context.mounted) {
-                await showLevelUpCelebration(context, leveledUp);
-              }
-              if (context.mounted) {
-                await checkAndCelebrateNewAchievements(context);
-              }
-              if (context.mounted) Navigator.of(context).pop(true);
-            },
+          child: Row(
+            children: [
+              Expanded(
+                child: SecondaryActionButton(
+                  icon: Icons.ios_share_rounded,
+                  label: 'share'.tr,
+                  onTap: _shareLoggedEntry,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: PrimaryButton(
+                  label: 'leave it growing'.tr,
+                  onTap: () async {
+                    // Right as the person is about to leave the planting
+                    // ritual behind — one more beat (or two), if this save
+                    // leveled them up and/or a badge just came with it,
+                    // before actually stepping away.
+                    final leveledUp = context.read<AppState>().consumePendingLevelUp();
+                    if (leveledUp != null && context.mounted) {
+                      await showLevelUpCelebration(context, leveledUp);
+                    }
+                    if (context.mounted) {
+                      await checkAndCelebrateNewAchievements(context);
+                    }
+                    if (context.mounted) {
+                      // The closing flourish: it lives in the root overlay, so it
+                      // carries on over the screen this one is about to reveal.
+                      showSavedCelebration(
+                        context,
+                        kind: SavedKind.logged,
+                        title: widget.item.title.display,
+                        posterUrl: widget.item.posterUrl,
+                        mediaType: widget.item.mediaType,
+                        rating: _rating > 0 ? _rating : null,
+                        partnerName: _watchedWithPartner ? _partnerUsername : null,
+                        compact: true,
+                        haptics: false,
+                      );
+                      Navigator.of(context).pop(true);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ],
+
     );
   }
 
@@ -944,7 +1024,7 @@ class _WindowBox extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.fromLTRB(14, 26, 14, 14),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper.withOpacity(0.97),
         borderRadius: BorderRadius.circular(24),
         boxShadow: SeenlyPalette.softShadow,
@@ -1211,7 +1291,7 @@ class _PlanterBoxFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.clay,
         borderRadius: BorderRadius.circular(22),
         boxShadow: SeenlyPalette.softShadow,
@@ -1394,7 +1474,8 @@ class _SoilFrame extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: SeenlyPalette.border),
@@ -1619,7 +1700,7 @@ class _BloomRevealState extends State<_BloomReveal> with SingleTickerProviderSta
                   width: 240,
                   margin: const EdgeInsets.only(top: 10),
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-                  decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20), boxShadow: SeenlyPalette.softShadow),
+                  decoration: ClayBoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20), boxShadow: SeenlyPalette.softShadow),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [

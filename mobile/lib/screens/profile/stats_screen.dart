@@ -4,18 +4,27 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/profile_stats.dart';
+import '../../models/saved_wrapped_period.dart';
+import '../../services/custom_wrapped_service.dart';
+import '../../services/partner_compare_service.dart';
+import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../theme/notebook_paper.dart';
 import '../../widgets/polaroid_card.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../premium/saved_periods_screen.dart';
+import '../../theme/clay_kit.dart';
 
 /// Profile -> "статистика": the numbers-and-charts sibling of Wrapped's
-/// card-by-card narrative (same WrappedSummary, same month/year/all-time
-/// switch — see ProfileService.wrappedSummary) — but built to open with
-/// its own bit of drama rather than reading like a spreadsheet: a
+/// card-by-card narrative (same WrappedSummary, same month/year/
+/// all-time/"свой период" switch — see ProfileService.wrappedSummary
+/// and, for a custom range, CustomWrappedService) — but built to open
+/// with its own bit of drama rather than reading like a spreadsheet: a
 /// poster-collage cover up top carries the headline numbers (counting
 /// up rather than just appearing), related figures share a single card
 /// instead of each getting its own identical box, and chart types vary
@@ -29,9 +38,33 @@ class StatsScreen extends StatefulWidget {
   State<StatsScreen> createState() => _StatsScreenState();
 }
 
+/// [StatsScreen]'s combined fetch result — same reasoning as
+/// WrappedScreen's own _WrappedLoad: bundling the partner comparison in
+/// here rather than a second independent FutureBuilder, so it can slot
+/// into `sections` alongside everything else that's conditionally
+/// included based on real data.
+class _StatsLoad {
+  final WrappedSummary summary;
+  final PartnerCompareData? partnerCompare;
+  final List<_TrendPoint>? trend;
+  const _StatsLoad(this.summary, this.partnerCompare, this.trend);
+}
+
+/// One month's totals for _TrendCard — see
+/// _StatsScreenState._loadTrend for how this gets built.
+class _TrendPoint {
+  final int year;
+  final int month;
+  final int count;
+  final double hours;
+  const _TrendPoint({required this.year, required this.month, required this.count, required this.hours});
+}
+
 class _StatsScreenState extends State<StatsScreen> {
   String _scope = 'year';
-  late Future<WrappedSummary> _future;
+  String? _customTitle;
+  DateTimeRange? _customRange;
+  late Future<_StatsLoad> _future;
 
   @override
   void initState() {
@@ -39,15 +72,127 @@ class _StatsScreenState extends State<StatsScreen> {
     _future = _load();
   }
 
-  Future<WrappedSummary> _load() =>
-      context.read<AppState>().profile.wrappedSummary(scope: _scope);
+  Future<_StatsLoad> _load() async {
+    final summary = await _loadSummary();
+    final compare = await _loadPartnerCompare();
+    final trend = await _loadTrend();
+    return _StatsLoad(summary, compare, trend);
+  }
+
+  /// The last up-to-12 months with any real activity, oldest first —
+  /// powers _TrendCard's bar chart. Free accounts still get this
+  /// fetched (it's cheap — WrappedPeriods is just a list of which
+  /// months have data, not the data itself) so the card can still be
+  /// shown as a locked teaser rather than silently omitted; the
+  /// per-month totals underneath (the actual N extra fetches) only
+  /// happen for premium. Returns null when there isn't enough history
+  /// for a trend to mean anything (fewer than 2 months) or the fetch
+  /// failed — never blocks the rest of the stats either way.
+  Future<List<_TrendPoint>?> _loadTrend() async {
+    try {
+      final app = context.read<AppState>();
+      final isPremium = context.read<PremiumService>().isPremium;
+      final periods = await app.profile.wrappedPeriods();
+      final months = [...periods.months]
+        ..sort((a, b) => a.year != b.year ? a.year.compareTo(b.year) : a.month.compareTo(b.month));
+      if (months.length < 2) return null;
+      final recent = months.length > 12 ? months.sublist(months.length - 12) : months;
+      if (!isPremium) {
+        // Locked teaser only needs to know a trend *exists* — the
+        // per-month numbers themselves stay behind premium, so this
+        // skips the N extra fetches entirely for free accounts.
+        return [for (final m in recent) _TrendPoint(year: m.year, month: m.month, count: 0, hours: 0)];
+      }
+      final summaries = await Future.wait(recent.map(
+        (m) => app.profile.wrappedSummary(scope: 'month', year: m.year, month: m.month),
+      ));
+      return [
+        for (var i = 0; i < recent.length; i++)
+          _TrendPoint(
+            year: recent[i].year,
+            month: recent[i].month,
+            count: summaries[i].totalLogged,
+            hours: summaries[i].totalHours,
+          ),
+      ];
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Same "no matching backend endpoint, so compute it locally" shape
+  /// as WrappedScreen's own _loadSummary — see CustomWrappedService's
+  /// docstring for why.
+  Future<WrappedSummary> _loadSummary() async {
+    final title = _customTitle;
+    final range = _customRange;
+    if (_scope == 'custom' && title != null && range != null) {
+      final entries = await context.read<AppState>().diary.list();
+      return CustomWrappedService.build(title: title, range: range, allEntries: entries);
+    }
+    return context.read<AppState>().profile.wrappedSummary(scope: _scope);
+  }
+
+  /// Same fetch WrappedScreen's own PartnerCompareCard uses (see its
+  /// doc comment) — null whenever there's nothing to compare (not
+  /// linked, or the fetch failed), which is fine here too since it
+  /// never blocks the stats themselves from loading.
+  Future<PartnerCompareData?> _loadPartnerCompare() async {
+    try {
+      final app = context.read<AppState>();
+      final status = await app.partner.status();
+      if (!status.linked || status.members.length < 2) return null;
+      final list = await app.partner.coViewing();
+      return PartnerCompareService.build(
+        myUsername: list.myUsername,
+        otherUsernames: list.otherUsernames,
+        watched: list.watched,
+        planned: list.planned,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   void _switchTo(String scope) {
     if (scope == _scope) return;
     setState(() {
       _scope = scope;
+      _customTitle = null;
+      _customRange = null;
       _future = _load();
     });
+  }
+
+  void _switchToCustom(SavedWrappedPeriod period) {
+    setState(() {
+      _scope = 'custom';
+      _customTitle = period.title;
+      _customRange = period.range;
+      _future = _load();
+    });
+  }
+
+  /// Same premium gate every other "свой период" doorway uses (see
+  /// PeriodPickerSheet's own row in wrapped_screen.dart) — checked here
+  /// too since this is a separate entry point into
+  /// [SavedPeriodsScreen], not reachable through that sheet.
+  Future<void> _openCustomPeriodPicker() async {
+    final isPremium = context.read<PremiumService>().isPremium;
+    if (!isPremium) {
+      await showPremiumUpsellSheet(
+        context,
+        triggerSource: 'custom_wrapped',
+        icon: Icons.calendar_month_outlined,
+        title: 'свой итог — премиум-функция'.tr,
+        message: 'назови любой период — поездку, сезон, отношения — и получи полноценный итог по нему'.tr,
+      );
+      return;
+    }
+    final period = await Navigator.of(context)
+        .push<SavedWrappedPeriod>(MaterialPageRoute(builder: (_) => const SavedPeriodsScreen()));
+    if (period == null || !mounted) return;
+    _switchToCustom(period);
   }
 
   // Same soft cross-fade ProfileScreen uses between its skeleton/error/
@@ -84,11 +229,29 @@ class _StatsScreenState extends State<StatsScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _ScopeSwitcher(scope: _scope, onChanged: _switchTo),
+              child: Row(
+                children: [
+                  Expanded(child: _ScopeSwitcher(scope: _scope, onChanged: _switchTo)),
+                  const SizedBox(width: 8),
+                  _CustomPeriodButton(active: _scope == 'custom', onTap: _openCustomPeriodPicker),
+                ],
+              ),
             ),
+            if (_scope == 'custom' && _customTitle != null) ...[
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: Text(
+                  _customTitle!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w600),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
             Expanded(
-              child: FutureBuilder<WrappedSummary>(
+              child: FutureBuilder<_StatsLoad>(
                 future: _future,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData && !snapshot.hasError) {
@@ -105,7 +268,9 @@ class _StatsScreenState extends State<StatsScreen> {
                       ),
                     );
                   }
-                  final s = snapshot.data!;
+                  final s = snapshot.data!.summary;
+                  final partnerCompare = snapshot.data!.partnerCompare;
+                  final trend = snapshot.data!.trend;
                   if (s.totalLogged == 0) {
                     return _fadeSwitch(
                       Center(
@@ -140,11 +305,13 @@ class _StatsScreenState extends State<StatsScreen> {
                   final sections = <Widget>[
                     _HeroCover(summary: s),
                     _ActivityCard(summary: s),
+                    if (trend != null) _TrendCard(trend: trend),
                     _RhythmCard(summary: s),
                     if (s.hoursPercentile != null) _PercentileCard(summary: s),
                     if (s.genreMix.isNotEmpty) _GenreCard(summary: s),
                     if (s.decades.isNotEmpty) _DecadeCard(summary: s),
                     _WatchStyleCard(summary: s),
+                    if (partnerCompare != null) _PartnerCompareStatsCard(compare: partnerCompare),
                     if (s.ratingHistogram.any((b) => b.count > 0)) _RatingsCard(summary: s),
                     if (s.topDirectors.isNotEmpty)
                       _TopListCard(
@@ -213,6 +380,35 @@ class _StatsSkeleton extends StatelessWidget {
 // Scope switcher
 // ---------------------------------------------------------------------------
 
+/// The small round "свой период" doorway next to _ScopeSwitcher — same
+/// gate as PeriodPickerSheet's own row (see
+/// _StatsScreenState._openCustomPeriodPicker), just a separate entry
+/// point since Stats' scope switcher is a plain 3-way toggle rather
+/// than a full picker sheet.
+class _CustomPeriodButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+  const _CustomPeriodButton({required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: active ? SeenlyPalette.accent : SeenlyPalette.cork,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Icon(Icons.calendar_month_outlined, size: 17,
+            color: active ? SeenlyPalette.accentOnAccent : SeenlyPalette.inkFaint),
+      ),
+    );
+  }
+}
+
 class _ScopeSwitcher extends StatelessWidget {
   final String scope;
   final ValueChanged<String> onChanged;
@@ -241,7 +437,7 @@ class _ScopeSwitcher extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 9),
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
             color: active ? SeenlyPalette.paper : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: active ? SeenlyPalette.softShadow : null,
@@ -275,7 +471,7 @@ class _DashCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(18),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(20),
         boxShadow: SeenlyPalette.softShadow,
@@ -820,7 +1016,7 @@ class _RankGauge extends StatelessWidget {
                 child: Container(
                   width: 20,
                   height: 20,
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
                     color: SeenlyPalette.paper,
                     shape: BoxShape.circle,
                     border: Border.all(color: SeenlyPalette.accent, width: 3),
@@ -1041,7 +1237,7 @@ class _EraShelfRow extends StatelessWidget {
                                       size: 26, weight: FontWeight.w700, color: SeenlyPalette.accent.withOpacity(0.55))),
                               const SizedBox(height: 2),
                               Text(
-                                ruCount(count, one: 'фильм', few: 'фильма', many: 'фильмов', englishOne: 'movie', englishOther: 'movies').toUpperCase(),
+                                nCount('nMovies', count).toUpperCase(),
                                 style: SeenlyText.mono(size: 10, weight: FontWeight.w600, color: SeenlyPalette.inkMuted)
                                     .copyWith(letterSpacing: 1.0),
                               ),
@@ -1169,6 +1365,309 @@ class _SplitRibbon extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Partner compare — premium
+// ---------------------------------------------------------------------------
+
+/// Only ever included in `sections` when there's actually a partner to
+/// compare with (see _StatsScreenState._loadPartnerCompare) — free
+/// accounts still get the card, just as a locked teaser rather than
+/// real numbers, same split as WrappedScreen's own PartnerCompareCard
+/// (see wrapped_screen.dart — this is a separate widget, not a shared
+/// one, since the two screens' card shells don't share a base).
+class _PartnerCompareStatsCard extends StatelessWidget {
+  final PartnerCompareData compare;
+  const _PartnerCompareStatsCard({required this.compare});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPremium = context.watch<PremiumService>().isPremium;
+    final isCompany = compare.others.length > 1;
+    return _DashCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardTitle(
+            'кто выбирает?'.tr,
+            caption: isCompany ? 'ваш круг'.tr : 'вы вдвоём'.tr,
+          ),
+          const SizedBox(height: 16),
+          if (isPremium)
+            _PartnerCompareStatsReveal(compare: compare)
+          else
+            _PartnerCompareStatsLocked(isCompany: isCompany),
+        ],
+      ),
+    );
+  }
+}
+
+class _PartnerCompareStatsReveal extends StatelessWidget {
+  final PartnerCompareData compare;
+  const _PartnerCompareStatsReveal({required this.compare});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = compare.people.fold<int>(0, (sum, p) => sum + p.suggestedCount);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final p in compare.people) ...[
+          _StatsCompareBar(
+            label: p.isSelf ? (LocaleService.appIsRussian ? 'ты' : 'you') : p.username,
+            value: p.suggestedCount,
+            total: total,
+            strong: p.isSelf,
+          ),
+          const SizedBox(height: 10),
+        ],
+        const SizedBox(height: 2),
+        Text(
+          LocaleService.appIsRussian
+              ? '${compare.watchedTogetherCount} посмотрено вместе · ${compare.plannedCount} в планах'
+              : '${compare.watchedTogetherCount} watched together · ${compare.plannedCount} planned',
+          style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatsCompareBar extends StatelessWidget {
+  final String label;
+  final int value;
+  final int total;
+  final bool strong;
+  const _StatsCompareBar({required this.label, required this.value, required this.total, required this.strong});
+
+  @override
+  Widget build(BuildContext context) {
+    final fraction = total == 0 ? 0.0 : value / total;
+    final color = strong ? SeenlyPalette.accent : SeenlyPalette.periwinkle;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: SeenlyText.mono(size: 12, color: SeenlyPalette.ink,
+                      weight: strong ? FontWeight.w700 : FontWeight.w400),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ),
+            Text('$value', style: SeenlyText.mono(size: 12, color: SeenlyPalette.ink)),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: SizedBox(
+            height: 10,
+            child: Stack(
+              children: [
+                Container(color: SeenlyPalette.cork),
+                FractionallySizedBox(
+                  widthFactor: fraction.clamp(0.03, 1.0),
+                  child: Container(color: color),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PartnerCompareStatsLocked extends StatelessWidget {
+  final bool isCompany;
+  const _PartnerCompareStatsLocked({required this.isCompany});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.lock_outline, size: 18, color: SeenlyPalette.inkFaint),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            LocaleService.appIsRussian
+                ? (isCompany ? 'кто в круге предлагает больше' : 'кто из вас двоих предлагает больше')
+                : (isCompany ? 'who in the circle picks more' : 'who between you two picks more'),
+            style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
+          ),
+        ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: () => showPremiumUpsellSheet(
+            context,
+            triggerSource: 'circle_stats',
+            icon: Icons.people_outline,
+            title: 'you vs your circle is premium'.tr,
+            message: 'see who suggests more of what you watch together — premium unlocks the numbers'.tr,
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: SeenlyPalette.accent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text('open'.tr,
+                style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Trend card — premium
+// ---------------------------------------------------------------------------
+
+const _trendMonthNamesRu = ['', 'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const _trendMonthNamesEn = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/// Only ever included in `sections` when there are at least two months
+/// of real history to compare (see _StatsScreenState._loadTrend) — a
+/// trend needs at least two points, and one lonely bar wouldn't say
+/// much anyway. Free accounts still get the card, just as a locked
+/// teaser with the month labels but none of the real numbers, same
+/// split as every other premium card on this screen.
+class _TrendCard extends StatelessWidget {
+  final List<_TrendPoint> trend;
+  const _TrendCard({required this.trend});
+
+  @override
+  Widget build(BuildContext context) {
+    final isPremium = context.watch<PremiumService>().isPremium;
+    return _DashCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardTitle(
+            'твоя динамика'.tr,
+            caption: LocaleService.appIsRussian
+                ? 'последние ${trend.length} мес.'
+                : 'last ${trend.length} months',
+          ),
+          const SizedBox(height: 18),
+          if (isPremium) _TrendChart(trend: trend) else _TrendLocked(months: trend.length),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrendChart extends StatelessWidget {
+  final List<_TrendPoint> trend;
+  const _TrendChart({required this.trend});
+
+  @override
+  Widget build(BuildContext context) {
+    final maxCount = trend.map((p) => p.count).fold(0, (a, b) => a > b ? a : b);
+    final names = LocaleService.appIsRussian ? _trendMonthNamesRu : _trendMonthNamesEn;
+    final last = trend.last;
+    final prev = trend.length > 1 ? trend[trend.length - 2] : null;
+    String? deltaLabel;
+    if (prev != null && prev.count > 0) {
+      final delta = ((last.count - prev.count) / prev.count * 100).round();
+      if (delta != 0) {
+        final sign = delta > 0 ? '+' : '';
+        deltaLabel = LocaleService.appIsRussian
+            ? '$sign$delta% к прошлому месяцу'
+            : '$sign$delta% vs last month';
+      }
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          height: 110,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var i = 0; i < trend.length; i++)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(trend[i].count > 0 ? '${trend[i].count}' : '',
+                            style: SeenlyText.mono(size: 8, color: SeenlyPalette.inkFaint)),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: maxCount == 0
+                              ? 4
+                              : 6 + (trend[i].count / maxCount) * 70,
+                          decoration: BoxDecoration(
+                            color: i == trend.length - 1 ? SeenlyPalette.accent : SeenlyPalette.periwinkle.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(names[trend[i].month],
+                            style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (deltaLabel != null) ...[
+          const SizedBox(height: 12),
+          Text(deltaLabel, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
+        ],
+      ],
+    );
+  }
+}
+
+class _TrendLocked extends StatelessWidget {
+  final int months;
+  const _TrendLocked({required this.months});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.show_chart, size: 18, color: SeenlyPalette.inkFaint),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            LocaleService.appIsRussian
+                ? 'как менялась активность за $months мес.'
+                : 'how activity changed over $months months',
+            style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
+          ),
+        ),
+        const SizedBox(width: 10),
+        GestureDetector(
+          onTap: () => showPremiumUpsellSheet(
+            context,
+            triggerSource: 'trend_chart',
+            icon: Icons.show_chart,
+            title: 'your trend is premium'.tr,
+            message: 'see month by month how much you\'re watching, not just one period at a time — premium unlocks the chart'.tr,
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: SeenlyPalette.accent.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text('open'.tr,
+                style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Ratings card
 // ---------------------------------------------------------------------------
 
@@ -1198,7 +1697,7 @@ class _RatingsCard extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Text(
                       LocaleService.appIsRussian
-                          ? 'средняя оценка · ${summary.reviewCount} ${ruPluralForm(summary.reviewCount, one: 'рецензия', few: 'рецензии', many: 'рецензий', englishOne: 'review', englishOther: 'reviews')}'
+                          ? 'средняя оценка · ${summary.reviewCount} ${nOnly('nReviews', summary.reviewCount)}'
                           : 'average rating · ${summary.reviewCount} ${summary.reviewCount == 1 ? 'review' : 'reviews'}',
                       style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkFaint),
                       maxLines: 2,
@@ -1319,11 +1818,11 @@ class _TopListCard extends StatelessWidget {
                           const SizedBox(height: 5),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(3),
-                            child: LinearProgressIndicator(
+                            child: RuledProgressBar(
                               value: maxCount == 0 ? 0 : items[i].$2 / maxCount,
                               minHeight: 5,
                               backgroundColor: SeenlyPalette.background,
-                              valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
+                              valueColor: SeenlyPalette.accent,
                             ),
                           ),
                         ],

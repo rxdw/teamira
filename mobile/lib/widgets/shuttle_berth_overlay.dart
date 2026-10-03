@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// Plays right before tonight's evening lifts off — the shuttle
 /// theme's answer to the cinema's seat, the coach's seat, and the
@@ -214,7 +215,7 @@ class _LaunchPadPicker extends StatelessWidget {
     return Container(
       width: 280,
       padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper.withOpacity(0.96),
         borderRadius: BorderRadius.circular(22),
         boxShadow: SeenlyPalette.softShadow,

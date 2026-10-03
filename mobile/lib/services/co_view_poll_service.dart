@@ -2,6 +2,7 @@ import '../models/co_view_poll_session.dart';
 import '../models/media_item.dart';
 import 'api_client.dart';
 import 'co_view_vote_service.dart' show CoViewVotePoolSource;
+import 'realtime_socket.dart';
 
 /// Talks to /partner/co-viewing/poll — the "vote it out" method: a small
 /// shortlist drawn from the same [CoViewVotePoolSource] pools a swipe
@@ -23,10 +24,9 @@ class CoViewPollService {
   /// built server-side from a `source` — what a filtered pool (type/
   /// genre/year narrowed down first, see DecideFiltersScreen) hands off
   /// to once it's ready to become an actual round. Same "hand back
-  /// whatever's already active" behavior as [start]. NOTE: needs the
-  /// matching backend endpoint, POST /partner/co-viewing/poll/propose
-  /// (mirrors vote's own propose_vote) — not present yet if this hasn't
-  /// been added to co_view_poll.py.
+  /// whatever's already active" behavior as [start], and the same
+  /// SHORTLIST_SIZE cap start_poll applies server-side — see
+  /// backend/app/routers/co_view_poll.py::propose_poll.
   Future<CoViewPollSession> propose(List<MediaItem> items) async {
     final json = await _client.post('/partner/co-viewing/poll/propose', body: {
       'items': items.map((e) => e.toJson()).toList(),
@@ -39,6 +39,20 @@ class CoViewPollService {
   Future<CoViewPollSession> poll(String sessionId) async {
     final json = await _client.get('/partner/co-viewing/poll/$sessionId') as Map<String, dynamic>;
     return CoViewPollSession.fromJson(json);
+  }
+
+  /// Pushed updates for an open poll — replaces calling [poll] on a
+  /// `Timer.periodic`. The server-side socket also resolves the round
+  /// once its own deadline passes with no new vote in between, the same
+  /// job [poll] used to do — see backend/app/routers/co_view_poll.py's
+  /// `watch_poll`. Caller owns the returned socket and must call
+  /// [RealtimeSocket.close] (e.g. from `State.dispose`).
+  RealtimeSocket<CoViewPollSession> watch(String sessionId) {
+    return RealtimeSocket<CoViewPollSession>(
+      path: '/partner/co-viewing/poll/$sessionId/ws',
+      fromJson: CoViewPollSession.fromJson,
+      client: _client,
+    );
   }
 
   /// Casts (or changes) this account's vote for the candidate at

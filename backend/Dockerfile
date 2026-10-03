@@ -41,4 +41,26 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# UVICORN_WORKERS defaults to 1 — today's exact behavior, unchanged.
+# Bump it (e.g. UVICORN_WORKERS=4 in docker-compose.yml/.env) to run
+# several worker processes instead of one. That matters specifically
+# for POST /ai/ask: its embedding inference (app/embeddings.py, backing
+# Ask Teamira's semantic-search layer) is CPU-bound model inference —
+# already off the event loop via asyncio.to_thread (see routers/ai.py),
+# so it doesn't block other requests *within* a process, but a single
+# process is still bounded by that process's own CPU allocation.
+# Splitting across worker processes is what actually adds more CPU to
+# throw at it, at the cost of each worker loading its own separate copy
+# of the embedding model into memory (see this file's own model-
+# preload step above) — plan container memory accordingly before
+# raising this. This was NOT safe to turn on until recently: the old
+# in-process rate limiter/cache lock (see app/rate_limit.py,
+# app/cache.py) and the old raw-SQL startup migrations (see
+# app/migrate.py) all assumed exactly one process: See:
+# - app/migrate.py + main.py's on_startup, `startup_lock` : Alembic
+#   migrations and the one-time seed/consolidate work only ever run once,
+#   even when several workers boot at the same moment.
+# - app/rate_limit.py, app/cache.py: rate limits and the cache-refresh
+#   lock are Postgres-backed now, so they mean the same thing regardless
+#   of which worker process a given request lands on.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]

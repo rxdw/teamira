@@ -8,10 +8,14 @@ import '../../models/media_item.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/decide_motion.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/soft_motion.dart';
+import '../../widgets/together_motion.dart' show SettleIn;
 import '../../widgets/wow_motion.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../widgets/saved_celebration.dart';
 
 /// One decision method from [DecideMethodScreen] — draws a single item
 /// from the filtered [pool] and shows it big, with a reroll and a quick
@@ -47,10 +51,16 @@ class DecideRandomScreen extends StatefulWidget {
   final String secondaryDoneLabel;
   final IconData secondaryIcon;
   final IconData secondaryDoneIcon;
+  // False when the pool is already the person's own plan-to-watch shelf
+  // (the profile's "random" uses this same screen): there's nothing to
+  // "plan" about a title that's already planned, so the reroll button just
+  // takes the whole row.
+  final bool showSecondary;
 
   const DecideRandomScreen({
     super.key,
     required this.pool,
+    this.showSecondary = true,
     this.onSecondary,
     this.secondaryLabel = 'plan to watch',
     this.secondaryDoneLabel = 'added',
@@ -69,6 +79,9 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
   // Bumped on every reroll so the poster/details block below can key off
   // it and replay its entrance instead of just silently swapping content.
   int _revealGeneration = 0;
+  // Bumped on every reroll too — the die on the button gives one roll each
+  // time.
+  int _rerollTick = 0;
 
   // The pool comes straight from the feed (see DecideFiltersScreen), and
   // feed-sourced MediaItems never carry runtime/certification — those
@@ -115,6 +128,7 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
       _pick = next;
       _addedToPlan = false;
       _revealGeneration++;
+      _rerollTick++;
     });
     _fetchDetail(next);
   }
@@ -139,6 +153,13 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
         _addingToPlan = false;
         _addedToPlan = true;
       });
+      showSavedCelebration(
+        context,
+        kind: SavedKind.planned,
+        title: _pick.title.display,
+        posterUrl: _pick.posterUrl,
+        mediaType: _pick.mediaType,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _addingToPlan = false);
@@ -232,15 +253,28 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
               ),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                key: ValueKey(_revealGeneration),
+              // Rerolling: the old pick fades away while the new one is
+              // dealt in (its poster settles from a little smaller and
+              // tilted), instead of the whole block being swapped in place.
+              child: SoftSwap(
+                expand: true,
+                alignment: Alignment.topCenter,
+                rise: 0.03,
+                duration: const Duration(milliseconds: 320),
+                child: KeyedSubtree(
+                  key: ValueKey<int>(_revealGeneration),
+                  child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(28, 20, 28, 12),
                 child: Center(
                   child: Entrance(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _GlowingPoster(pick: pick, color: color, onTap: _open, typeIcon: _typeIcon(pick.mediaType)),
+                        SettleIn(
+                          duration: const Duration(milliseconds: 520),
+                          fade: false,
+                          child: _GlowingPoster(pick: pick, color: color, onTap: _open, typeIcon: _typeIcon(pick.mediaType)),
+                        ),
                         const SizedBox(height: 22),
                         Text(
                           pick.title.display,
@@ -279,6 +313,8 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
                   ),
                 ),
               ),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 8, 22, 22),
@@ -287,21 +323,25 @@ class _DecideRandomScreenState extends State<DecideRandomScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: _SecondaryButton(
-                          icon: Icons.refresh,
+                        child: SecondaryActionButton(
+                          // A die that gives one roll each time.
+                          leading: DiceGlyph(size: 18, color: SeenlyPalette.ink, rollTick: _rerollTick),
                           label: 'reroll'.tr,
                           onTap: widget.pool.length > 1 ? _reroll : null,
+                          haptics: true,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _SecondaryButton(
-                          icon: _addedToPlan ? widget.secondaryDoneIcon : widget.secondaryIcon,
-                          label: _addedToPlan ? widget.secondaryDoneLabel : widget.secondaryLabel,
-                          onTap: _addedToPlan ? null : _addToPlan,
-                          loading: _addingToPlan,
+                      if (widget.showSecondary) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SecondaryActionButton(
+                            icon: _addedToPlan ? widget.secondaryDoneIcon : widget.secondaryIcon,
+                            label: _addedToPlan ? widget.secondaryDoneLabel : widget.secondaryLabel,
+                            onTap: _addedToPlan ? null : _addToPlan,
+                            loading: _addingToPlan,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -409,50 +449,6 @@ class _GlowingPoster extends StatelessWidget {
                 ),
               ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SecondaryButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final bool loading;
-
-  const _SecondaryButton({required this.icon, required this.label, required this.onTap, this.loading = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return PressScale(
-      onTap: onTap,
-      scaleTo: 0.96,
-      child: Opacity(
-        opacity: onTap == null && !loading ? 0.45 : 1,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: SeenlyPalette.paper,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: SeenlyPalette.border),
-          ),
-          child: loading
-              ? Center(
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: SeenlyPalette.ink),
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, size: 17, color: SeenlyPalette.ink),
-                    const SizedBox(width: 7),
-                    Text(label, style: SeenlyText.mono(size: 12.5, color: SeenlyPalette.ink, weight: FontWeight.w600)),
-                  ],
-                ),
         ),
       ),
     );

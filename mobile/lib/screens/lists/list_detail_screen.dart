@@ -11,6 +11,7 @@ import '../../widgets/scroll_reveal.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 class ListDetailScreen extends StatefulWidget {
   final String listId;
@@ -56,7 +57,8 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       builder: (context) => Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 16),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
         ),
@@ -175,8 +177,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
                               child: Text(
                                 'empty for now — add titles here from any title\'s page'.tr,
                                 textAlign: TextAlign.center,
-                                style: SeenlyText.serif(
-                                    italic: true, color: SeenlyPalette.placeholder),
+                                style: SeenlyText.emptyState(),
                               ),
                             ),
                           ),

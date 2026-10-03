@@ -6,27 +6,57 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'package:video_player/video_player.dart';
 
+import '../../analytics/analytics.dart';
+import '../../models/friend.dart';
 import '../../models/media_item.dart';
+import '../../services/app_skin_service.dart';
 import '../../services/collections_prefs_service.dart';
 import '../../services/locale_service.dart';
 import '../../services/log_theme_service.dart';
 import '../../services/media_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
+import '../../theme/seenly_skin.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/dashed_border.dart';
 import '../../widgets/interest_picker.dart';
+import '../../widgets/match_ring.dart';
 import '../../widgets/poster_tile.dart';
 import '../../widgets/share_sheet.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
+import '../../widgets/user_avatar.dart';
+import '../../widgets/wow_motion.dart';
 import '../import/import_screen.dart';
 import '../../services/app_translations.dart';
+import 'onboarding_partner_step.dart';
+
+import '../../theme/clay_kit.dart';
+
+/// The onboarding screen paints its own fixed "evening" world — a dark
+/// night canvas — no matter which app theme (light/dark/cozy) the device
+/// is set to. Text, icons and glow effects here used to pull their color
+/// from `SeenlyPalette.paper`, which is theme-*ambient*: it's a near-white
+/// cream in light mode (fine, readable) but flips to a dark espresso-brown
+/// in dark mode, since that's the "paper" surface color for a dark theme.
+/// Against onboarding's always-dark background, that made large amounts of
+/// onboarding text effectively invisible for anyone with the device/app
+/// in dark mode. Every such spot should use this fixed, non-ambient value
+/// instead — it's always the light "paper" tone, matching this screen's
+/// permanently dark backdrop. Kept as a local alias of
+/// [SeenlyPalette.paperOnDark] so the fix lives in one shared place.
+const Color _onboardingPaper = SeenlyPalette.paperOnDark;
 
 /// Shown exactly once, right after a brand-new account is created (see
-/// AppState.justRegistered). Nine steps, all living in one continuous
+/// AppState.justRegistered). Twelve steps (the list below is a little behind;
+/// `_stepNames` is the real, ordered one — among them a "partner" step, right
+/// after the tour, for connecting the person you watch with, see
+/// onboarding_partner_step.dart), all living in one continuous
 /// "evening falling" visual world (a dark, star-scattered canvas with warm
 /// light as the throughline) rather than nine separate form screens:
 /// a quiet opening, a short illustrated tour of what teamira actually does,
@@ -71,7 +101,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
   // spring settles so idle frames render a single, cheap layer.
   int? _previousPage;
   bool _forward = true;
-  static const _pageCount = 9;
+  static const _pageCount = 12;
+
+  // Names for analytics, in the same order as [_steps] below — the
+  // backend's onboarding funnel (scripts/analytics_report.py) labels its
+  // rows with the same list. Step 0 is counted from the OnboardingScreen
+  // screen_view itself; every later step reports here.
+  static const _stepNames = [
+    'welcome',
+    'features_tour',
+    'partner',
+    'language',
+    'skin',
+    'ritual',
+    'interests',
+    'favorites',
+    'people_like_you',
+    'motivation',
+    'plan_reveal',
+    'import',
+  ];
 
   // Built once so switching steps never rebuilds their internal state —
   // only the per-page transform below changes on every frame.
@@ -88,13 +137,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
     // anyone actually reaches it, rather than starting from zero right
     // as the step appears.
     _FeaturesTourStep(onNext: _next, deckLoader: _deckLoader),
+    // Right after the tour has shown what the app is for: connecting a
+    // partner. Almost everything here is better for two (a shared list,
+    // "what are we watching tonight", a room for the evening), so the offer
+    // comes up front instead of being something to find on Home later. Fully
+    // skippable; see OnboardingPartnerStep for the states it moves through.
+    OnboardingPartnerStep(onNext: _next, onLinked: _fireConfetti),
     _LanguageStep(onNext: _next),
+    // New step, right after title language: same "show, not tell" idea —
+    // two example diary cards (see _MiniDiaryMock) rather than describing
+    // washi tape and folded corners in a sentence. Picking either one
+    // here calls the exact same AppSkinService Settings' "visual style"
+    // row uses, so nothing about it is onboarding-only or provisional.
+    _SkinStep(onNext: _next),
     _RitualStep(onNext: () {
       _fireConfetti();
       _next();
     }),
     _InterestsStep(onNext: _next),
     _FavoritesStep(onNext: _next, onPicked: (items) => _favoritesPicked.value = items),
+    // New step, right after Favorites — see _PeopleLikeYouStep's own
+    // comment above for why picks from the step just before this one are
+    // already enough of a taste signal to rank against.
+    _PeopleLikeYouStep(onNext: _next),
     _MotivationStep(onNext: _next),
     // New 8th step: reads back the interests and ritual picked a few
     // steps ago (CollectionsPrefsService / LogThemeService — nothing
@@ -170,6 +235,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
   // flat black, so it still reads as "evening" and not "dark mode".
   static const _nightColor = Color(0xFF241A22);
 
+  // Swaps the painted "night sky" (_AuroraBackdrop / _StarfieldBackdrop /
+  // _ShootingStarBackdrop) for the looping video backdrop below. The
+  // painted layers are left fully in place in the widget tree logic —
+  // this one flag is the only thing standing between here and them, so
+  // reverting is a one-line change rather than restoring deleted code.
+  static const _kUseVideoBackground = true;
+
   // A single overlay, stacked above everything else, that any step can
   // fire a burst of colour into for a genuine "moment" — first tap,
   // choosing a ritual world, arriving at the reassurance step. Kept as
@@ -191,10 +263,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
     });
     _transition.value = 0;
     _transition.animateWith(SpringSimulation(_spring, 0, 1, 0));
+    Analytics.instance.track('onboarding_step', {'step': target, 'name': _stepNames[target]});
     // Arriving at the reassurance step is its own small "you made it
     // this far" moment — worth a burst even though nothing was tapped
     // to get here.
-    if (target == 6) _fireConfetti();
+    //
+    // (Looked up by name: this used to be the literal 6, which silently
+    // pointed at a different step every time one was inserted before it.
+    // The target is kept exactly where it was pointing — the favorites
+    // step — so inserting the partner step changes nothing here.)
+    if (target == _stepNames.indexOf('favorites')) _fireConfetti();
   }
 
   void _next() {
@@ -206,7 +284,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
     // plain "continue" button, this is now only ever reached by
     // actually tearing the ticket, so the burst reads as the payoff for
     // that specific gesture rather than a generic "next step" flourish.
-    if (_page == 7) _fireConfetti();
+    //
+    // (By name for the same reason as in _goTo above, and likewise kept
+    // pointing where it already was — the people-like-you step.)
+    if (_page == _stepNames.indexOf('people_like_you')) _fireConfetti();
     _goTo(_page + 1);
   }
 
@@ -253,24 +334,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
       backgroundColor: _nightColor,
       body: Stack(
         children: [
-          // Slow-drifting colour behind the stars — the same palette used
-          // everywhere else in the app (coral, periwinkle, mustard, pink,
-          // sage), blurred into soft anchored blobs that bleed into one
-          // another over ~20 seconds. This is what keeps all eight steps
-          // feeling like one lively, saturated evening instead of one
-          // flat dark background with occasional bright accents on top.
-          const Positioned.fill(child: _AuroraBackdrop()),
-          // A faint, slowly twinkling scatter of stars behind every step —
-          // costs no new art, and it's what ties eight very different
-          // screens (a wordmark, a search grid, a breathing wave...) into
-          // one continuous night sky instead of eight separate
-          // backgrounds that happen to be dark.
-          const Positioned.fill(child: _StarfieldBackdrop()),
-          // Every so often, something actually moves across the whole
-          // sky rather than just twinkling in place — a comet with a
-          // fading tail, gone in under a second. Rare on purpose: if it
-          // happened often it would stop reading as a surprise.
-          const Positioned.fill(child: _ShootingStarBackdrop()),
+          if (_kUseVideoBackground) ...[
+            // The onboarding backdrop itself: a looping vertical video,
+            // filling the whole screen behind every step.
+            const Positioned.fill(child: _VideoBackdrop()),
+            // Dimming layer straight on top of the video so text, icons
+            // and glow effects tuned for the old flat colour stay just
+            // as readable against real footage.
+            const Positioned.fill(child: IgnorePointer(child: _VideoScrim())),
+          ] else ...[
+            // Slow-drifting colour behind the stars — the same palette used
+            // everywhere else in the app (coral, periwinkle, mustard, pink,
+            // sage), blurred into soft anchored blobs that bleed into one
+            // another over ~20 seconds. This is what keeps all eight steps
+            // feeling like one lively, saturated evening instead of one
+            // flat dark background with occasional bright accents on top.
+            const Positioned.fill(child: _AuroraBackdrop()),
+            // A faint, slowly twinkling scatter of stars behind every step —
+            // costs no new art, and it's what ties eight very different
+            // screens (a wordmark, a search grid, a breathing wave...) into
+            // one continuous night sky instead of eight separate
+            // backgrounds that happen to be dark.
+            const Positioned.fill(child: _StarfieldBackdrop()),
+            // Every so often, something actually moves across the whole
+            // sky rather than just twinkling in place — a comet with a
+            // fading tail, gone in under a second. Rare on purpose: if it
+            // happened often it would stop reading as a surprise.
+            const Positioned.fill(child: _ShootingStarBackdrop()),
+          ],
           // The whole journey, drawn in the sky. Eight stars in a gentle
           // arc across the upper part of every step — one lights up and
           // connects to the last as you arrive at each new step, so
@@ -336,7 +427,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
                               width: i == _page ? 18 : 6,
                               height: 6,
                               decoration: BoxDecoration(
-                                color: i == _page ? SeenlyPalette.paper : Colors.white.withOpacity(0.22),
+                                color: i == _page ? _onboardingPaper : Colors.white.withOpacity(0.22),
                                 borderRadius: BorderRadius.circular(3),
                               ),
                             ),
@@ -484,7 +575,7 @@ class _FinaleFloodPainter extends CustomPainter {
       colors: [
         SeenlyPalette.mustard.withOpacity(opacity),
         SeenlyPalette.coral.withOpacity(opacity * 0.92),
-        SeenlyPalette.paper.withOpacity(opacity * 0.88),
+        _onboardingPaper.withOpacity(opacity * 0.88),
       ],
     );
     final floodRect = Rect.fromLTRB(0, floodTop - 40, size.width, size.height);
@@ -496,7 +587,7 @@ class _FinaleFloodPainter extends CustomPainter {
     // into place.
     if (riseT < 1.0) {
       final seamPaint = Paint()
-        ..color = SeenlyPalette.paper.withOpacity(opacity * 0.5)
+        ..color = _onboardingPaper.withOpacity(opacity * 0.5)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 36);
       canvas.drawRect(Rect.fromLTWH(0, floodTop - 6, size.width, 12), seamPaint);
     }
@@ -508,7 +599,7 @@ class _FinaleFloodPainter extends CustomPainter {
     if (bloomOpacity > 0) {
       final bloomCenter = Offset(size.width * 0.5, size.height * 0.72);
       final bloomPaint = Paint()
-        ..color = SeenlyPalette.paper.withOpacity(bloomOpacity * 0.7)
+        ..color = _onboardingPaper.withOpacity(bloomOpacity * 0.7)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 60);
       canvas.drawCircle(bloomCenter, 120 + 40 * bloomT, bloomPaint);
     }
@@ -583,11 +674,108 @@ class _CarouselPage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------
+// The onboarding backdrop: a looping, muted, silently-autoplaying vertical
+// video (a sofa in warm evening light) filling the entire screen behind
+// every step, instead of the painted "night sky" below. Fit with
+// BoxFit.cover so it always fills edge-to-edge regardless of device
+// aspect ratio, and dimmed by a dark scrim (see _VideoScrim) so text and
+// icons stay exactly as readable as they were against the flat night
+// colour. While the very first frame is still decoding, this paints the
+// same _nightColor the old backdrop used, so there's nothing to flash in
+// once the video is ready — just one continuous background from the very
+// first frame onward.
+// ---------------------------------------------------------------------
+class _VideoBackdrop extends StatefulWidget {
+  const _VideoBackdrop();
+
+  @override
+  State<_VideoBackdrop> createState() => _VideoBackdropState();
+}
+
+class _VideoBackdropState extends State<_VideoBackdrop> {
+  late final VideoPlayerController _controller;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.asset('assets/onboarding/onboarding_bg.mp4')
+      ..setLooping(true)
+      ..setVolume(0)
+      ..initialize().then((_) {
+        if (!mounted) return;
+        setState(() => _ready = true);
+        _controller.play();
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready || _controller.value.size.width <= 0) {
+      // Same base tone the old backdrop opened on — avoids a flash of an
+      // unrelated colour while the first frame is still decoding.
+      return const ColoredBox(color: _OnboardingScreenState._nightColor);
+    }
+    return ColoredBox(
+      color: _OnboardingScreenState._nightColor,
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: _controller.value.size.width,
+          height: _controller.value.size.height,
+          child: VideoPlayer(_controller),
+        ),
+      ),
+    );
+  }
+}
+
+/// A dark gradient laid directly on top of the video so every step's text,
+/// icons and glow effects — all tuned for the old flat night-sky colour —
+/// stay just as legible against footage that's brighter and busier than a
+/// painted backdrop. Slightly heavier at the very top and bottom, where
+/// the header dots and the step's primary button live, than in the
+/// middle, where the video itself is the whole point.
+class _VideoScrim extends StatelessWidget {
+  const _VideoScrim();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          stops: const [0.0, 0.42, 0.75, 1.0],
+          colors: [
+            _OnboardingScreenState._nightColor.withOpacity(0.72),
+            _OnboardingScreenState._nightColor.withOpacity(0.40),
+            _OnboardingScreenState._nightColor.withOpacity(0.46),
+            _OnboardingScreenState._nightColor.withOpacity(0.78),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------
 // Shared "night sky" pieces — a starfield backdrop, a soft warm glow that
 // breathes, and a single spark that drifts slowly around a center point.
 // Every step below is built out of these same three ingredients plus
 // typography, so the whole flow reads as one visual language rather than
 // eight separately-invented looks.
+//
+// Superseded as the on-screen background by _VideoBackdrop above (see the
+// build() method's _kUseVideoBackground flag) but kept fully intact and
+// reachable — flipping that one flag back to false restores this exact
+// look with nothing else to rewire.
 // ---------------------------------------------------------------------
 
 /// Four soft, blurred blobs of colour anchored near the corners, drifting
@@ -903,12 +1091,12 @@ class _ConstellationPainter extends CustomPainter {
     final flare = Curves.easeOut.transform(finalePulse.clamp(0.0, 1.0));
 
     final glowLine = Paint()
-      ..color = SeenlyPalette.paper.withOpacity(0.14 + 0.55 * flare)
+      ..color = _onboardingPaper.withOpacity(0.14 + 0.55 * flare)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 4 + 3.5 * flare
       ..strokeCap = StrokeCap.round;
     final crispLine = Paint()
-      ..color = SeenlyPalette.paper.withOpacity(0.45 + 0.5 * flare)
+      ..color = _onboardingPaper.withOpacity(0.45 + 0.5 * flare)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.1 + 1.3 * flare
       ..strokeCap = StrokeCap.round;
@@ -937,10 +1125,10 @@ class _ConstellationPainter extends CustomPainter {
       final isCurrent = (progress - i).abs() < 0.5 || flare > 0;
       final glowR = (isCurrent ? 11.0 * pulse : 5.0) + 9.0 * flare;
       final glow = Paint()
-        ..color = SeenlyPalette.paper.withOpacity(((isCurrent ? 0.4 * pulse : 0.16) + 0.5 * flare).clamp(0.0, 1.0))
+        ..color = _onboardingPaper.withOpacity(((isCurrent ? 0.4 * pulse : 0.16) + 0.5 * flare).clamp(0.0, 1.0))
         ..maskFilter = MaskFilter.blur(BlurStyle.normal, 7 + 5 * flare);
       canvas.drawCircle(nodes[i], glowR, glow);
-      final core = Paint()..color = SeenlyPalette.paper.withOpacity(((isCurrent ? 0.95 : 0.65) + 0.3 * flare).clamp(0.0, 1.0));
+      final core = Paint()..color = _onboardingPaper.withOpacity(((isCurrent ? 0.95 : 0.65) + 0.3 * flare).clamp(0.0, 1.0));
       canvas.drawCircle(nodes[i], (isCurrent ? 2.6 : 1.7) + 1.3 * flare, core);
     }
   }
@@ -1278,7 +1466,7 @@ class _DraggableOrbitHeroState extends State<_DraggableOrbitHero> with TickerPro
             return Stack(
               alignment: Alignment.center,
               children: [
-                _OrbitRing(radius: _radius, color: SeenlyPalette.paper),
+                _OrbitRing(radius: _radius, color: _onboardingPaper),
                 Transform.translate(
                   offset: const Offset(-22, 0),
                   child: _GlowOrb(size: 84, color: SeenlyPalette.coral, duration: Duration(seconds: 4)),
@@ -1296,9 +1484,9 @@ class _DraggableOrbitHeroState extends State<_DraggableOrbitHero> with TickerPro
                     height: held ? 11 : 6,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: SeenlyPalette.paper.withOpacity(held ? 1.0 : 0.95),
+                      color: _onboardingPaper.withOpacity(held ? 1.0 : 0.95),
                       boxShadow: held
-                          ? [BoxShadow(color: SeenlyPalette.paper.withOpacity(0.5), blurRadius: 10, spreadRadius: 1)]
+                          ? [BoxShadow(color: _onboardingPaper.withOpacity(0.5), blurRadius: 10, spreadRadius: 1)]
                           : null,
                     ),
                   ),
@@ -1441,7 +1629,7 @@ class _InnerDots extends StatelessWidget {
             width: i == index ? 16 : 6,
             height: 6,
             decoration: BoxDecoration(
-              color: i == index ? SeenlyPalette.paper : Colors.white.withOpacity(0.22),
+              color: i == index ? _onboardingPaper : Colors.white.withOpacity(0.22),
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -1491,7 +1679,7 @@ class _WelcomeStep extends StatelessWidget {
                   // visibly move at different speeds instead of together.
                   Transform.translate(
                     offset: Offset(tilt.dx * 5, tilt.dy * 3),
-                    child: const _AssemblingWordmark(text: 'teamira'),
+                    child: const _AssemblingWordmark(text: 'tanè'),
                   ),
                   const SizedBox(height: 14),
                   Text(
@@ -1616,7 +1804,7 @@ class _AssemblingWordmarkState extends State<_AssemblingWordmark> with SingleTic
         offset: scatter * drift,
         child: Transform.scale(
           scale: 0.4 + 0.6 * curved.clamp(0.0, 1.3),
-          child: Text(ch, style: SeenlyText.serif(size: 32, weight: FontWeight.w600, color: SeenlyPalette.paper)),
+          child: Text(ch, style: SeenlyText.serif(size: 32, weight: FontWeight.w600, color: _onboardingPaper)),
         ),
       ),
     );
@@ -1658,7 +1846,7 @@ final _kFeatures = [
     tag: 'for you',
     title: 'something for tonight',
     text: 'home learns from what you\'ve watched and loved, and ask '
-        'teamira helps when you can\'t decide.',
+        'tanè helps when you can\'t decide.',
     color: SeenlyPalette.mustard,
     color2: SeenlyPalette.coral,
   ),
@@ -1968,7 +2156,9 @@ class _FeaturesTourStepState extends State<_FeaturesTourStep> {
   // A touch under full width so the next and previous cards peek in at
   // the edges — the whole point of the coverflow treatment below. Without
   // this every card would fill the screen and there'd be nothing to peek.
-  final _controller = PageController(viewportFraction: 0.82);
+  // Widened from 0.82 so the centered card itself reads bigger — less
+  // peek, more actual card — without losing the coverflow feel entirely.
+  final _controller = PageController(viewportFraction: 0.87);
   int _index = 0;
 
   void _go(int delta) {
@@ -1991,7 +2181,7 @@ class _FeaturesTourStepState extends State<_FeaturesTourStep> {
       child: Column(
         children: [
           Text('a quick look around'.tr,
-              textAlign: TextAlign.center, style: SeenlyText.serif(size: 16, color: SeenlyPalette.paper)),
+              textAlign: TextAlign.center, style: SeenlyText.serif(size: 16, color: _onboardingPaper)),
           const SizedBox(height: 4),
           Text(
             'swipe through, or just continue — you\'ll find it all later anyway'.tr,
@@ -2053,85 +2243,98 @@ class _FeatureCardView extends StatefulWidget {
 }
 
 class _FeatureCardViewState extends State<_FeatureCardView> {
-  // Deliberately separate from whether the secondary data has actually
-  // arrived (widget.deckLoader.secondaryDeck) — that may well already be
-  // sitting in _PosterDeckLoader by the time this card is first seen,
-  // since loading starts at onboarding open and this is the last step.
-  // Gating on a timer that starts the moment *this card* mounts means
-  // the person always gets the same "movies first, then — 260ms later —
-  // games, manga, and books too" beat, instead of everything arriving
-  // pre-loaded and popping in all at once with no reveal at all. Only
-  // the diary card's two-stage deck needs this — the collections shelf
-  // below is a single deck with no staged reveal to protect.
-  bool _revealSecondary = false;
-  Timer? _revealTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _revealTimer = Timer(const Duration(milliseconds: 260), () {
-      if (mounted) setState(() => _revealSecondary = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _revealTimer?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final card = widget.card;
     final loader = widget.deckLoader;
-    final primaryDeck = loader.primaryDeck;
-    final secondaryDeck = _revealSecondary ? loader.secondaryDeck : const <_DeckPoster>[];
-    final useDeck = card.tag == 'diary' && primaryDeck.isNotEmpty;
     final useShelf = card.tag == 'collections' && loader.shelfDeck.isNotEmpty;
     final useVersus = card.tag == 'together' && loader.togetherDeck.length >= 2;
     final useSwipe = card.tag == 'for you' && loader.forYouDeck.length >= 3;
+
+    // The tag/title/caption block every card ends with — pulled out so
+    // the diary card below can pin it to the card's bottom edge instead
+    // of leaving it wherever a centered Column happens to land it.
+    final caption = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 30, height: 2.4, color: card.color),
+        const SizedBox(height: 11),
+        Text(card.tag.tr, style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.5))),
+        const SizedBox(height: 5),
+        Text(card.title.tr,
+            textAlign: TextAlign.center,
+            style: SeenlyText.serif(size: 18, weight: FontWeight.w700, color: _onboardingPaper)),
+        const SizedBox(height: 9),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text(card.text.tr,
+              textAlign: TextAlign.center,
+              style: SeenlyText.serif(size: 13.5, color: Colors.white.withOpacity(0.58))),
+        ),
+      ],
+    );
+
+    // The diary card's real logging-ritual recording (see
+    // _LoggingRitualDemo below) is the whole point of this specific
+    // card, so — unlike every other card here, which fits its art into
+    // a fixed 148pt box and centers the whole group in whatever room
+    // is left over — this one gives the video an Expanded slot that
+    // grows to fill however much vertical space this step's screen
+    // actually has, with the caption pinned directly underneath it
+    // rather than floating centered with empty space on both sides.
+    if (card.tag == 'diary') {
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.045),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+        ),
+        child: Column(
+          children: [
+            Expanded(child: Center(child: const _LoggingRitualDemo())),
+            const SizedBox(height: 14),
+            caption,
+          ],
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 6),
-      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.045),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            height: 130,
-            child: useDeck
-                ? _PosterDeckArt(primary: primaryDeck, secondary: secondaryDeck)
-                : useShelf
-                    ? _ShelfArt(covers: loader.shelfDeck)
-                    : useVersus
-                        ? _VersusArt(a: loader.togetherDeck[0], b: loader.togetherDeck[1])
-                        : useSwipe
-                            ? _SwipeStackArt(posters: loader.forYouDeck)
-                            : Stack(alignment: Alignment.center, children: _artFor(card)),
+            height: 148,
+            // Every card's art — the live decks (collections/together/
+            // for-you) and the plain glow-orb fallback alike — scaled up
+            // together from one place rather than re-tuning each art
+            // widget's own internal constants. Keeps every card reading
+            // noticeably bigger and easier to actually see while
+            // swiping past. (The diary card no longer goes through this
+            // path — see the early return above.)
+            child: Transform.scale(
+              scale: 1.12,
+              child: useShelf
+                  ? _ShelfArt(covers: loader.shelfDeck)
+                  : useVersus
+                      ? _VersusArt(a: loader.togetherDeck[0], b: loader.togetherDeck[1])
+                      : useSwipe
+                          ? _SwipeStackArt(posters: loader.forYouDeck)
+                          : Stack(alignment: Alignment.center, children: _artFor(card)),
+            ),
           ),
-          const SizedBox(height: 14),
-          Container(width: 26, height: 2, color: card.color),
-          const SizedBox(height: 10),
-          Text(card.tag.tr, style: SeenlyText.mono(size: 9, color: Colors.white.withOpacity(0.48))),
-          const SizedBox(height: 4),
-          Text(card.title.tr,
-              textAlign: TextAlign.center,
-              style: SeenlyText.serif(size: 16, weight: FontWeight.w700, color: SeenlyPalette.paper)),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: useDeck
-                ? _DeckCaption(hasSecondary: secondaryDeck.isNotEmpty)
-                : Text(card.text.tr,
-                    textAlign: TextAlign.center,
-                    style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55))),
-          ),
+          const SizedBox(height: 16),
+          caption,
         ],
-
       ),
     );
   }
@@ -2146,7 +2349,7 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
       case 'diary': // a single glow with one spark circling it
         return [
           _GlowOrb(size: 98, color: card.color),
-          _OrbitSpark(radius: 62, color: SeenlyPalette.paper, duration: Duration(seconds: 5)),
+          _OrbitSpark(radius: 62, color: _onboardingPaper, duration: Duration(seconds: 5)),
         ];
       case 'collections': // a gentle arc of spines, each one quietly
         // bobbing and breathing on its own stagger, like a tiny shelf
@@ -2184,7 +2387,7 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
         return [
           Transform.translate(offset: const Offset(-40, 0), child: _GlowOrb(size: 62, color: card.color)),
           Transform.translate(offset: const Offset(40, 0), child: _GlowOrb(size: 62, color: card.color)),
-          for (int i = 0; i < 3; i++) _FlowingDot(seed: i, color: SeenlyPalette.paper),
+          for (int i = 0; i < 3; i++) _FlowingDot(seed: i, color: _onboardingPaper),
         ];
     }
   }
@@ -2459,7 +2662,7 @@ class _ShelfArt extends StatelessWidget {
             width: 210,
             height: 3,
             decoration: BoxDecoration(
-              color: SeenlyPalette.paper.withOpacity(0.16),
+              color: _onboardingPaper.withOpacity(0.16),
               borderRadius: BorderRadius.circular(2),
               boxShadow: [
                 BoxShadow(color: Colors.black.withOpacity(0.25), blurRadius: 6, offset: const Offset(0, 2)),
@@ -2748,14 +2951,14 @@ class _VersusArtState extends State<_VersusArt> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: _OnboardingScreenState._nightColor,
-                      border: Border.all(color: SeenlyPalette.paper.withOpacity(0.75), width: 1.5),
+                      border: Border.all(color: _onboardingPaper.withOpacity(0.75), width: 1.5),
                       boxShadow: [
                         BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 10),
                       ],
                     ),
                     alignment: Alignment.center,
                     child: Text('VS'.tr,
-                        style: SeenlyText.mono(size: 10, weight: FontWeight.w700, color: SeenlyPalette.paper)),
+                        style: SeenlyText.mono(size: 10, weight: FontWeight.w700, color: _onboardingPaper)),
                   ),
                 ),
               ),
@@ -2971,7 +3174,7 @@ class _DeckCaption extends StatelessWidget {
             : 'choose from thousands of movies and series —',
         key: ValueKey(hasSecondary),
         textAlign: TextAlign.center,
-        style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
+        style: SeenlyText.serif(size: 13.5, color: Colors.white.withOpacity(0.58)),
       ),
     );
   }
@@ -3080,6 +3283,192 @@ class _FlowingDotState extends State<_FlowingDot> with SingleTickerProviderState
 }
 
 // ---------------------------------------------------------------------
+// The "diary" card's hero — a real, muted, looping screen recording of
+// the actual logging ritual (rate the evening with hearts, note who it
+// was watched with, tear the ticket) standing in for the abstract
+// glow-and-orbit illustration this card used to lean on. It's the
+// literal payload behind "...with a little ritual to close it out." in
+// the copy just below it — showing the thing itself rather than
+// describing it, the same instinct every other live-data card in this
+// tour already follows with real poster art.
+//
+// Framed as a small floating screen rather than stretched to fill the
+// card, so the night sky behind every step — and this step's own
+// title and caption — stay exactly as visible as they are on every
+// other card; nothing here ever covers text or blacks out the
+// backdrop, and BoxFit.cover on a source that's already a 9:16 crop
+// means the footage is never cropped either — what's on screen in the
+// recording is what's visible here. The soft coral glow behind it
+// isn't an arbitrary accent: it's the same colour this card (see
+// _kFeatures above) and the real "ticket" ritual world (see _kWorlds)
+// already share, so it reads as "a screen lighting up in the dark,"
+// not a rectangle of video pasted onto the card.
+//
+// Rises gently into place the instant it mounts — fade, a short
+// upward slide, a small scale-in from a hair smaller than rest — the
+// same unhurried "arrives, doesn't snap" entrance every other live
+// element in this tour already uses (see _LiveDeckCard/_ShelfBook
+// above). While the bundled asset is still decoding it holds on the
+// same calm glow-and-orbit this card always showed (see _artFor's
+// 'diary' case), so there's never a blank gap to sit through — only a
+// short crossfade once the first frame is ready. Idles with a slow
+// independent bob once settled, matching the shared "nothing in this
+// flow sits dead still" rule.
+// ---------------------------------------------------------------------
+
+class _LoggingRitualDemo extends StatefulWidget {
+  const _LoggingRitualDemo();
+
+  @override
+  State<_LoggingRitualDemo> createState() => _LoggingRitualDemoState();
+}
+
+class _LoggingRitualDemoState extends State<_LoggingRitualDemo> with TickerProviderStateMixin {
+  late final VideoPlayerController _controller;
+  bool _ready = false;
+
+  // Separate from `_ready` — this is purely the mount entrance (fade +
+  // slide + scale), the same "paint closed once, then open" trick used
+  // throughout this file (see _LiveDeckCard/_ShelfBook above), so
+  // there's an actual transition to animate rather than the screen
+  // just appearing already in place.
+  bool _show = false;
+
+  late final AnimationController _idle = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 3400),
+  )..repeat(reverse: true);
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.asset('assets/onboarding/logging_demo.mp4')
+      ..setLooping(true)
+      ..setVolume(0)
+      ..initialize().then((_) {
+        if (!mounted) return;
+        setState(() => _ready = true);
+        _controller.play();
+      });
+    // A post-frame callback, same reasoning as every other "paint
+    // closed, then open" entrance in this file — the very first frame
+    // has to render in the pre-entrance state or there's nothing for
+    // the implicit animations below to actually animate away from.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _show = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _idle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showVideo = _ready && _controller.value.size.width > 0;
+    return AnimatedOpacity(
+      opacity: _show ? 1 : 0,
+      duration: const Duration(milliseconds: 460),
+      curve: Curves.easeOutCubic,
+      child: AnimatedSlide(
+        offset: _show ? Offset.zero : const Offset(0, 0.30),
+        duration: const Duration(milliseconds: 460),
+        curve: Curves.easeOutCubic,
+        child: AnimatedScale(
+          scale: _show ? 1 : 0.88,
+          duration: const Duration(milliseconds: 460),
+          curve: Curves.easeOutCubic,
+          child: AnimatedBuilder(
+            animation: _idle,
+            builder: (context, child) {
+              final t = Curves.easeInOut.transform(_idle.value);
+              // A slow single-pixel-scale breathing lift rather than a
+              // real bob offset — the screen is framed tightly enough
+              // (see the glow/shadow below) that a visible vertical
+              // drift would start clipping its own glow at the edges.
+              return Transform.translate(offset: Offset(0, -t * 3), child: child);
+            },
+            child: AspectRatio(
+              // No fixed width/height here anymore — this card now gives
+              // the recording an Expanded slot (see _FeatureCardViewState
+              // above) instead of the fixed art-height box every other
+              // card still uses, so the biggest 9:16 rectangle that fits
+              // whatever room that leaves is exactly what AspectRatio
+              // computes for itself; hardcoding a size here would just
+              // fight it.
+              aspectRatio: 9 / 16,
+              child: DecoratedBox(
+                // The "frame" itself: a warm paper mat around the
+                // recording rather than the video's bare rounded corners
+                // sitting straight on the night sky. Same paper tone
+                // every card's own title already sits on (_onboardingPaper),
+                // so this reads as this app's own material — a print in
+                // a mat, not a video player's chrome — with the coral
+                // glow underneath doing the same "this card, this world"
+                // job it always did.
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  color: _onboardingPaper.withOpacity(0.94),
+                  boxShadow: [
+                    BoxShadow(color: SeenlyPalette.coral.withOpacity(0.34), blurRadius: 34, spreadRadius: -6),
+                    BoxShadow(color: Colors.black.withOpacity(0.32), blurRadius: 20, offset: const Offset(0, 12)),
+                  ],
+                ),
+                child: Padding(
+                  // The mat's own width — kept thin enough that the
+                  // recording still reads as the big, obvious thing on
+                  // this card, not a small window inside a picture frame.
+                  padding: const EdgeInsets.all(8),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      // A hairline of shadow between mat and recording —
+                      // the same quiet inset a real print gets pressed
+                      // into its mat — rather than the video's edge
+                      // sitting flush with no separation at all.
+                      decoration: BoxDecoration(border: Border.all(color: Colors.black.withOpacity(0.12), width: 1)),
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 380),
+                        child: showVideo
+                            ? SizedBox.expand(
+                                key: const ValueKey('playing'),
+                                child: FittedBox(
+                                  fit: BoxFit.cover,
+                                  child: SizedBox(
+                                    width: _controller.value.size.width,
+                                    height: _controller.value.size.height,
+                                    child: VideoPlayer(_controller),
+                                  ),
+                                ),
+                              )
+                            : ColoredBox(
+                                key: const ValueKey('loading'),
+                                color: _OnboardingScreenState._nightColor,
+                                child: Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    _GlowOrb(size: 70, color: SeenlyPalette.coral),
+                                    const _OrbitSpark(radius: 34, color: _onboardingPaper, duration: Duration(seconds: 5)),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------
 // Step 3 — title language. The one step in the flow that used to sit
 // outside the "evening" world entirely: a plain heading, a paragraph,
 // two static cards. Everything else here earns its place by showing,
@@ -3130,14 +3519,14 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
             controller: _entrance,
             index: 0,
             child: Text('title language'.tr,
-                textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: SeenlyPalette.paper)),
+                textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: _onboardingPaper)),
           ),
           const SizedBox(height: 6),
           _StaggerIn(
             controller: _entrance,
             index: 1,
             child: Text(
-              "teamira's own words stay in English everywhere — this just decides whether title cards prefer Russian when there's a translation for them. change this anytime in settings.".tr,
+              "tanè's own words stay in English everywhere — this just decides whether title cards prefer Russian when there's a translation for them. change this anytime in settings.".tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
             ),
@@ -3157,7 +3546,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
                 Expanded(
                   child: _ChoiceCard(
                     flag: '🇬🇧',
-                    label: 'English',
+                    label: 'english',
                     subtitle: 'always available'.tr,
                     selected: !locale.preferRussian,
                     onTap: () => _choose(false),
@@ -3167,7 +3556,7 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
                 Expanded(
                   child: _ChoiceCard(
                     flag: '🇷🇺',
-                    label: 'Russian',
+                    label: 'russian',
                     subtitle: 'when a title has one'.tr,
                     selected: locale.preferRussian,
                     onTap: () => _choose(true),
@@ -3182,6 +3571,632 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------
+// New step — visual style (Settings > appearance > visual style, same
+// AppSkinService/AppSkin the settings row reads and writes). Modeled
+// directly on the title-language step just above: a short heading, then
+// the choice itself — except here the "demo" isn't one card that
+// retitles itself, it's three mock diary cards side by side, filling
+// essentially the whole screen, since the whole point is comparing what
+// a page of the diary actually looks like in each skin, not reading a
+// description of one. The old two-up "open book" backdrop
+// (_OpenDiarySpread, still below in case a future two-option step wants
+// it) doesn't extend to three panels, so this step's cards now carry
+// their own visual identity instead of sitting on a shared prop.
+// ---------------------------------------------------------------------
+
+class _SkinStep extends StatefulWidget {
+  final VoidCallback onNext;
+  const _SkinStep({required this.onNext});
+
+  @override
+  State<_SkinStep> createState() => _SkinStepState();
+}
+
+class _SkinStepState extends State<_SkinStep> with SingleTickerProviderStateMixin {
+  late final AnimationController _entrance = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 620),
+  )..forward();
+
+  @override
+  void dispose() {
+    _entrance.dispose();
+    super.dispose();
+  }
+
+  void _choose(AppSkin skin) {
+    HapticFeedback.selectionClick();
+    context.read<AppSkinService>().setSkin(skin);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final skin = context.watch<AppSkinService>().skin;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 4),
+          _StaggerIn(
+            controller: _entrance,
+            index: 0,
+            child: Text('visual style'.tr,
+                textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: _onboardingPaper)),
+          ),
+          const SizedBox(height: 6),
+          _StaggerIn(
+            controller: _entrance,
+            index: 1,
+            child: Text(
+              "how the diary's pages look — plain paper, a pastel skin with washi tape and folded corners, or puffy pastel clay. change this anytime in settings."
+                  .tr,
+              textAlign: TextAlign.center,
+              style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: _StaggerIn(
+              controller: _entrance,
+              index: 2,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _SkinChoiceCard(
+                      skin: AppSkin.classic,
+                      label: 'standard'.tr,
+                      subtitle: 'clean paper'.tr,
+                      selected: skin == AppSkin.classic,
+                      onTap: () => _choose(AppSkin.classic),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _SkinChoiceCard(
+                      skin: AppSkin.cozy,
+                      label: 'cozy diary'.tr,
+                      subtitle: 'tape & folded corners'.tr,
+                      selected: skin == AppSkin.cozy,
+                      onTap: () => _choose(AppSkin.cozy),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _SkinChoiceCard(
+                      skin: AppSkin.clay,
+                      label: 'clay'.tr,
+                      subtitle: 'puffy pastel'.tr,
+                      selected: skin == AppSkin.clay,
+                      onTap: () => _choose(AppSkin.clay),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _StaggerIn(controller: _entrance, index: 3, child: PrimaryButton(label: 'continue'.tr, onTap: widget.onNext)),
+        ],
+      ),
+    );
+  }
+}
+
+/// The cream, stitched-spine "open book" sitting behind [_SkinStep]'s
+/// two option cards — pure backdrop, painted once and not gated on any
+/// live skin setting (same fixed-appearance reasoning as
+/// [_MiniDiaryMock]: this has to look like an open diary no matter what
+/// skin/brightness the device is actually running). Sized by
+/// [LayoutBuilder] to whatever the Stack behind the option cards hands
+/// it, so it always exactly matches their footprint.
+class _OpenDiarySpread extends StatelessWidget {
+  const _OpenDiarySpread();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) => CustomPaint(
+          size: constraints.biggest,
+          painter: _OpenDiarySpreadPainter(),
+        ),
+      ),
+    );
+  }
+}
+
+class _OpenDiarySpreadPainter extends CustomPainter {
+  static const _pageColor = Color(0xFFF1E7D6);
+  static const _seam = Color(0xFF9C8567);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = Radius.circular(16);
+    // Two page halves, each nudged toward the outer edge and tipped very
+    // slightly away from the spine — the same "lying open, not flat"
+    // cue a real open book's pages have.
+    final left = RRect.fromRectAndCorners(
+      Rect.fromLTWH(0, 4, size.width / 2 - 6, size.height - 4),
+      topLeft: r,
+      bottomLeft: r,
+      topRight: const Radius.circular(4),
+      bottomRight: const Radius.circular(4),
+    );
+    final right = RRect.fromRectAndCorners(
+      Rect.fromLTWH(size.width / 2 + 6, 4, size.width / 2 - 6, size.height - 4),
+      topRight: r,
+      bottomRight: r,
+      topLeft: const Radius.circular(4),
+      bottomLeft: const Radius.circular(4),
+    );
+    final shadowPaint = Paint()
+      ..color = Colors.black.withOpacity(0.28)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    canvas.drawRRect(left.shift(const Offset(0, 4)), shadowPaint);
+    canvas.drawRRect(right.shift(const Offset(0, 4)), shadowPaint);
+
+    final pagePaint = Paint()..color = _pageColor;
+    canvas.drawRRect(left, pagePaint);
+    canvas.drawRRect(right, pagePaint);
+
+    // A soft gutter shadow where the two pages meet, like real paper
+    // curving down into the spine rather than a hard seam.
+    final gutter = Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.transparent, Colors.black.withOpacity(0.16), Colors.transparent],
+      ).createShader(Rect.fromLTWH(size.width / 2 - 14, 0, 28, size.height));
+    canvas.drawRect(Rect.fromLTWH(size.width / 2 - 14, 0, 28, size.height), gutter);
+
+    // The stitched binding itself — a dashed line down the centre with
+    // three small rings threaded through it, echoing the real cozy
+    // skin's own ruled-page stitch (see NotebookPageBackground).
+    final stitch = Paint()
+      ..color = _seam.withOpacity(0.55)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    var y = 10.0;
+    while (y < size.height - 10) {
+      canvas.drawLine(Offset(size.width / 2, y), Offset(size.width / 2, y + 5), stitch);
+      y += 10;
+    }
+    for (final ringY in [size.height * 0.22, size.height * 0.5, size.height * 0.78]) {
+      canvas.drawCircle(Offset(size.width / 2, ringY), 3.2, Paint()..color = _pageColor);
+      canvas.drawCircle(
+        Offset(size.width / 2, ringY),
+        3.2,
+        Paint()
+          ..color = _seam.withOpacity(0.7)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OpenDiarySpreadPainter oldDelegate) => false;
+}
+
+/// One tappable option for [_SkinStep] — same selected/unselected
+/// highlight [_ChoiceCard] uses for title language, with a small mock
+/// diary card (see [_MiniDiaryMock]) standing in for the flag emoji.
+/// Stretches to fill whatever height its parent hands it — [_SkinStep]
+/// now gives this the whole remaining screen height via [Expanded], so
+/// the preview reads as a real, sized-up look at the skin rather than a
+/// thumbnail.
+class _SkinChoiceCard extends StatelessWidget {
+  final AppSkin skin;
+  final String label;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SkinChoiceCard({
+    required this.skin,
+    required this.label,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: selected ? SeenlyPalette.accent.withOpacity(0.22) : Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected ? SeenlyPalette.accent : Colors.transparent,
+            width: 1.6,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) => ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: _MiniDiaryMock(skin: skin, height: constraints.maxHeight),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(label,
+                textAlign: TextAlign.center,
+                style: SeenlyText.serif(
+                  size: 13,
+                  weight: FontWeight.w600,
+                  color: selected ? _onboardingPaper : Colors.white.withOpacity(0.8),
+                )),
+            const SizedBox(height: 2),
+            Text(subtitle,
+                textAlign: TextAlign.center, style: SeenlyText.mono(size: 8.5, color: Colors.white.withOpacity(0.4))),
+            const SizedBox(height: 6),
+            Icon(
+              selected ? Icons.check_circle : Icons.radio_button_unchecked,
+              size: 16,
+              color: selected ? SeenlyPalette.accent : Colors.white.withOpacity(0.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A tiny, static stand-in for one diary entry card, painted with each
+/// skin's own explicit color set rather than the ambient [SeenlyPalette]
+/// getters — [_SkinChoiceCard] shows all three of these side by side, and
+/// since the ambient palette is a single global "whichever skin is
+/// active right now" value, reading it here would make every preview
+/// flip to match whatever was tapped last instead of each one truthfully
+/// showing its own skin. Deliberately not wired to the real
+/// [SeenlySkin]/decoration widgets (DogEarCorner, WashiTapedCard, ...)
+/// for the same reason — this hand-rolls the same look with fixed colors
+/// so "cozy" always renders cozy and "standard" always renders standard.
+///
+/// [height] lets the same hand-tuned mock scale up cleanly: every literal
+/// size below is expressed relative to a 128-tall reference card via [s],
+/// so this reads right both as a small settings-style swatch and as the
+/// much bigger, full-height card [_SkinStep] now shows in onboarding.
+class _MiniDiaryMock extends StatelessWidget {
+  final AppSkin skin;
+  final double height;
+  const _MiniDiaryMock({required this.skin, this.height = 128});
+
+  // Light-mode swatches lifted straight from SeenlyPalette's own private
+  // color sets (_light / _cozyLight / _clayLight) — kept as plain
+  // literals here since this widget needs all three sets available at
+  // once, not just whichever is ambiently active.
+  static const _bg = Color(0xFFF5EFE4);
+  static const _paper = Color(0xFFFFFDF8);
+  static const _ink = Color(0xFF4A3F38);
+  static const _inkMuted = Color(0xFF8A7A68);
+  static const _coral = Color(0xFFD85A30);
+  static const _sage = Color(0xFF8FA382);
+
+  static const _cozyBg = Color(0xFFF7ECDD);
+  static const _cozyInk = Color(0xFF603B46);
+  static const _cozyInkMuted = Color(0xFF946C70);
+  static const _cozyDashed = Color(0xFFD9C0A8);
+  static const _cozyTape = Color(0xFFE7C3BF);
+  static const _cozyCoral = Color(0xFFD98268);
+  static const _cozySage = Color(0xFF9AAE8A);
+
+  static const _clayBg = Color(0xFFFFEFE9);
+  static const _clayPaper = Color(0xFFFFF9F5);
+  static const _clayInk = Color(0xFF5B3F4D);
+  static const _clayInkMuted = Color(0xFF8E6E7F);
+  static const _clayAccent = Color(0xFFEA6B9B);
+  static const _claySage = Color(0xFF7ED1AD);
+  static const _clayPink = Color(0xFFF79AC0);
+  static const _clayShadow = Color(0xFFD57C9C);
+
+  @override
+  Widget build(BuildContext context) {
+    final cozy = skin == AppSkin.cozy;
+    final clay = skin == AppSkin.clay;
+    final s = height / 128;
+
+    if (clay) return _buildClay(s);
+
+    final bg = cozy ? _cozyBg : _bg;
+    final ink = cozy ? _cozyInk : _ink;
+    final inkMuted = cozy ? _cozyInkMuted : _inkMuted;
+    final coral = cozy ? _cozyCoral : _coral;
+    final sage = cozy ? _cozySage : _sage;
+
+    Widget content = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28 * s,
+          height: 40 * s,
+          decoration: BoxDecoration(
+            color: coral,
+            borderRadius: BorderRadius.circular((cozy ? 3 : 7) * s),
+            border: cozy ? Border.all(color: _paper, width: 2 * s) : null,
+          ),
+        ),
+        SizedBox(width: 8 * s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 26 * s,
+                height: 8 * s,
+                decoration: BoxDecoration(
+                  color: sage.withOpacity(cozy ? 0.5 : 0.25),
+                  borderRadius: BorderRadius.circular(cozy ? 3 * s : 999),
+                ),
+              ),
+              SizedBox(height: 7 * s),
+              Container(
+                width: 52 * s,
+                height: 6 * s,
+                decoration: BoxDecoration(color: ink.withOpacity(0.7), borderRadius: BorderRadius.circular(2 * s)),
+              ),
+              SizedBox(height: 5 * s),
+              Container(
+                width: 38 * s,
+                height: 5 * s,
+                decoration: BoxDecoration(color: inkMuted, borderRadius: BorderRadius.circular(2 * s)),
+              ),
+              SizedBox(height: 6 * s),
+              Row(
+                children: List.generate(
+                  4,
+                  (i) => Padding(
+                    padding: EdgeInsets.only(right: 2 * s),
+                    child: Icon(Icons.favorite,
+                        size: 7 * s, color: i < 3 ? (cozy ? _cozyInk : _ink).withOpacity(0.75) : ink.withOpacity(0.18)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    // A date line above the entry itself — typed and small for the
+    // standard skin, an actual cursive scrawl (Caveat, same face the
+    // real cozy skin switches its headings to) for cozy, so the two
+    // examples differ in *voice*, not just decoration.
+    Widget dateLine = cozy
+        ? Text('tuesday'.tr,
+            style: GoogleFonts.caveat(
+                fontSize: 17 * s, color: ink, fontWeight: FontWeight.w600, height: 1))
+        : Text('TUE · 9:14 PM'.tr,
+            style: GoogleFonts.comfortaa(
+                fontSize: 8 * s, color: inkMuted, fontWeight: FontWeight.w600, letterSpacing: 0.4));
+
+    Widget card = Container(
+      height: height,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular((cozy ? 8 : 14) * s),
+        boxShadow: [BoxShadow(color: ink.withOpacity(0.10), blurRadius: 6 * s, offset: Offset(0, 3 * s))],
+      ),
+      // The cozy card sits on an actual faint ruled page (see
+      // _MiniRuledPagePainter) — a real notebook line, margin rule, and
+      // two stitched binder holes — the standard card just gets its flat
+      // paper color, matching the real app's own NotebookPageBackground
+      // being cozy-only.
+      child: cozy
+          ? CustomPaint(
+              painter: _MiniRuledPagePainter(rule: ink.withOpacity(0.07), margin: coral.withOpacity(0.18), scale: s),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(14 * s, 10 * s, 10 * s, 10 * s),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [dateLine, SizedBox(height: 8 * s), content],
+                ),
+              ),
+            )
+          : Padding(
+              padding: EdgeInsets.all(10 * s),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [dateLine, SizedBox(height: 8 * s), content],
+              ),
+            ),
+    );
+
+    if (!cozy) return card;
+
+    // A hair of tilt, a dashed "stitched page" outline, a strip of washi
+    // tape, and a folded corner — the same four cheap tricks the real
+    // cozy skin uses (see theme/notebook_paper.dart), just fixed here
+    // rather than gated on the app's live skin setting.
+    return Transform.rotate(
+      angle: -0.035,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          DashedRoundedBorder(
+            color: _cozyDashed,
+            radius: 8 * s,
+            margin: EdgeInsets.all(2 * s),
+            child: card,
+          ),
+          Positioned(
+            top: -6 * s,
+            left: 14 * s,
+            child: Transform.rotate(
+              angle: -0.16,
+              child: Container(width: 28 * s, height: 11 * s, color: _cozyTape.withOpacity(0.9)),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: CustomPaint(
+                size: Size(14 * s, 14 * s),
+                painter: _MiniDogEarPainter(fold: _paper, shadow: ink.withOpacity(0.18))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Clay's own preview — a kawaii clay card floating on a peach-milk frame:
+  // fat squircle radii, an outer tinted shadow + white bounce light, real
+  // inner highlight/shade (ClayBoxDecoration with clayForce, so it renders
+  // even while another skin is live), a poster blob wearing a face, and the
+  // bubblegum CTA as an actual raised pill.
+  Widget _buildClay(double s) {
+    BoxDecoration blob(Color c, double r, {double e = 1}) => ClayBoxDecoration(
+          color: c,
+          clayForce: true,
+          borderRadius: BorderRadius.circular(r),
+          boxShadow: [
+            BoxShadow(color: c.withOpacity(0.45), blurRadius: 9 * s * e, offset: Offset(0, 4 * s * e)),
+          ],
+        );
+
+    final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 30 * s,
+          height: 42 * s,
+          decoration: blob(_clayPink, 14 * s),
+          child: Center(child: KawaiiFace(size: 20 * s, color: const Color(0xFF8A3D62))),
+        ),
+        SizedBox(width: 9 * s),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 30 * s, height: 9 * s, decoration: blob(_claySage, 999, e: 0.4)),
+              SizedBox(height: 8 * s),
+              Container(
+                width: 56 * s,
+                height: 7 * s,
+                decoration: BoxDecoration(color: _clayInk.withOpacity(0.75), borderRadius: BorderRadius.circular(999)),
+              ),
+              SizedBox(height: 6 * s),
+              Container(
+                width: 40 * s,
+                height: 6 * s,
+                decoration: BoxDecoration(color: _clayInkMuted.withOpacity(0.7), borderRadius: BorderRadius.circular(999)),
+              ),
+              SizedBox(height: 10 * s),
+              // The one accent, carrying the CTA — a raised pill.
+              Container(width: 48 * s, height: 15 * s, decoration: blob(_clayAccent, 999, e: 0.7)),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final dateLine = Text(
+      'tuesday'.tr,
+      style: GoogleFonts.nunito(fontSize: 15 * s, color: _clayInk, fontWeight: FontWeight.w900, height: 1),
+    );
+
+    final innerCard = Container(
+      padding: EdgeInsets.all(12 * s),
+      decoration: ClayBoxDecoration(
+        color: _clayPaper,
+        clayForce: true,
+        borderRadius: BorderRadius.circular(24 * s),
+        boxShadow: [
+          BoxShadow(color: _clayShadow.withOpacity(0.30), blurRadius: 14 * s, offset: Offset(0, 7 * s)),
+          BoxShadow(color: Colors.white.withOpacity(0.9), blurRadius: 10 * s, offset: Offset(-4 * s, -4 * s)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [dateLine, SizedBox(height: 10 * s), content],
+      ),
+    );
+
+    return Container(
+      height: height,
+      padding: EdgeInsets.all(10 * s),
+      decoration: BoxDecoration(color: _clayBg, borderRadius: BorderRadius.circular(28 * s)),
+      child: Center(child: innerCard),
+    );
+  }
+}
+
+/// A pared-down [_RuledPagePainter] (see theme/notebook_paper.dart) sized
+/// for the tiny mock card instead of a full screen — one faint rule, one
+/// coral margin line, two stitched binder holes down the left edge. Only
+/// ever used by the cozy [_MiniDiaryMock], so it doesn't need the real
+/// painter's glow/thread ambiance, just enough to read as "this is a
+/// page from a notebook" at a glance. [scale] mirrors [_MiniDiaryMock]'s
+/// own `s` — this painter's offsets are fixed pixels, not fractions of
+/// its canvas, so they need the same scale-up the rest of the mock gets.
+class _MiniRuledPagePainter extends CustomPainter {
+  final Color rule;
+  final Color margin;
+  final double scale;
+  const _MiniRuledPagePainter({required this.rule, required this.margin, this.scale = 1});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final marginPaint = Paint()
+      ..color = margin
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(9 * scale, 0), Offset(9 * scale, size.height), marginPaint);
+
+    final rulePaint = Paint()
+      ..color = rule
+      ..strokeWidth = 1;
+    for (var y = 24.0 * scale; y < size.height; y += 15 * scale) {
+      canvas.drawLine(Offset(9 * scale, y), Offset(size.width, y), rulePaint);
+    }
+
+    final holePaint = Paint()..color = rule.withOpacity(rule.opacity * 1.6);
+    for (final y in [size.height * 0.32, size.height * 0.72]) {
+      canvas.drawCircle(Offset(3.5 * scale, y), 2.2 * scale, holePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniRuledPagePainter oldDelegate) =>
+      oldDelegate.scale != scale || oldDelegate.rule != rule || oldDelegate.margin != margin;
+}
+
+class _MiniDogEarPainter extends CustomPainter {
+  final Color fold;
+  final Color shadow;
+  const _MiniDogEarPainter({required this.fold, required this.shadow});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shadowPath = Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, size.height)
+      ..close();
+    canvas.drawPath(shadowPath, Paint()..color = shadow);
+    final foldPath = Path()
+      ..moveTo(size.width, 0)
+      ..lineTo(size.width * 0.18, 0)
+      ..lineTo(size.width, size.height * 0.82)
+      ..close();
+    canvas.drawPath(foldPath, Paint()..color = fold);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MiniDogEarPainter oldDelegate) => false;
 }
 
 /// Fades and slides a child up into place using one slice of a shared
@@ -3270,7 +4285,7 @@ class _LiveTitleCard extends StatelessWidget {
                     child: Text(
                       preferRussian ? _sampleRu : _sampleEn,
                       key: ValueKey(preferRussian),
-                      style: SeenlyText.serif(size: 15, weight: FontWeight.w600, color: SeenlyPalette.paper),
+                      style: SeenlyText.serif(size: 15, weight: FontWeight.w600, color: _onboardingPaper),
                     ),
                   ),
                 ),
@@ -3324,7 +4339,7 @@ class _ChoiceCard extends StatelessWidget {
                 style: SeenlyText.serif(
                   size: 16,
                   weight: FontWeight.w600,
-                  color: selected ? SeenlyPalette.paper : Colors.white.withOpacity(0.8),
+                  color: selected ? _onboardingPaper : Colors.white.withOpacity(0.8),
                 )),
             const SizedBox(height: 2),
             Text(subtitle, style: SeenlyText.mono(size: 9, color: Colors.white.withOpacity(0.4))),
@@ -3463,8 +4478,14 @@ class _RitualStepState extends State<_RitualStep> {
         final upper = page.ceil().clamp(0, _kWorlds.length - 1).toInt();
         final frac = (page - page.floor()).clamp(0.0, 1.0).toDouble();
         final bg = Color.lerp(_kWorlds[lower].bg, _kWorlds[upper].bg, frac) ?? _kWorlds[_index].bg;
-        return Container(
-          color: bg,
+        return DecoratedBox(
+          // A tint, not a solid coat: `bg` used to be painted fully
+          // opaque here, which — now that the onboarding video sits
+          // behind every step — blacked it out completely for this one
+          // step alone. Translucent instead, so the world's colour still
+          // washes the screen exactly as before, but the video stays
+          // visible underneath like it does on every other step.
+          decoration: BoxDecoration(color: bg.withOpacity(0.62)),
           child: Stack(
             children: [
               const Positioned.fill(child: _StarfieldBackdrop()),
@@ -3481,7 +4502,7 @@ class _RitualStepState extends State<_RitualStep> {
                   children: [
                     Text('how should logging feel?'.tr,
                         textAlign: TextAlign.center,
-                        style: SeenlyText.serif(size: 16, color: SeenlyPalette.paper)),
+                        style: SeenlyText.serif(size: 16, color: _onboardingPaper)),
                     const SizedBox(height: 4),
                     Text(
                       'same diary either way — just a different little ritual for closing out an evening'.tr,
@@ -3603,7 +4624,7 @@ class _RitualAmbiencePainter extends CustomPainter {
       final wobble = math.sin((t * 6 + i) * math.pi) * 10;
       final rot = math.sin((t * 3 + i) * math.pi) * 0.5;
       final fade = loopT < 0.08 ? loopT / 0.08 : (loopT > 0.9 ? (1 - loopT) / 0.1 : 1.0);
-      final paint = Paint()..color = (i.isEven ? color : SeenlyPalette.paper).withOpacity(0.4 * fade.clamp(0.0, 1.0));
+      final paint = Paint()..color = (i.isEven ? color : _onboardingPaper).withOpacity(0.4 * fade.clamp(0.0, 1.0));
       canvas.save();
       canvas.translate(x + wobble, y);
       canvas.rotate(rot);
@@ -3633,7 +4654,7 @@ class _RitualAmbiencePainter extends CustomPainter {
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
       canvas.drawCircle(Offset(x, rowY), 2.2, glow);
       final trail = Paint()
-        ..color = SeenlyPalette.paper.withOpacity(0.35 * fade.clamp(0.0, 1.0))
+        ..color = _onboardingPaper.withOpacity(0.35 * fade.clamp(0.0, 1.0))
         ..strokeWidth = 1.4
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(Offset(x, rowY), Offset(x + 16, rowY), trail);
@@ -3667,7 +4688,7 @@ class _RitualAmbiencePainter extends CustomPainter {
         ..color = color.withOpacity(0.55 * pulse)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       canvas.drawCircle(Offset(x, y), 5 * pulse, glow);
-      final core = Paint()..color = SeenlyPalette.paper.withOpacity(0.85 * pulse);
+      final core = Paint()..color = _onboardingPaper.withOpacity(0.85 * pulse);
       canvas.drawCircle(Offset(x, y), 1.4, core);
     }
   }
@@ -3692,7 +4713,7 @@ class _RitualWorldView extends StatelessWidget {
           const SizedBox(height: 18),
           Text(world.label.tr,
               textAlign: TextAlign.center,
-              style: SeenlyText.serif(size: 17, weight: FontWeight.w700, color: SeenlyPalette.paper)),
+              style: SeenlyText.serif(size: 17, weight: FontWeight.w700, color: _onboardingPaper)),
           const SizedBox(height: 8),
           Text(world.diary.tr,
               textAlign: TextAlign.center,
@@ -3848,7 +4869,7 @@ class _TrainMotifState extends State<_TrainMotif> with SingleTickerProviderState
       left: dx,
       child: Opacity(
         opacity: opacity.clamp(0.0, 1.0),
-        child: Container(width: 22, height: 2.5, color: SeenlyPalette.paper.withOpacity(0.85)),
+        child: Container(width: 22, height: 2.5, color: _onboardingPaper.withOpacity(0.85)),
       ),
     );
   }
@@ -3958,7 +4979,7 @@ class _ShuttleMotifState extends State<_ShuttleMotif> with SingleTickerProviderS
         child: Container(
           width: 4,
           height: 4,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: SeenlyPalette.paper.withOpacity(0.9)),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: _onboardingPaper.withOpacity(0.9)),
         ),
       ),
     );
@@ -3986,7 +5007,7 @@ class _RocketSilhouettePainter extends CustomPainter {
     canvas.drawPath(Path()..moveTo(cx - 15, baseY - 16)..lineTo(cx - 30, baseY)..lineTo(cx - 13, baseY - 6)..close(), finPaint);
     canvas.drawPath(Path()..moveTo(cx + 15, baseY - 16)..lineTo(cx + 30, baseY)..lineTo(cx + 13, baseY - 6)..close(), finPaint);
 
-    canvas.drawCircle(Offset(cx, baseY - 62), 6, Paint()..color = SeenlyPalette.paper.withOpacity(0.9));
+    canvas.drawCircle(Offset(cx, baseY - 62), 6, Paint()..color = _onboardingPaper.withOpacity(0.9));
   }
 
   @override
@@ -4108,7 +5129,7 @@ class _InterestsStepState extends State<_InterestsStep> {
       child: Column(
         children: [
           Text('touch what feels like you'.tr,
-              textAlign: TextAlign.center, style: SeenlyText.serif(size: 16, color: SeenlyPalette.paper)),
+              textAlign: TextAlign.center, style: SeenlyText.serif(size: 16, color: _onboardingPaper)),
           const SizedBox(height: 4),
           Text(
             'collections leads with these from day one — change this anytime from its header'.tr,
@@ -4234,7 +5255,7 @@ class _InterestStarState extends State<_InterestStar> with SingleTickerProviderS
               duration: const Duration(milliseconds: 220),
               style: SeenlyText.mono(
                 size: widget.selected ? 10.5 : 9,
-                color: widget.selected ? SeenlyPalette.paper : Colors.white54,
+                color: widget.selected ? _onboardingPaper : Colors.white54,
                 weight: widget.selected ? FontWeight.w700 : FontWeight.w400,
               ),
               child: Text(widget.interest.label.tr),
@@ -4298,6 +5319,11 @@ class _FavoritesStep extends StatefulWidget {
 
 class _FavoritesStepState extends State<_FavoritesStep> {
   final _controller = TextEditingController();
+  // Just for the search field's own focus-glow (see build()) — nothing
+  // downstream needs to know whether it's focused, so a bare listener
+  // that triggers a rebuild is simpler than threading a ValueNotifier
+  // through for one local visual state.
+  final _focusNode = FocusNode();
   Timer? _debounce;
   List<MediaItem> _results = const [];
   bool _loading = false;
@@ -4318,6 +5344,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
   void initState() {
     super.initState();
     _loadSuggestions();
+    _focusNode.addListener(() => setState(() {}));
   }
 
   // Capped at 4 concurrent requests, same spirit as _PosterDeckLoader's
@@ -4360,6 +5387,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
   void dispose() {
     _debounce?.cancel();
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -4427,13 +5455,36 @@ class _FavoritesStepState extends State<_FavoritesStep> {
 
   @override
   Widget build(BuildContext context) {
+    final focused = _focusNode.hasFocus;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The one recurring "light" motif every other onboarding step
+          // leans on (see _GlowOrb's own docstring) — this step was the
+          // one place in the flow going without it, which is a good part
+          // of why it read as flatter than everything around it. Coral
+          // rather than the shared accent: it's the same categorical
+          // color the "movies" star wore back in _InterestsStep, so the
+          // glyph reads as "this step is specifically about film" rather
+          // than just decoration.
+          Center(
+            child: SizedBox(
+              width: 40,
+              height: 40,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  _GlowOrb(size: 34, color: SeenlyPalette.coral, duration: const Duration(seconds: 5)),
+                  Icon(Icons.local_movies_outlined, size: 19, color: _onboardingPaper),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           Text('a few films you already love'.tr,
-              textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: SeenlyPalette.paper)),
+              textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: _onboardingPaper)),
           const SizedBox(height: 6),
           Text(
             'just a handful — not everything you\'ve ever watched, that part comes next when you import your history. Pick a few favorites here and "for you" on your home screen starts leaning toward them right away.'.tr,
@@ -4441,27 +5492,47 @@ class _FavoritesStepState extends State<_FavoritesStep> {
             style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
           ),
           const SizedBox(height: 14),
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
+              color: Colors.white.withOpacity(focused ? 0.12 : 0.08),
               borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: focused ? SeenlyPalette.accent.withOpacity(0.8) : Colors.transparent,
+                width: 1.2,
+              ),
+              boxShadow: focused
+                  ? [BoxShadow(color: SeenlyPalette.accent.withOpacity(0.28), blurRadius: 16, spreadRadius: 0.5)]
+                  : null,
             ),
             child: TextField(
               controller: _controller,
+              focusNode: _focusNode,
               onChanged: _onQueryChanged,
-              style: SeenlyText.serif(size: 14, color: SeenlyPalette.paper),
+              style: SeenlyText.serif(size: 14, color: _onboardingPaper),
               decoration: InputDecoration(
                 isDense: true,
                 border: InputBorder.none,
                 hintText: 'search for a film you\'d rewatch tonight'.tr,
                 hintStyle: SeenlyText.serif(size: 13, color: Colors.white.withOpacity(0.35)),
-                prefixIcon: Icon(Icons.search, size: 16, color: Colors.white.withOpacity(0.35)),
+                prefixIcon: Icon(Icons.search, size: 16,
+                    color: focused ? SeenlyPalette.accent : Colors.white.withOpacity(0.35)),
               ),
             ),
           ),
           if (_picked.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Text('${_picked.length}',
+                    style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent, weight: FontWeight.w700)),
+                const SizedBox(width: 5),
+                Text('picked'.tr, style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.4))),
+              ],
+            ),
+            const SizedBox(height: 8),
             _PickedStrip(items: _picked.values.toList(), onRemove: _toggle),
           ],
           const SizedBox(height: 12),
@@ -4529,6 +5600,7 @@ class _FavoritesStepState extends State<_FavoritesStep> {
   }
 
   Widget _posterGrid(List<MediaItem> items) {
+    final anyPicked = _picked.isNotEmpty;
     return GridView.builder(
       padding: EdgeInsets.zero,
       itemCount: items.length,
@@ -4540,21 +5612,115 @@ class _FavoritesStepState extends State<_FavoritesStep> {
       ),
       itemBuilder: (context, i) {
         final item = items[i];
-        final picked = _picked.containsKey('${item.source}:${item.id}');
-        return PosterTile(
-          title: item.title.display,
-          posterUrl: item.posterUrl,
-          fallbackColor: SeenlyPalette.mediaColor(item.mediaType),
-          onTap: () => _toggle(item),
-          badge: picked
-              ? Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                  child: Icon(Icons.check, size: 10, color: SeenlyPalette.accentOnAccent),
-                )
-              : null,
+        final key = '${item.source}:${item.id}';
+        final picked = _picked.containsKey(key);
+        return Entrance(
+          key: ValueKey(key),
+          // Capped rather than a flat 30ms * i — with search results all
+          // arriving in the same frame that stagger would otherwise keep
+          // stretching for a long results list; past a dozen tiles the
+          // cascade has already made its point.
+          delay: Duration(milliseconds: 24 * (i < 12 ? i : 12)),
+          riseBy: 14,
+          child: _FavoritePosterCell(
+            item: item,
+            picked: picked,
+            dimmed: anyPicked && !picked,
+            onTap: () => _toggle(item),
+          ),
         );
       },
+    );
+  }
+}
+
+/// One tappable poster in the favorites grid. Wraps the same [PosterTile]
+/// used everywhere else in the app with this step's own selection
+/// treatment — a soft accent ring/glow and a check stamp that pops in
+/// rather than just appearing, plus the app's shared press-scale tap
+/// feedback — instead of the small plain checkmark badge this step used
+/// to rely on alone. Once at least one title is picked, everything else
+/// in the grid dims a touch so the picks themselves stay the visual
+/// focus, the same way a checked-off list draws the eye to what's left.
+class _FavoritePosterCell extends StatelessWidget {
+  final MediaItem item;
+  final bool picked;
+  final bool dimmed;
+  final VoidCallback onTap;
+  const _FavoritePosterCell({
+    required this.item,
+    required this.picked,
+    required this.dimmed,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PressScale(
+      onTap: onTap,
+      child: Stack(
+        children: [
+          // Glow sits behind everything else, unclipped, so it can
+          // actually bloom past the poster's own rounded corners rather
+          // than being cut off flush with them.
+          if (picked)
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(9),
+                  boxShadow: [
+                    BoxShadow(color: SeenlyPalette.accent.withOpacity(0.55), blurRadius: 16, spreadRadius: 0.5),
+                  ],
+                ),
+              ),
+            ),
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 220),
+            opacity: dimmed ? 0.55 : 1,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: PosterTile(
+                title: item.title.display,
+                posterUrl: item.posterUrl,
+                fallbackColor: SeenlyPalette.mediaColor(item.mediaType),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: picked ? SeenlyPalette.accent : Colors.white.withOpacity(0.14),
+                    width: picked ? 2 : 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: AnimatedScale(
+              duration: const Duration(milliseconds: 260),
+              curve: picked ? Curves.easeOutBack : Curves.easeIn,
+              scale: picked ? 1 : 0,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: SeenlyPalette.accent,
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 4)],
+                ),
+                child: Icon(Icons.check, size: 10, color: SeenlyPalette.accentOnAccent),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -4578,20 +5744,250 @@ class _PickedStrip extends StatelessWidget {
           final item = items[i];
           return SizedBox(
             width: 50,
-            child: PosterTile(
-              title: item.title.display,
-              posterUrl: item.posterUrl,
-              fallbackColor: SeenlyPalette.mediaColor(item.mediaType),
-              showLabel: false,
+            child: PressScale(
               onTap: () => onRemove(item),
-              badge: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
-                child: Icon(Icons.close, size: 9, color: SeenlyPalette.accentOnAccent),
+              child: Container(
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: SeenlyPalette.accent.withOpacity(0.7), width: 1.4),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: PosterTile(
+                    title: item.title.display,
+                    posterUrl: item.posterUrl,
+                    fallbackColor: SeenlyPalette.mediaColor(item.mediaType),
+                    showLabel: false,
+                    badge: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+                      child: Icon(Icons.close, size: 9, color: SeenlyPalette.accentOnAccent),
+                    ),
+                  ),
+                ),
               ),
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------
+// New step, right after Favorites — "people like you". _FavoritesStep's
+// own picks (via ProfileService.toggleFavorite — see that step's
+// _toggle) already write real WatchlistEntry rows server-side, so even
+// someone who picked just a handful of favorites a few seconds ago
+// already has a real, if low-confidence, taste profile to match against
+// everyone else on teamira (see backend/app/similarity.py's own
+// docstring on exactly this cold-start case). Skippable like every
+// other step here, and gracefully empty — nobody on teamira yet whose
+// taste overlaps — rather than blocking forward progress on it.
+//
+// Deliberately its own compact rows rather than reusing
+// widgets/taste_match_card.dart's TasteMatchDetail: that card leans on
+// the ambient SeenlyPalette (paper/border/ink), which is exactly what
+// this file's own header comment warns against on onboarding's fixed
+// dark "night" canvas — see MatchRing's [trackColor] override below,
+// added for the one piece of that card genuinely worth reusing here.
+// ---------------------------------------------------------------------
+
+class _PeopleLikeYouStep extends StatefulWidget {
+  final VoidCallback onNext;
+  const _PeopleLikeYouStep({required this.onNext});
+
+  @override
+  State<_PeopleLikeYouStep> createState() => _PeopleLikeYouStepState();
+}
+
+class _PeopleLikeYouStepState extends State<_PeopleLikeYouStep> {
+  List<SuggestedFriend> _matches = const [];
+  bool _loading = true;
+  final Set<String> _sending = {};
+  final Set<String> _sent = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      // /friends/suggested already ranks by taste match when there's
+      // enough shelf data to compute one (see
+      // backend/app/routers/friends.py::get_suggested_friends) — this
+      // just keeps the ones that actually matched anything, rather than
+      // padding the list with newest-account-first strangers this early
+      // in someone's very first minute on teamira.
+      final suggested = await context.read<AppState>().friends.suggested();
+      if (!mounted) return;
+      setState(() {
+        _matches = suggested.where((s) => s.tasteMatch != null).take(5).toList();
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _sendRequest(SuggestedFriend s) async {
+    setState(() => _sending.add(s.userId));
+    try {
+      await context.read<AppState>().friends.sendRequest(s.username);
+      if (!mounted) return;
+      setState(() {
+        _sending.remove(s.userId);
+        _sent.add(s.userId);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _sending.remove(s.userId));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('people with a similar taste'.tr,
+              textAlign: TextAlign.center, style: SeenlyText.serif(size: 18, color: _onboardingPaper)),
+          const SizedBox(height: 6),
+          Text(
+            'based on what you just picked — say hi now, or find them later on the friends screen.'.tr,
+            textAlign: TextAlign.center,
+            style: SeenlyText.serif(size: 12, color: Colors.white.withOpacity(0.55)),
+          ),
+          const SizedBox(height: 18),
+          Expanded(child: _buildBody()),
+          const SizedBox(height: 14),
+          PrimaryButton(label: 'continue'.tr, onTap: widget.onNext),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(child: ThemedLoadingIndicator(size: 34));
+    }
+    if (_matches.isEmpty) {
+      return Center(
+        child: Text(
+          'not enough to go on yet — pick a favorite or two above, or check the friends screen again later'.tr,
+          textAlign: TextAlign.center,
+          style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.35)),
+        ),
+      );
+    }
+    return ListView.separated(
+      padding: EdgeInsets.zero,
+      itemCount: _matches.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) => Entrance(
+        delay: Duration(milliseconds: 90 * i),
+        child: _MatchRow(
+          person: _matches[i],
+          sending: _sending.contains(_matches[i].userId),
+          sent: _sent.contains(_matches[i].userId),
+          onSend: () => _sendRequest(_matches[i]),
+        ),
+      ),
+    );
+  }
+}
+
+class _MatchRow extends StatelessWidget {
+  final SuggestedFriend person;
+  final bool sending;
+  final bool sent;
+  final VoidCallback onSend;
+
+  const _MatchRow({required this.person, required this.sending, required this.sent, required this.onSend});
+
+  @override
+  Widget build(BuildContext context) {
+    final match = person.tasteMatch!;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          UserAvatar(
+            avatarUrl: person.avatarUrl,
+            avatarPreset: person.avatarPreset,
+            fallbackLetter: person.username.isNotEmpty ? person.username[0].toUpperCase() : '?',
+            size: 42,
+          ),
+          const SizedBox(width: 10),
+          MatchRing(match: match.overall, size: 34, trackColor: Colors.white.withOpacity(0.14)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(person.nameForDisplay,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: SeenlyText.serif(size: 13.5, weight: FontWeight.w600, color: _onboardingPaper)),
+                const SizedBox(height: 2),
+                Text(match.headline,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: SeenlyText.mono(size: 10, color: Colors.white.withOpacity(0.5))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _AddButton(sending: sending, sent: sent, onTap: onSend),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddButton extends StatelessWidget {
+  final bool sending;
+  final bool sent;
+  final VoidCallback onTap;
+  const _AddButton({required this.sending, required this.sent, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    if (sent) {
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(color: SeenlyPalette.accent, shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: Icon(Icons.check, size: 16, color: SeenlyPalette.accentOnAccent),
+      );
+    }
+    return PressScale(
+      onTap: sending ? null : onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white.withOpacity(0.25)),
+        ),
+        alignment: Alignment.center,
+        child: sending
+            ? SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 1.6, color: Colors.white.withOpacity(0.6)),
+              )
+            : Icon(Icons.add, size: 16, color: Colors.white.withOpacity(0.8)),
       ),
     );
   }
@@ -4646,11 +6042,11 @@ class _MotivationStepState extends State<_MotivationStep> with SingleTickerProvi
           Text(
             'one evening a week is already enough'.tr,
             textAlign: TextAlign.center,
-            style: SeenlyText.serif(size: 20, weight: FontWeight.w600, color: SeenlyPalette.paper),
+            style: SeenlyText.serif(size: 20, weight: FontWeight.w600, color: _onboardingPaper),
           ),
           const SizedBox(height: 12),
           Text(
-            'no streaks to keep and nothing to fall behind on — log an evening whenever you actually have one, and teamira quietly fills in around it.'.tr,
+            'no streaks to keep and nothing to fall behind on — log an evening whenever you actually have one, and tanè quietly fills in around it.'.tr,
             textAlign: TextAlign.center,
             style: SeenlyText.serif(size: 13, color: Colors.white.withOpacity(0.55)),
           ),
@@ -5025,7 +6421,7 @@ class _TearTicketActionState extends State<_TearTicketAction> with TickerProvide
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Color.lerp(SeenlyPalette.paper, accent, 0.20)!.withOpacity(0.24),
+                              Color.lerp(_onboardingPaper, accent, 0.20)!.withOpacity(0.24),
                               accent.withOpacity(0.30),
                             ],
                           ),
@@ -5037,14 +6433,26 @@ class _TearTicketActionState extends State<_TearTicketAction> with TickerProvide
                           children: [
                             Icon(Icons.confirmation_number_outlined, size: 17, color: accent.withOpacity(0.85)),
                             const SizedBox(width: 9),
+                            // FittedBox instead of a fixed font size + ellipsis: some
+                            // locales (Russian's "оторви, чтобы продолжить" chief among
+                            // them) run noticeably longer than the English source string,
+                            // and at a fixed 14.5px they didn't fit the stub's width —
+                            // the label got clipped down to "оторви, чтобы...", cutting
+                            // off exactly the part ("продолжить") that says what tearing
+                            // the ticket actually does. Scaling the whole label down to
+                            // fit keeps it a single line and fully readable in every
+                            // language instead of silently truncating the longer ones.
                             Flexible(
-                              child: Text(
-                                'tear to continue'.tr,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: SeenlyText.mono(size: 14.5, color: SeenlyPalette.paper, weight: FontWeight.w700)
-                                    .copyWith(letterSpacing: 0.2),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  'tear to continue'.tr,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  style: SeenlyText.mono(size: 14.5, color: _onboardingPaper, weight: FontWeight.w700)
+                                      .copyWith(letterSpacing: 0.2),
+                                ),
                               ),
                             ),
                           ],
@@ -5079,13 +6487,13 @@ class _TearTicketActionState extends State<_TearTicketAction> with TickerProvide
                             end: Alignment.bottomRight,
                             colors: [
                               accent.withOpacity(0.30),
-                              Color.lerp(SeenlyPalette.paper, accent, 0.20)!.withOpacity(0.24),
+                              Color.lerp(_onboardingPaper, accent, 0.20)!.withOpacity(0.24),
                             ],
                           ),
                           border: Border.all(color: accent.withOpacity(0.6), width: 1.2),
                           borderRadius: const BorderRadius.horizontal(right: Radius.circular(20)),
                         ),
-                        child: Icon(Icons.arrow_forward_rounded, size: 24, color: SeenlyPalette.paper.withOpacity(0.9)),
+                        child: Icon(Icons.arrow_forward_rounded, size: 24, color: _onboardingPaper.withOpacity(0.9)),
                       ),
                     ),
                   ),
@@ -5417,12 +6825,12 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
       }
       out.add(TextSpan(
         text: buffer.toString(),
-        style: SeenlyText.serif(size: 21, weight: FontWeight.w600, color: color ?? SeenlyPalette.paper),
+        style: SeenlyText.serif(size: 21, weight: FontWeight.w600, color: color ?? _onboardingPaper),
       ));
     }
     for (var j = bulkEnd; j < revealed; j++) {
       final settle = ((j - bulkEnd + 1) / _settleChars).clamp(0.0, 1.0);
-      final base = _flatChars[j].value ?? SeenlyPalette.paper;
+      final base = _flatChars[j].value ?? _onboardingPaper;
       out.add(TextSpan(
         text: _flatChars[j].key,
         style: SeenlyText.serif(
@@ -5442,10 +6850,10 @@ class _PlanRevealStepState extends State<_PlanRevealStep> with TickerProviderSta
   /// visibly changes hue exactly when it crosses into one of the two
   /// callbacks rather than staying one flat tone the whole line.
   Color _currentColor() {
-    if (_flatChars.isEmpty) return SeenlyPalette.paper;
+    if (_flatChars.isEmpty) return _onboardingPaper;
     final progress = _type?.value ?? 0;
     final idx = ((_flatChars.length * progress).round() - 1).clamp(0, _flatChars.length - 1);
-    return _flatChars[idx].value ?? SeenlyPalette.paper;
+    return _flatChars[idx].value ?? _onboardingPaper;
   }
 
   // Opens the same reusable share-card sheet the rest of the app uses
@@ -5698,7 +7106,7 @@ class _PlanCard extends StatelessWidget {
                 children: [
                   Icon(Icons.nightlight_round, size: 13, color: world.color),
                   const SizedBox(width: 6),
-                  Text('SEENLY'.tr, style: SeenlyText.mono(size: 11, color: Colors.white.withOpacity(0.55), weight: FontWeight.w700)),
+                  Text('TANĒ', style: SeenlyText.mono(size: 11, color: Colors.white.withOpacity(0.55), weight: FontWeight.w700)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -5711,7 +7119,7 @@ class _PlanCard extends StatelessWidget {
                         style: SeenlyText.serif(
                           size: 16,
                           weight: FontWeight.w600,
-                          color: s.color ?? SeenlyPalette.paper,
+                          color: s.color ?? _onboardingPaper,
                         ),
                       ),
                   ],
@@ -5841,7 +7249,7 @@ class _CometCursorPainter extends CustomPainter {
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5);
     canvas.drawCircle(head, 4.5, glow);
 
-    final core = Paint()..color = SeenlyPalette.paper.withOpacity(0.9 * intensity);
+    final core = Paint()..color = _onboardingPaper.withOpacity(0.9 * intensity);
     canvas.drawCircle(head, 2, core);
   }
 
@@ -5891,7 +7299,7 @@ class _ConfettiOverlayState extends State<_ConfettiOverlay> with SingleTickerPro
     SeenlyPalette.sage,
     SeenlyPalette.pink,
     SeenlyPalette.periwinkle,
-    SeenlyPalette.paper,
+    _onboardingPaper,
   ];
 
   List<_ConfettiPiece> _pieces = const [];
@@ -5985,12 +7393,12 @@ class _ConfettiPainter extends CustomPainter {
       final ringRadius = Curves.easeOutCubic.transform(ringT) * 70;
       final ringOpacity = (1 - ringT) * 0.55;
       final ringPaint = Paint()
-        ..color = SeenlyPalette.paper.withOpacity(ringOpacity)
+        ..color = _onboardingPaper.withOpacity(ringOpacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.4 - ringT * 1.4;
       canvas.drawCircle(origin, ringRadius, ringPaint);
       final flashPaint = Paint()
-        ..color = SeenlyPalette.paper.withOpacity(ringOpacity * 0.6)
+        ..color = _onboardingPaper.withOpacity(ringOpacity * 0.6)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 24);
       canvas.drawCircle(origin, ringRadius * 0.4, flashPaint);
     }

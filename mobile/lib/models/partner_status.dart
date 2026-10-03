@@ -1,3 +1,6 @@
+import '../utils/server_time.dart';
+import 'taste_match.dart';
+
 /// Mirrors `PartnerMemberOut` — one seat on the co-viewing circle,
 /// including the caller's own (see `isYou`).
 class PartnerMember {
@@ -99,7 +102,7 @@ class PartnerInvite {
         avatarPreset: json['avatar_preset'] as String?,
         avatarUrl: json['avatar_url'] as String?,
         status: json['status'] as String,
-        createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
+        createdAt: tryParseServerUtc(json['created_at'] as String?),
       );
 }
 
@@ -118,5 +121,40 @@ class PartnerInvites {
         outgoing: (json['outgoing'] as List? ?? const [])
             .map((e) => PartnerInvite.fromJson(e as Map<String, dynamic>))
             .toList(),
+      );
+}
+
+/// Mirrors `CircleCompatibilityOut` — this account's taste match (see
+/// models/taste_match.dart) against one other member of its co-viewing
+/// circle. A couple gets exactly one of these back from
+/// PartnerService.compatibility(), a company one per other seat. Powers
+/// the "мы" tab's compatibility section.
+class CircleCompatibility {
+  final String userId;
+  final String username;
+  final String? displayName;
+  final String? avatarPreset;
+  final String? avatarUrl;
+  final TasteMatch? tasteMatch;
+
+  const CircleCompatibility({
+    required this.userId,
+    required this.username,
+    this.displayName,
+    this.avatarPreset,
+    this.avatarUrl,
+    this.tasteMatch,
+  });
+
+  String get nameForDisplay =>
+      (displayName != null && displayName!.trim().isNotEmpty) ? displayName! : username;
+
+  factory CircleCompatibility.fromJson(Map<String, dynamic> json) => CircleCompatibility(
+        userId: json['user_id'] as String,
+        username: json['username'] as String,
+        displayName: json['display_name'] as String?,
+        avatarPreset: json['avatar_preset'] as String?,
+        avatarUrl: json['avatar_url'] as String?,
+        tasteMatch: TasteMatch.tryParse(json['taste_match']),
       );
 }

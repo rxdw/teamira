@@ -1,22 +1,27 @@
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List as TypingList
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app import models
+from app import push
+from app import similarity
 from app.database import get_db
 from app.deps import get_current_user
-from app.routers.diary import log_watched
+from app.routers.diary import _parse_watched_at, log_watched
 from app.routers.feed import add_watchlist_status
 from app.schemas import (
+    AcceptSuggestionRequest,
+    CircleCompatibilityOut,
     CoViewEntryOut,
     CoViewOut,
     CoViewBulkAddRequest,
     ExternalIds,
     LocalizedText,
+    MarkCoViewWatchedRequest,
     MediaItem,
     PartnerInviteOut,
     PartnerInvitesOut,
@@ -117,6 +122,80 @@ def find_link_between(db: Session, user_a: str, user_b: str) -> models.PartnerLi
     return link if user_b in _member_ids(link) else None
 
 
+# How many titles a free circle can keep queued on the shared co-viewing
+# list at once. Chosen as a *queue depth*, not a lifetime cap: nothing is
+# ever deleted to make room, and marking one watched frees a slot
+# immediately — so a free circle can co-watch unlimited films forever, it
+# just can't hoard a backlog of more than five at a time. That's the
+# honest version of this limit and it's what the upsell copy says (see
+# mobile's CoViewHubScreen).
+#
+# A lifetime cap would have been the wrong shape here: the whole product
+# promise of a shared diary is that it accumulates, and charging for the
+# accumulation of past evenings is charging someone for their own memories.
+# Charging for a bigger *planning* queue is a convenience feature.
+#
+# Deliberately enforced at every write path rather than only at the one
+# the UI uses today — see _assert_coview_room. Suggestions accepted,
+# Watch Together matches synced, and evenings planned from the ritual
+# sheet all land in the same list, so a limit applied to only one of them
+# isn't a limit.
+CO_VIEW_FREE_LIMIT = 5
+
+
+class CoViewLimitReached(HTTPException):
+    """409 rather than 402/403: the request isn't unauthorized, the list is
+    simply full. Carries the numbers so the client can render the upsell
+    sheet without a second call to find out what the limit was."""
+
+    def __init__(self, used: int):
+        super().__init__(
+            status_code=409,
+            detail=(
+                f"Совместный список заполнен — {used} из {CO_VIEW_FREE_LIMIT}. "
+                "Отметьте что-нибудь просмотренным или откройте премиум для безлимита."
+            ),
+        )
+        self.used = used
+        self.limit = CO_VIEW_FREE_LIMIT
+
+
+def coview_planned_count(db: Session, link: models.PartnerLink) -> int:
+    return (
+        db.query(models.CoViewEntry)
+        .filter_by(link_id=link.id, status=models.CoViewStatus.planned)
+        .count()
+    )
+
+
+def _circle_has_premium(db: Session, link: models.PartnerLink) -> bool:
+    """Premium is per-account, but the co-viewing list is shared — so the
+    list follows whichever member has it. One person paying lifts the cap
+    for the circle rather than for their half of a list that doesn't have
+    halves. The alternative (cap unless *everyone* pays) would make the
+    feature worse for the person who did pay, which is exactly backwards.
+    """
+    from app.routers.premium import is_premium_account
+
+    return any(is_premium_account(db, uid) for uid in _member_ids(link))
+
+
+def _assert_coview_room(db: Session, link: models.PartnerLink, adding: int = 1) -> None:
+    """Raises if this write would push a free circle's queue past the cap.
+
+    Checked against the count *before* the write rather than after, and
+    for the whole batch at once — a bulk Watch Together sync that would
+    add four titles to a queue with two slots left is refused as a unit
+    rather than half-applied, so the person doesn't have to work out which
+    of their matches made it.
+    """
+    if adding <= 0 or _circle_has_premium(db, link):
+        return
+    used = coview_planned_count(db, link)
+    if used + adding > CO_VIEW_FREE_LIMIT:
+        raise CoViewLimitReached(used)
+
+
 def add_coview_entries(
     db: Session,
     link: models.PartnerLink,
@@ -147,6 +226,20 @@ def add_coview_entries(
     together.py::_add_match_to_both_lists). Doesn't commit; callers
     batch this with their own write.
     """
+    # Only genuinely new titles count against the cap — re-adding
+    # something already queued is a no-op below and must stay a no-op
+    # here too, or a double-tap on the suggest heart would "use up" a slot
+    # that never got filled.
+    incoming_new = sum(
+        1
+        for item in items
+        if db.query(models.CoViewEntry)
+        .filter_by(link_id=link.id, source=item.source, media_id=item.id)
+        .first()
+        is None
+    )
+    _assert_coview_room(db, link, incoming_new)
+
     for item in items:
         existing = (
             db.query(models.CoViewEntry)
@@ -286,6 +379,7 @@ def create_pairing_code(
 @router.post("/join", response_model=PartnerOut)
 def join_pairing(
     payload: PartnerJoinRequest,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -303,7 +397,20 @@ def join_pairing(
 
     row.partner_id = current_user.id
     row.status = models.PartnerLinkStatus.active
+    owner = row.owner
+    owner_name = owner.display_name or owner.username
+    joiner_name = current_user.display_name or current_user.username
     db.commit()
+    # After commit, not before — see app/push.py's own docstring on why
+    # every trigger in this app waits for that. One-time, delightful,
+    # and (unlike the match/friend-activity triggers) there will never
+    # be a second one for this same link — see PushCategory.PARTNER_ACTIVITY
+    # in app/push.py for what else lands in this same category later.
+    background_tasks.add_task(
+        push.notify_partner_linked,
+        [owner.id, current_user.id],
+        {owner.id: joiner_name, current_user.id: owner_name},
+    )
     return PartnerOut(linked=True, partner_username=row.owner.username)
 
 
@@ -367,6 +474,7 @@ def unlink_partner(
 @router.post("/invite", response_model=PartnerInviteOut, status_code=201)
 def send_invite(
     payload: SendPartnerInviteRequest,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -415,11 +523,72 @@ def send_invite(
     db.add(row)
     db.commit()
     db.refresh(row)
+    background_tasks.add_task(
+        push.notify_partner_invite,
+        user_id=target.id,
+        from_display_name=current_user.display_name or current_user.username,
+    )
     return PartnerInviteOut(
         id=row.id, user_id=target.id, username=target.username,
         display_name=target.display_name, avatar_preset=target.avatar_preset,
         avatar_url=target.avatar_url, status=row.status.value, created_at=row.created_at,
     )
+
+
+def _taste_match_out(match: similarity.TasteMatch | None):
+    """Same conversion as routers/friends.py::_taste_match_schema, from
+    app/similarity.py's plain dataclass to the wire schema — kept as its
+    own small copy here rather than a shared import across routers for
+    a function this short; see similarity.compare's own docstring for
+    what None means (not enough shelf data on one or both sides, never
+    a fabricated 0%)."""
+    if match is None:
+        return None
+    from app.schemas import SharedTasteTitleOut, TasteMatchOut
+    return TasteMatchOut(
+        overall=match.overall,
+        headline=match.headline,
+        basis=match.basis,
+        confidence=match.confidence,
+        shared_titles=[
+            SharedTasteTitleOut(
+                media_id=t.media_id, source=t.source, media_type=t.media_type,
+                title_ru=t.title_ru, title_en=t.title_en, poster_url=t.poster_url,
+            )
+            for t in match.shared_titles
+        ],
+        shared_genres=match.shared_genres,
+    )
+
+
+@router.get("/compatibility", response_model=TypingList[CircleCompatibilityOut])
+def get_compatibility(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Taste match (see app/similarity.py) between this account and each
+    other member of its co-viewing circle — a plain couple gets exactly
+    one row back, a company one per other seat. Powers the "мы" tab's
+    compatibility section. Empty list for an account not currently
+    linked to anyone — the tab itself only ever renders once
+    `status.linked` is true, so this never needs to explain "not
+    linked" itself.
+    """
+    link = get_active_link(db, current_user.id)
+    if link is None:
+        return []
+    results: TypingList[CircleCompatibilityOut] = []
+    for other in _other_members(link, current_user.id):
+        match = similarity.taste_match_between(db, current_user.id, other.id)
+        results.append(CircleCompatibilityOut(
+            user_id=other.id,
+            username=other.username,
+            display_name=other.display_name,
+            avatar_preset=other.avatar_preset,
+            avatar_url=other.avatar_url,
+            taste_match=_taste_match_out(match),
+        ))
+    return results
 
 
 @router.get("/invites", response_model=PartnerInvitesOut)
@@ -475,7 +644,7 @@ def accept_invite(
     else:
         db.add(models.PartnerLinkMember(link_id=link.id, user_id=current_user.id))
     row.status = models.PartnerLinkInviteStatus.accepted
-    row.responded_at = datetime.utcnow()
+    row.responded_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(link)
     return PartnerOut(
@@ -502,7 +671,7 @@ def decline_invite(
     if row.status != models.PartnerLinkInviteStatus.pending:
         return
     row.status = models.PartnerLinkInviteStatus.declined
-    row.responded_at = datetime.utcnow()
+    row.responded_at = datetime.now(timezone.utc)
     db.commit()
 
 
@@ -593,6 +762,7 @@ def list_suggestions(
 @router.post("/suggestions/{suggestion_id}/accept", response_model=CoViewEntryOut, status_code=201)
 def accept_suggestion(
     suggestion_id: str,
+    payload: AcceptSuggestionRequest = AcceptSuggestionRequest(),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -600,7 +770,13 @@ def accept_suggestion(
     tap, is what actually drops the title onto the shared "planned
     together" list (and out of the Home inbox). added_by is recorded as
     whoever originally suggested it, so the co-viewing row still reads
-    "added by <sender>" the same way a Watch Together match would."""
+    "added by <sender>" the same way a Watch Together match would.
+
+    Approving a suggestion is itself a "plan an evening" — see
+    AcceptSuggestionRequest's own docstring — so payload can carry the
+    same schedule that ritual collects; when it does, this stamps it
+    onto the entry the same way plan_co_viewing does, rather than
+    leaving it a bare, dateless add."""
     link = _active_link(db, current_user.id)
     if link is None:
         raise HTTPException(status_code=409, detail="Link with a partner first")
@@ -624,13 +800,22 @@ def accept_suggestion(
     )
     add_coview_entries(db, link, [item], added_by_id=row.sender_id)
     row.seen = 1
-    db.commit()
+    db.flush()  # add_coview_entries doesn't commit — see its own
+    # docstring — and this session runs with autoflush off, so the
+    # entry it just added needs an explicit flush before the query
+    # below can see it.
 
     entry = (
         db.query(models.CoViewEntry)
         .filter_by(link_id=link.id, source=row.source, media_id=row.media_id)
         .first()
     )
+    if payload.scheduled_date is not None:
+        entry.scheduled_date = payload.scheduled_date
+        entry.scheduled_hour = payload.scheduled_hour
+        entry.scheduled_minute = payload.scheduled_minute
+    db.commit()
+    db.refresh(entry)
     return _coview_out(entry)
 
 
@@ -775,6 +960,8 @@ def add_co_viewing_bulk(
 @router.post("/co-viewing/{entry_id}/watched", response_model=CoViewEntryOut)
 def mark_co_viewing_watched(
     entry_id: str,
+    background_tasks: BackgroundTasks,
+    payload: MarkCoViewWatchedRequest = MarkCoViewWatchedRequest(),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -785,26 +972,88 @@ def mark_co_viewing_watched(
     link = _active_link(db, current_user.id)
     if link is None:
         raise HTTPException(status_code=409, detail="Link with a partner first")
-    entry = db.query(models.CoViewEntry).filter_by(id=entry_id, link_id=link.id).first()
+    # Locked so it serializes against pair_album.put_note, which locks the
+    # same row: a note either lands before this and is revealed with the
+    # rest, or arrives after and is refused (the evening is watched).
+    entry = (
+        db.query(models.CoViewEntry)
+        .filter_by(id=entry_id, link_id=link.id)
+        .with_for_update()
+        .first()
+    )
     if entry is None:
         raise HTTPException(status_code=404, detail="Not found")
 
     if entry.status != models.CoViewStatus.watched:
-        entry.watched_at = datetime.utcnow()
+        entry.watched_at = _parse_watched_at(payload.watched_at)
         entry.status = models.CoViewStatus.watched
-        item = _coview_item(entry)
-        # Each member's diary entry is tagged with everyone *else* in the
-        # circle's username(s) — logged from the co-viewing screen always
-        # means it was watched together, so this doesn't need its own
-        # toggle the way the manual log form does. A couple gets the
-        # single familiar "watched with X"; a company joins names with a
-        # comma so nobody's left out of the credit.
-        for uid in _member_ids(link):
-            others = ", ".join(p.username for p in _other_members(link, uid))
-            log_watched(db, uid, item, watched_at=entry.watched_at,
-                        watched_with_username=others or None)
+        # See MarkCoViewWatchedRequest.already_logged's own docstring —
+        # the planned card's "смотрю" button sends the caller through the
+        # normal logging ritual first, which already wrote *their* diary
+        # row (with its own "watched with" toggle deciding whether it's
+        # shared); this call is only here afterward to flip the
+        # CoViewEntry off the planned list, so it skips log_watched
+        # entirely rather than writing a second row for the caller (and a
+        # bare, unrated one for anyone else in the circle, who didn't ask
+        # for that).
+        if not payload.already_logged:
+            item = _coview_item(entry)
+            # Each member's diary entry is tagged with everyone *else* in
+            # the circle's username(s) — logged from the co-viewing
+            # screen always means it was watched together, so this
+            # doesn't need its own toggle the way the manual log form
+            # does. A couple gets the single familiar "watched with X"; a
+            # company joins names with a comma so nobody's left out of
+            # the credit.
+            for uid in _member_ids(link):
+                others = ", ".join(p.username for p in _other_members(link, uid))
+                log_watched(db, uid, item, watched_at=entry.watched_at,
+                            watched_with_username=others or None,
+                            # Always a together-watch by definition — this is
+                            # the co-viewing screen's own button. Puts the
+                            # evening on the shared diary for everyone in the
+                            # circle regardless of anyone's auto-share
+                            # setting; see shared_diary.py::
+                            # shared_link_id_for_log for why that exemption
+                            # exists.
+                            watched_together=True)
+        # The joint review of the evening opens with it: each person writes
+        # their own part, sealed from the others (routers/circle_review.py).
+        from app.routers.circle_review import open_review
+        open_review(
+            db, link, origin="logged", created_by_id=current_user.id,
+            media_id=entry.media_id, media_type=entry.media_type, source=entry.source,
+            title_ru=entry.title_ru, title_en=entry.title_en, poster_url=entry.poster_url, year=entry.year,
+            participant_ids=list(_member_ids(link)), watched_at=entry.watched_at,
+        )
+        # The pair album: opening the sealed notes is part of the same
+        # transaction as flipping the entry to watched, so an evening can
+        # never be "watched" with its notes still locked (or the reverse).
+        # Couples only — a company has no album.
+        revealed = []
+        if len(_member_ids(link)) == 2:
+            from app import pair_album as _pair_album
+            revealed = _pair_album.reveal_notes(db, link, entry)
         db.commit()
         db.refresh(entry)
+        out = _coview_out(entry)
+        if revealed:
+            mine = [n for n in revealed if n.author_id != current_user.id]
+            out.album_reveal_count = len(mine)
+            title = entry.title_ru or entry.title_en or "фильм"
+            names = {u.id: u for u in (link.owner, link.partner) if u is not None}
+            # Tell each author their note was just read-able for the other,
+            # after the commit succeeded (see push.py's module docstring).
+            for n in revealed:
+                other_id = next((i for i in names if i != n.author_id), None)
+                if other_id is None or other_id == current_user.id:
+                    continue
+                author = names.get(n.author_id)
+                background_tasks.add_task(
+                    push.notify_album_reveal, other_id,
+                    (author.display_name or author.username) if author else "партнёр", title,
+                )
+        return out
     return _coview_out(entry)
 
 

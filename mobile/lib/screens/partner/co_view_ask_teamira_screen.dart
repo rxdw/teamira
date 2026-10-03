@@ -8,6 +8,7 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/scroll_reveal.dart';
+import '../../widgets/tane_thinking.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/wow_motion.dart' show Entrance, PressScale;
@@ -16,6 +17,7 @@ import '../decide/decide_filters_screen.dart';
 import '../title/title_detail_screen.dart';
 import 'co_view_vote_screen.dart' show proposeToCircle;
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// "Ask teamira" as a can't-decide method for the whole circle — the
 /// exact same composer as the solo version on Home
@@ -61,6 +63,11 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
   late Future<List<AiMatch>> _future;
   final Set<String> _proposing = {};
 
+  /// True from the moment the answer is in until the list replaces the
+  /// loading state — tells [TaneThinking] to play its ending. Same
+  /// hand-off as Home's own results screen (see paceTaneThinking).
+  bool _finale = false;
+
   @override
   void initState() {
     super.initState();
@@ -68,8 +75,14 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
   }
 
   Future<List<AiMatch>> _load() async {
+    // Plain assignment, no setState — see AskTeamiraResultsScreen._load.
+    _finale = false;
     final app = context.read<AppState>();
-    final response = await app.ai.ask(widget.query);
+    final response = await paceTaneThinking(
+      work: () => app.ai.ask(widget.query),
+      isMounted: () => mounted,
+      onFinale: () => setState(() => _finale = true),
+    );
     return response.results;
   }
 
@@ -119,7 +132,7 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('teamira picked these'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                          Text('tanè picked these'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                           const SizedBox(height: 2),
                           Text(
                             '"${widget.query}"',
@@ -151,12 +164,17 @@ class _CoViewAskTeamiraResultsScreenState extends State<CoViewAskTeamiraResultsS
                 future: _future,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData && !snapshot.hasError) {
-                    return const Center(child: ThemedLoadingIndicator());
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 48),
+                        child: TaneThinking(finale: _finale),
+                      ),
+                    );
                   }
                   if (snapshot.hasError) {
                     final message = snapshot.error is ApiException
                         ? (snapshot.error as ApiException).message
-                        : "couldn't reach teamira's catalog just now".tr;
+                        : "couldn't reach tanè's catalog just now".tr;
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -235,7 +253,8 @@ class _MatchRow extends StatelessWidget {
     final item = match.item;
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: SeenlyPalette.border),

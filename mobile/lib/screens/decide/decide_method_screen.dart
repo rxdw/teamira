@@ -12,6 +12,7 @@ import 'decide_random_screen.dart';
 import 'decide_roulette_screen.dart';
 import 'decide_swipe_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// Second step of the can't-decide flow — pick how you actually want the
 /// filtered pool from [DecideFiltersScreen] narrowed down to one thing.
@@ -93,7 +94,7 @@ class DecideMethodScreen extends StatelessWidget {
                               child: _MethodTile(
                                 icon: Icons.auto_awesome_outlined,
                                 color: SeenlyPalette.periwinkle,
-                                title: 'ask teamira'.tr,
+                                title: 'ask tanè'.tr,
                                 blurb: 'tell it what kind of evening you\'re after'.tr,
                                 live: _LiveDetail.shimmer,
                                 onTap: () => Navigator.of(context).push(
@@ -224,7 +225,7 @@ class _MethodTile extends StatelessWidget {
           width: double.infinity,
           height: double.infinity,
           padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
             color: Color.alphaBlend(color.withOpacity(0.09), SeenlyPalette.paper),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: SeenlyPalette.border),

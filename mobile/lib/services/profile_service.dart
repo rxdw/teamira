@@ -3,6 +3,7 @@ import '../models/media_item.dart';
 import '../models/profile_stats.dart';
 import '../models/watchlist_entry.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
 
 class ProfileService {
   final ApiClient _client;
@@ -57,6 +58,15 @@ class ProfileService {
     return AchievementsResponse.fromJson(json);
   }
 
+  /// POST /profile/achievements/buy-pin-slot — one more permanent
+  /// badge-showcase slot for sincerity.PIN_SLOT_COST (see
+  /// backend/app/sincerity.py::spend_pin_slot). No body: this is the
+  /// one sincerity spend with no per-item target, just "one more slot".
+  Future<AchievementsResponse> buyPinSlot() async {
+    final json = await _client.post('/profile/achievements/buy-pin-slot') as Map<String, dynamic>;
+    return AchievementsResponse.fromJson(json);
+  }
+
   Future<ProfileLevel> level() async {
     final json = await _client.get('/profile/level') as Map<String, dynamic>;
     return ProfileLevel.fromJson(json);
@@ -84,6 +94,10 @@ class ProfileService {
       'item': item.toJson(),
       'is_favorite': isFavorite,
     }) as Map<String, dynamic>;
+    Analytics.instance.track('favorite_toggled', {
+      'media_type': item.mediaType,
+      'is_favorite': json['is_favorite'] as bool? ?? isFavorite,
+    });
     return json['is_favorite'] as bool? ?? isFavorite;
   }
 
@@ -120,6 +134,7 @@ class ProfileService {
     String? privacyWatching,
     String? privacyPlanned,
     String? privacyFavorites,
+    bool? discoverable,
   }) async {
     final body = <String, dynamic>{
       if (displayName != null) 'display_name': displayName,
@@ -129,6 +144,7 @@ class ProfileService {
       if (privacyWatching != null) 'privacy_watching': privacyWatching,
       if (privacyPlanned != null) 'privacy_planned': privacyPlanned,
       if (privacyFavorites != null) 'privacy_favorites': privacyFavorites,
+      if (discoverable != null) 'discoverable': discoverable,
     };
     final json = await _client.patch('/profile/me', body: body) as Map<String, dynamic>;
     return ProfileMe.fromJson(json);

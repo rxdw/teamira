@@ -1,18 +1,18 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<addon id="service.seenly.scrobbler" name="teamira Scrobbler" version="1.0.0" provider-name="teamira">
+<addon id="service.seenly.scrobbler" name="tanè Scrobbler" version="1.0.0" provider-name="tanè">
   <requires>
     <import addon="xbmc.python" version="3.0.0"/>
   </requires>
   <extension point="xbmc.service" library="service.py" start="startup"/>
   <extension point="xbmc.addon.metadata">
-    <summary lang="en_GB">Logs what you finish watching in Kodi straight to your teamira diary</summary>
+    <summary lang="en_GB">Logs what you finish watching in Kodi straight to your tanè diary</summary>
     <description lang="en_GB">
       Watches Kodi's own playback events in the background and, once
       you've actually finished a movie or episode (not just started one),
-      sends it to your teamira account automatically — no manual logging.
+      sends it to your tanè account automatically — no manual logging.
 
-      Set your teamira server URL and integration token in this addon's
-      settings first (teamira app: Settings -> auto-tracking -> kodi).
+      Set your tanè server URL and integration token in this addon's
+      settings first (tanè app: Settings -> auto-tracking -> kodi).
 
       Works best with a scraped library (TMDB/IMDB metadata attached);
       unscraped files still get logged, just as a plain title with no

@@ -8,6 +8,7 @@ import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// Home's "today's pick" card — a nudge toward one franchise shelf (see
 /// backend/app/curated_franchises.py) picked fresh for today, with a thin
@@ -123,6 +124,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
     final pick = _pick;
     if (pick == null) return;
     await context.read<TodayPickPrefsService>().accept(pick.pickDate);
+    if (!mounted) return;
     _openFranchise();
   }
 
@@ -179,7 +181,7 @@ class _TodayPickCardState extends State<TodayPickCard> {
 
     final card = Container(
       width: double.infinity,
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(20),
         boxShadow: SeenlyPalette.softShadow,

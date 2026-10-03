@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/log_theme_service.dart';
+import '../theme/notebook_paper.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'shrink_to_fit_text.dart';
@@ -57,21 +58,41 @@ class ThemedPosterTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.watch<LogThemeService>().theme;
     final color = fallbackColor ?? SeenlyPalette.accent;
+    final hasPoster = posterUrl != null && posterUrl!.isNotEmpty;
+    final themedPoster = switch (theme) {
+      LogTheme.ticket => _TicketPoster(
+          title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
+      LogTheme.coach => _CoachPoster(
+          title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
+      LogTheme.garden => _GardenPoster(
+          title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
+      LogTheme.shuttle => _ShuttlePoster(
+          title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
+    };
     return PressScale(
       onTap: onTap,
       scaleTo: 0.95,
       child: AspectRatio(
         aspectRatio: aspectRatio,
-        child: switch (theme) {
-          LogTheme.ticket => _TicketPoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
-          LogTheme.coach => _CoachPoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
-          LogTheme.garden => _GardenPoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
-          LogTheme.shuttle => _ShuttlePoster(
-              title: title, posterUrl: posterUrl, color: color, mediaType: mediaType, badge: badge, parallax: parallax),
-        },
+        // Cozy Diary adds its own polaroid dressing *around* whichever
+        // LogTheme print is chosen — ticket/coach/garden/shuttle keep
+        // rendering exactly as before, just now tucked inside a paper
+        // mat with a handwritten caption, like that themed print got
+        // physically pasted into a scrapbook. Same box size either way,
+        // so no grid this tile sits in needs to change.
+        //
+        // caption only when there's no poster to read the title off of
+        // — same "the cover art already carries the title" reasoning
+        // _GardenPoster's own hasPoster check uses, and the same
+        // showTitle-only-as-fallback shape every other theme's
+        // _fallbackFill/_posterFill already follows. Without this, Cozy
+        // was the one theme printing the title a second time underneath
+        // a poster that already shows it.
+        child: PolaroidFrame(
+          tiltSeed: title.hashCode,
+          caption: hasPoster ? null : title,
+          child: themedPoster,
+        ),
       ),
     );
   }

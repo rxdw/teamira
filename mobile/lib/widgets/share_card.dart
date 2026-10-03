@@ -7,6 +7,8 @@ import '../models/profile_stats.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../services/app_translations.dart';
+import '../theme/notebook_paper.dart';
+import '../theme/clay_kit.dart';
 
 /// The bit every share card ends on — small, quiet, and the same
 /// everywhere, so a screenshot of one is instantly recognizable as "from
@@ -19,17 +21,30 @@ class _ShareFooter extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: 60,
-          child: Divider(color: SeenlyPalette.dashedBorder, thickness: 1),
+          width: 68,
+          child: CozyDivider(color: SeenlyPalette.dashedBorder, thickness: 1),
         ),
-        const SizedBox(height: 10),
-        Text('teamira'.tr, style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
-        const SizedBox(height: 2),
-        Text('a cozy watch diary'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
+        const SizedBox(height: 12),
+        Text('teamira'.tr, style: SeenlyText.serif(italic: true, size: 16, color: SeenlyPalette.accent)),
+        const SizedBox(height: 3),
+        Text('a cozy watch diary'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
       ],
     );
   }
 }
+
+/// The soft, floating drop-shadow every share card sits on top of — a
+/// little heavier than [SeenlyPalette.softShadow], since these cards are
+/// meant to be looked at on their own (in the preview sheet, and again
+/// as a screenshot in someone's camera roll) rather than sitting flush
+/// in a scrolling list of other cards.
+List<BoxShadow> get _shareCardShadow => [
+      BoxShadow(
+        color: SeenlyPalette.shadowColor.withOpacity(SeenlyPalette.shadowOpacity * 2.1),
+        blurRadius: 32,
+        offset: const Offset(0, 14),
+      ),
+    ];
 
 /// A bigger, standalone cousin of [PolaroidCard] — sized for a share card
 /// rather than a shelf row, and without the rotation (a share card reads
@@ -43,30 +58,30 @@ class _PinnedPoster extends StatelessWidget {
   const _PinnedPoster({
     required this.fallbackColor,
     this.posterUrl,
-    this.width = 150,
-    this.height = 214,
+    this.width = 168,
+    this.height = 240,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(7, 7, 7, 10),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(7),
         boxShadow: SeenlyPalette.softShadow,
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned(
-            top: -13,
-            left: width / 2 - 22,
+            top: -14,
+            left: width / 2 - 24,
             child: Transform.rotate(
               angle: -0.06,
               child: Container(
-                width: 36,
-                height: 13,
+                width: 40,
+                height: 14,
                 color: SeenlyPalette.tapeMustard.withOpacity(0.85),
               ),
             ),
@@ -115,73 +130,74 @@ class EveningShareCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 300,
-      padding: const EdgeInsets.fromLTRB(22, 22, 22, 26),
+      width: 328,
+      padding: const EdgeInsets.fromLTRB(26, 26, 26, 30),
       decoration: BoxDecoration(
         color: SeenlyPalette.cork,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: _shareCardShadow,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(entry.isRewatch ? 'rewatched · $_dateLabel' : 'watched · $_dateLabel',
-              style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkMuted)),
-          const SizedBox(height: 18),
+              style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
+          const SizedBox(height: 20),
           _PinnedPoster(posterUrl: entry.posterUrl, fallbackColor: fallbackColor),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           Text(
             entry.displayTitle,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: SeenlyText.serif(italic: true, size: 19, weight: FontWeight.w600),
+            style: SeenlyText.serif(italic: true, size: 22, weight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
-          Text(entry.mediaType, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
+          Text(entry.mediaType, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+          const SizedBox(height: 10),
           if (entry.rating != null) ...[
             _StaticHearts(value: entry.rating!),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
           ],
           if (entry.moodTags.isNotEmpty) ...[
             Wrap(
               alignment: WrapAlignment.center,
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 7,
+              runSpacing: 7,
               children: [
                 for (final tag in entry.moodTags)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
                     decoration: BoxDecoration(
                       color: SeenlyPalette.paper,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(13),
                     ),
-                    child: Text(tag, style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+                    child: Text(tag, style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
                   ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
           ],
           if (entry.note != null && entry.note!.trim().isNotEmpty) ...[
             Transform.rotate(
               angle: -0.012,
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: SeenlyPalette.paper,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '“${entry.note!.trim()}”',
                   textAlign: TextAlign.center,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
-                  style: SeenlyText.serif(size: 12.5, italic: true, color: SeenlyPalette.ink),
+                  style: SeenlyText.serif(size: 13.5, italic: true, color: SeenlyPalette.ink),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
           ],
           const _ShareFooter(),
         ],
@@ -200,13 +216,13 @@ class _StaticHearts extends StatelessWidget {
   Widget build(BuildContext context) {
     final filledColor = SeenlyPalette.ratingColor(value);
     return Wrap(
-      spacing: 3,
-      runSpacing: 3,
+      spacing: 4,
+      runSpacing: 4,
       children: [
         for (int i = 1; i <= 10; i++)
           Icon(
             i <= value ? Icons.favorite : Icons.favorite_border,
-            size: 15,
+            size: 17,
             color: i <= value ? filledColor : SeenlyPalette.dashedBorder,
           ),
       ],
@@ -231,51 +247,52 @@ class YearShareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final topGenre = stat.topGenres.isNotEmpty ? stat.topGenres.first.genre : null;
     return Container(
-      width: 300,
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 26),
+      width: 328,
+      padding: const EdgeInsets.fromLTRB(26, 28, 26, 30),
       decoration: BoxDecoration(
         color: SeenlyPalette.cork,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: _shareCardShadow,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(stat.periodLabel.toUpperCase(),
-              style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w600)),
-          const SizedBox(height: 10),
+              style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent, weight: FontWeight.w600)),
+          const SizedBox(height: 12),
           Text('${stat.totalLogged}',
-              style: SeenlyText.serif(size: 52, weight: FontWeight.w700)),
-          Text('evenings logged'.tr, style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
-          const SizedBox(height: 6),
+              style: SeenlyText.serif(size: 60, weight: FontWeight.w700)),
+          Text('evenings logged'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
+          const SizedBox(height: 7),
           Text('${stat.hours.toStringAsFixed(0)} ${'hours in'.tr}',
-              style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),
-          const SizedBox(height: 18),
+              style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.inkMuted)),
+          const SizedBox(height: 20),
           if (stat.favoriteTitle != null) ...[
             _PinnedPoster(
               posterUrl: stat.favoritePoster,
               fallbackColor: favoriteFallbackColor,
-              width: 110,
-              height: 156,
+              width: 124,
+              height: 176,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text('${'favorite'.tr}: ${stat.favoriteTitle}',
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: SeenlyText.serif(italic: true, size: 13)),
-            const SizedBox(height: 16),
+                style: SeenlyText.serif(italic: true, size: 14)),
+            const SizedBox(height: 18),
           ],
           Wrap(
             alignment: WrapAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 9,
+            runSpacing: 9,
             children: [
               if (topGenre != null) _StatChip(label: "${'top genre'.tr}: $topGenre"),
               if (stat.longestStreak > 1)
-                _StatChip(label: "${'longest streak'.tr}: ${ruCount(stat.longestStreak, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')}"),
+                _StatChip(label: "${'longest streak'.tr}: ${nCount('nDays', stat.longestStreak)}"),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           const _ShareFooter(),
         ],
       ),
@@ -304,66 +321,67 @@ class TitleShareCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rating = ratings?.tmdbRating;
     return Container(
-      width: 300,
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 26),
+      width: 328,
+      padding: const EdgeInsets.fromLTRB(26, 28, 26, 30),
       decoration: BoxDecoration(
         color: SeenlyPalette.cork,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: _shareCardShadow,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             item.mediaType.toUpperCase(),
-            style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent, weight: FontWeight.w600),
+            style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent, weight: FontWeight.w600),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _PinnedPoster(posterUrl: item.posterUrl, fallbackColor: fallbackColor),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           Text(
             item.title.display,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: SeenlyText.serif(italic: true, size: 19, weight: FontWeight.w600),
+            style: SeenlyText.serif(italic: true, size: 22, weight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 5),
           Text(
             item.year != null ? '${item.year}' : item.mediaType,
-            style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
+            style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
           ),
           if (rating != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: SeenlyPalette.ratingColor(rating.round()).withOpacity(0.16),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: SeenlyPalette.ratingColor(rating.round()).withOpacity(0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.star_rounded, size: 15, color: SeenlyPalette.ratingColor(rating.round())),
-                  const SizedBox(width: 5),
+                  Icon(Icons.star_rounded, size: 17, color: SeenlyPalette.ratingColor(rating.round())),
+                  const SizedBox(width: 6),
                   Text(rating.toStringAsFixed(1),
-                      style: SeenlyText.serif(size: 13, weight: FontWeight.w700)),
+                      style: SeenlyText.serif(size: 14, weight: FontWeight.w700)),
                 ],
               ),
             ),
           ],
           if (item.genres.isNotEmpty) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Wrap(
               alignment: WrapAlignment.center,
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 7,
+              runSpacing: 7,
               children: [
                 for (final genre in item.genres.take(3)) _StatChip(label: genre),
               ],
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           const _ShareFooter(),
         ],
       ),
@@ -378,12 +396,12 @@ class _StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
       decoration: BoxDecoration(
         color: SeenlyPalette.paper,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(13),
       ),
-      child: Text(label, style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),
+      child: Text(label, style: SeenlyText.mono(size: 11, color: SeenlyPalette.accent)),
     );
   }
 }

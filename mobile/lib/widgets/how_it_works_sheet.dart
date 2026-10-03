@@ -134,6 +134,15 @@ class HowItWorksSheet extends StatelessWidget {
                                     'seen it — that logs the evening into both your diaries '
                                     'at once.'
                                     .tr,
+                              ),
+                              _HowItWorksStep(
+                                number: '5',
+                                title: 'rating shown as locked?'.tr,
+                                body: 'Your partner already rated it, but that rating stays '
+                                    'hidden from you until you rate it too — so their opinion '
+                                    'never colors yours. Curious sooner? Tap the lock to reveal '
+                                    'it early for a few sincerity points.'
+                                    .tr,
                                 isLast: true,
                               ),
                             ],

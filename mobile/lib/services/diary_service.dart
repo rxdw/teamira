@@ -1,12 +1,17 @@
 import '../models/diary_entry.dart';
 import '../models/media_item.dart';
+import '../utils/unset.dart';
 import 'api_client.dart';
+import '../analytics/analytics.dart';
 
 /// Sentinel default for [DiaryService.updateEntry]'s optional fields, so
 /// leaving an argument out ("don't touch this field") can be told apart
 /// from passing it as `null` ("clear this field") — a plain `null`
-/// default can't tell those two apart.
-const Object _unset = Object();
+/// default can't tell those two apart. Shared with DiaryRepository,
+/// DiaryStore, and DiaryEntry.copyWith (see utils/unset.dart) now that
+/// this same trick needs to survive being forwarded through those
+/// layers too, not just used within this one file.
+const Object _unset = unset;
 
 class DiaryService {
   final ApiClient _client;
@@ -58,6 +63,16 @@ class DiaryService {
       'episode': episode,
       'episode_count': episodeCount,
     }) as Map<String, dynamic>;
+    // What kind of evening, never which one: no title, no note text.
+    Analytics.instance.track('diary_entry_logged', {
+      'media_type': item.mediaType,
+      'source': item.source,
+      'has_rating': rating != null,
+      'has_note': note != null && note.trim().isNotEmpty,
+      'has_mood_tags': moodTags != null && moodTags.isNotEmpty,
+      'is_episode': episode != null,
+      'with_partner': watchedWithPartner,
+    });
     return DiaryEntry.fromJson(json);
   }
 
@@ -107,8 +122,17 @@ class DiaryService {
       body['favorite_cast'] = (favoriteCast as List<CastMember>?)?.map((c) => c.toJson()).toList();
     }
     final json = await _client.patch('/diary/$entryId', body: body) as Map<String, dynamic>;
+    Analytics.instance.track('diary_entry_edited', {
+      'changed_rating': !identical(rating, _unset),
+      'changed_note': !identical(note, _unset),
+      'changed_mood_tags': !identical(moodTags, _unset),
+      'changed_date': !identical(watchedAt, _unset),
+    });
     return DiaryEntry.fromJson(json);
   }
 
-  Future<void> delete(String entryId) => _client.delete('/diary/$entryId');
+  Future<void> delete(String entryId) async {
+    await _client.delete('/diary/$entryId');
+    Analytics.instance.track('diary_entry_deleted');
+  }
 }

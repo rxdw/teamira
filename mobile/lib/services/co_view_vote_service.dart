@@ -1,6 +1,7 @@
 import '../models/co_view_vote_session.dart';
 import '../models/media_item.dart';
 import 'api_client.dart';
+import 'realtime_socket.dart';
 
 /// Which pool a round or a random draw pulls from — mirrors the
 /// backend's `PoolSource` in co_view_vote.py. Kept as plain strings
@@ -39,6 +40,18 @@ class CoViewVoteService {
   Future<CoViewVoteSession> poll(String sessionId) async {
     final json = await _client.get('/partner/co-viewing/vote/$sessionId') as Map<String, dynamic>;
     return CoViewVoteSession.fromJson(json);
+  }
+
+  /// Pushed updates for an open round — replaces calling [poll] on a
+  /// `Timer.periodic`. Caller owns the returned socket and must call
+  /// [RealtimeSocket.close] (e.g. from `State.dispose`), same as it
+  /// used to own and cancel its own poll `Timer`.
+  RealtimeSocket<CoViewVoteSession> watch(String sessionId) {
+    return RealtimeSocket<CoViewVoteSession>(
+      path: '/partner/co-viewing/vote/$sessionId/ws',
+      fromJson: CoViewVoteSession.fromJson,
+      client: _client,
+    );
   }
 
   /// Puts a specific pick — teamira's suggestion, a reel spin, a random

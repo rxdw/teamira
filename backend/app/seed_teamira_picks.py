@@ -4,9 +4,9 @@ new multi-catalog admin_add_item path end to end so there's something
 real on the Collections tab immediately, not just an empty admin API.
 
 Talks to the DB directly rather than over HTTP: no running server and
-no TEAMIRA_ADMIN_KEY required, since whoever can run this already has
-direct access to this codebase/database (require_teamira_admin's header
-key exists to gate the *network* surface, not this). Each title is
+no admin login required, since whoever can run this already has direct
+access to this codebase/database (require_admin_user's User.is_admin
+check exists to gate the *network* surface, not this). Each title is
 resolved through the exact same adapters (TMDB/IGDB/Open Library) and
 lands in the DB in the exact same shape admin_add_item itself would
 produce — this is that endpoint's own logic, just called in a loop
@@ -31,6 +31,7 @@ import logging
 from sqlalchemy import text
 
 from app import models
+from app import cache
 from app.adapters.igdb import IgdbAdapter
 from app.adapters.google_books import GoogleBooksAdapter
 from app.adapters.shikimori import ShikimoriMangaAdapter
@@ -507,13 +508,6 @@ async def _seed_shelf(db, title: str, title_en: str, media_type: str, queries: l
         logger.info("  %-45s -> added: %s", label, display_title)
 
 
-def _invalidate_teamira_cache(db) -> None:
-    row = db.get(models.CachedFeedSnapshot, "feed:teamira:v7")
-    if row is not None:
-        db.delete(row)
-        db.commit()
-
-
 async def seed_all_shelves(db) -> None:
     """Runs the actual seeding of every shelf in SHELVES against an
     already-open session. This is the reusable half of what used to be
@@ -531,7 +525,7 @@ async def seed_all_shelves(db) -> None:
     for title, title_en, media_type, queries in SHELVES:
         logger.info("\n%s / %s (%s)", title, title_en, media_type)
         await _seed_shelf(db, title, title_en, media_type, queries)
-    _invalidate_teamira_cache(db)
+    cache.invalidate_teamira_cache(db)
 
 
 async def main() -> None:

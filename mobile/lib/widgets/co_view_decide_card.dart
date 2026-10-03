@@ -6,6 +6,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'co_view_pick_sheets.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// A quiet way in to "decide together" — ask teamira, let a dice or the
 /// reel pick, or vote through what you've each got queued, and have the
@@ -36,7 +37,7 @@ class CoViewDecideCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 14, 18),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: SeenlyPalette.dashedBorder, width: 1.2),

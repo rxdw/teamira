@@ -12,10 +12,15 @@ import 'share_sheet.dart';
 /// off to IMDb or TMDB. That page tries to open the app itself first and
 /// only falls back to a store link, so tapping a shared title leads back
 /// into Seenly instead of away from it.
+///
+/// Carries `source` (not just `type`/`id`) so the app can call
+/// MediaService.detail straight off the link on the other end — see
+/// services/title_link_service.dart, which is what actually reads this
+/// back apart.
 Future<String> titleShareLink(MediaItem item) async {
   final baseUrl = await ApiClient.instance.resolveBaseUrl();
   final title = Uri.encodeComponent(item.title.display);
-  return '$baseUrl/t?type=${item.mediaType}&id=${item.id}&title=$title';
+  return '$baseUrl/t?type=${item.mediaType}&id=${item.id}&source=${item.source}&title=$title';
 }
 
 /// Opens the same warm, corkboard-styled preview-then-share sheet used
@@ -40,5 +45,6 @@ Future<void> shareTitle(
     card: TitleShareCard(item: item, fallbackColor: fallbackColor, ratings: ratings),
     fileName: 'title-${item.id}',
     shareText: '$bits\n$link',
+    rewardKey: 'title-${item.id}',
   );
 }

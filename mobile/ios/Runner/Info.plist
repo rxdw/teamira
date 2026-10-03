@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>teamira</string>
+	<string>tanè</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>teamira</string>
+	<string>tanè</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -39,6 +39,26 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Used to scan a partner's co-viewing pairing code, or a cinema ticket to quickly add a title.</string>
+	<!-- Push notifications (audit 4.4.1) — lets a data-carrying push wake
+	     the app briefly in the background to run
+	     firebaseMessagingBackgroundHandler (see
+	     services/push_notification_manager.dart). Every push this app
+	     actually sends already includes a display `notification` block
+	     (see app/push.py), which iOS shows on its own even without this
+	     key — this only matters if a future push is ever data-only. Also
+	     requires enabling the "Push Notifications" and "Background
+	     Modes > Remote notifications" capabilities in Xcode itself (see
+	     docs/push_notifications_setup.md) — that step edits
+	     Runner.entitlements and the Xcode project file, neither of which
+	     a text edit here can safely reproduce; it has to be done once,
+	     by hand, in Xcode. -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Микрофон нужен для голосового чата в комнате совместного просмотра. Голос нигде не записывается.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>audio</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

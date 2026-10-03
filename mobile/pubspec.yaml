@@ -15,21 +15,72 @@ dependencies:
   http: ^1.2.1
   url_launcher: ^6.3.1
 
+  # WebSocket client for the co-viewing/Watch Together session sockets
+  # (see services/realtime_socket.dart) — what replaced those screens'
+  # old Timer.periodic(2s) GET poll. Cross-platform (dart:io and web),
+  # which matters here since mobile/web is a real build target.
+  web_socket_channel: ^3.0.1
+
   # Simple global state: an AuthState + a couple of small screen-level
   # ChangeNotifiers, exposed with provider. Deliberately not riverpod/bloc —
   # this app's state shape is small enough that the extra ceremony isn't
   # worth it yet.
   provider: ^6.1.2
 
-  # Token + "which base URL worked last time" persistence.
+  # "Which base URL worked last time" persistence, plus every non-secret
+  # preference in services/persisted_pref.dart. Deliberately NOT the
+  # access/refresh tokens any more — see flutter_secure_storage below.
   shared_preferences: ^2.2.3
 
-  # Date formatting ("today", "yesterday", "july 2") for the Diary tab.
-  intl: ^0.19.0
+  # Where the access and refresh tokens actually live: the iOS Keychain
+  # and the Android EncryptedSharedPreferences/Keystore, instead of
+  # SharedPreferences.
+  #
+  # SharedPreferences is a plain XML file in the app's data directory on
+  # Android and a plain plist on iOS. On a rooted or jailbroken device,
+  # in a full-filesystem backup, or through any bug that lets another
+  # process read app storage, a token sitting there is readable as text —
+  # and the token it was storing was good for a week with no way to
+  # revoke it. Both halves of that are fixed now (short-lived access
+  # tokens, revocable refresh tokens, see the backend's app/security.py),
+  # but the refresh token is still a credential worth months of access,
+  # which is exactly what the platform keystores exist for.
+  #
+  # See services/secure_token_store.dart, which also migrates any token
+  # left behind in SharedPreferences by an older build.
+  flutter_secure_storage: ^9.2.2
+
+  # Structural (content) equality for Set/List/Map — used by
+  # PersistedPref's stringSet so save()'s "skip redundant writes" guard
+  # actually works for Set<String> values (see persisted_pref.dart).
+  # Was already pulled in transitively; declared explicitly now that
+  # lib/ code imports it directly.
+  collection: ^1.19.0
+  home_widget: ^0.6.0
+
+  # Date formatting ("today", "yesterday", "july 2") for the Diary tab —
+  # and, since the localization migration, the runtime ICU plural/message
+  # engine that lib/l10n/app_localizations.dart (generated from
+  # lib/l10n/*.arb — see l10n.yaml) is built on.
+  intl: 0.20.2
+
+  # Framework-level localized strings — date pickers, the system share
+  # sheet, "OK"/"Cancel" on native dialogs — so they read in Russian when
+  # the in-app language toggle is set to Russian instead of silently
+  # staying in whatever the *device's* system language happens to be.
+  # Required by `generate: true` below / l10n.yaml.
+  flutter_localizations:
+    sdk: flutter
 
   # Native share sheet — used to share the "share this evening" / "share
   # your year" cards as an image, the way Letterboxd shares a diary entry.
   share_plus: ^10.1.2
+
+  # A temp directory to write the data export to before handing it to the
+  # share sheet (see screens/profile/account_screen.dart). share_plus
+  # needs a real file path; the export is a string until something writes
+  # it somewhere.
+  path_provider: ^2.1.4
 
   # Unbounded (headings/titles) + Comfortaa (everything else) — bundled
   # via Google Fonts so the look is identical on iOS and Android instead
@@ -102,6 +153,99 @@ dependencies:
   # a small, self-contained addition.
   sensors_plus: ^6.0.1
 
+  # Device model/name, sent as `device_label` on login so the "where
+  # you're signed in" screen can say "iPhone 14" instead of an opaque
+  # session id. Read-only, no permission required, and never used for
+  # anything but that label — see services/auth_service.dart.
+  device_info_plus: ^10.1.2
+
+  # Premium's "diary keepsake" export (see services/keepsake_pdf_service.dart):
+  # builds a soft, paper-styled PDF of the whole diary on-device, then
+  # hands it to the OS share sheet (Printing.sharePdf below) so it can be
+  # saved, AirDropped, or actually printed — no server round trip, same
+  # "runs entirely on the device" spirit as the rest of this app's
+  # premium/local-state services. `printing` (rather than plain `pdf`
+  # alone) specifically for two things: `PdfGoogleFonts`, which fetches
+  # a Unicode-safe Noto Serif/Sans pair at runtime — the base-14 PDF
+  # fonts have no Cyrillic glyphs at all, and this diary's titles and
+  # notes are frequently Russian — and `Printing.sharePdf`, which is a
+  # one-call replacement for "write bytes to a temp file, then
+  # share_plus that path".
+  pdf: ^3.11.1
+  printing: ^5.13.4
+
+  # Onboarding's full-screen background: a looping, muted vertical video
+  # behind every step (see _VideoBackdrop in
+  # screens/onboarding/onboarding_screen.dart), playing from a bundled
+  # asset rather than a network URL so it's already on-device and ready
+  # for the very first frame someone sees after registering.
+  video_player: ^2.9.2
+
+  # Co-view rooms ("Гостиная", screens/partner/room/): watching together
+  # inside the app. youtube_player_iframe embeds YouTube (see the attestation
+  # note above — the room falls back to "parallel" mode on an embed error
+  # instead of leaving people staring at a black box), livekit_client carries
+  # the free voice channel against a self-hosted LiveKit server (audio only,
+  # nothing recorded), wakelock_plus keeps the screen on while a film plays.
+  youtube_player_iframe: ^5.2.0
+  livekit_client: ^2.3.0
+  wakelock_plus: ^1.2.8
+
+  # Crash/error reporting — the mobile counterpart of the backend's own
+  # sentry-sdk (see backend/app/main.py, gated on SENTRY_DSN). Empty DSN
+  # is itself a documented no-op in sentry_flutter — the SDK sends
+  # nothing and the app runs exactly as it would without it — so
+  # main.dart calls SentryFlutter.init unconditionally rather than
+  # branching on whether a DSN was actually supplied at build time, the
+  # same "safe to leave unconfigured" story as every other optional key
+  # in backend/.env.example. See main.dart for how the DSN is set (via
+  # --dart-define, since a release build has no .env to read the way
+  # the backend does).
+  sentry_flutter: ^9.14.0
+  # Push notifications (services/push_notification_manager.dart, audit
+  # 4.4.1). Firebase Cloud Messaging needs firebase_core initialized
+  # first, regardless of which other Firebase package is in use.
+  # IMPORTANT — see docs/push_notifications_setup.md: these compile and
+  # ship fine with no Firebase project configured at all, but push
+  # itself stays a no-op (PushNotificationManager.init() catches
+  # Firebase.initializeApp()'s failure and returns early) until
+  # android/app/google-services.json and
+  # ios/Runner/GoogleService-Info.plist actually exist — neither is
+  # something this change could generate, since both come from a real
+  # Firebase project console.
+  firebase_core: ^3.8.0
+  firebase_messaging: ^15.1.6
+  # Foreground notifications: FCM shows a system notification
+  # automatically while the app is backgrounded/terminated, but
+  # deliberately never while it's in the foreground (both platforms'
+  # own design, not a setting this app controls) — this is what draws
+  # the equivalent banner for FirebaseMessaging.onMessage instead.
+  flutter_local_notifications: ^18.0.1
+  # The one thing this app cannot get from package:intl or dart:core —
+  # the device's own IANA zone name ("Europe/Moscow"), sent to
+  # POST /push/tokens so the backend's streak-reminder script
+  # (scripts/send_scheduled_push.py) can fire in this device's evening,
+  # not a fixed UTC hour that's the middle of the night for half the
+  # audience.
+  flutter_timezone: ^3.0.1
+
+  # Reading together (screens/partner/room/reading/): a book or a manga read
+  # in the same room. The app never hosts or relays anybody's text — each
+  # person opens their own copy from their own device, so all of this runs
+  # on-device: file_picker chooses an EPUB or a comic archive (CBZ/ZIP),
+  # archive unzips it, xml + html read an EPUB's package and chapters, crypto
+  # fingerprints the file (SHA-256, how two phones tell they hold the same
+  # edition), and scrollable_positioned_list is a chapter that can jump to a
+  # paragraph and report which one is at the top. archive/xml/crypto were
+  # already pulled in transitively; they are declared now that lib/ imports
+  # them directly.
+  file_picker: ^8.1.2
+  archive: ^4.0.0
+  xml: ">=6.5.0 <8.0.0"
+  html: ^0.15.4
+  crypto: ^3.0.3
+  scrollable_positioned_list: ^0.3.8
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -109,5 +253,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  # Turns on `flutter gen-l10n`, run automatically by `flutter pub get` /
+  # `flutter run` / `flutter build`. Reads l10n.yaml + lib/l10n/*.arb and
+  # writes lib/l10n/app_localizations.dart — a real, generated,
+  # type-checked class (AppLocalizations.of(context).xyz), not something
+  # hand-written. Nothing in this repo should hand-edit that output file;
+  # edit the .arb source instead and regenerate.
+  generate: true
   assets:
     - assets/mascot/
+    - assets/onboarding/
+    - assets/premium/
+    - assets/pdf_fonts/

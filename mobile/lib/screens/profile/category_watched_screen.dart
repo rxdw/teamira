@@ -59,7 +59,7 @@ class CategoryWatchedScreen extends StatelessWidget {
                     children: [
                       Text(label, style: SeenlyText.serif(size: 34, weight: FontWeight.w700)),
                       const SizedBox(height: 6),
-                      Text(ruCount(entries.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'),
+                      Text(nCount('nTitles', entries.length),
                           style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                     ],
                   ),
@@ -72,7 +72,7 @@ class CategoryWatchedScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 40),
                   child: Center(
                     child: Text('nothing here yet'.tr,
-                        style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
+                        style: SeenlyText.emptyState()),
                   ),
                 ),
               )

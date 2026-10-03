@@ -1,6 +1,6 @@
-from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator, field_serializer, SerializationInfo
+from datetime import date, datetime
+from typing import Optional, List, Literal
+from pydantic import BaseModel, EmailStr, Field, field_validator, field_serializer, SerializationInfo
 
 from app.image_urls import (
     resolve_image_url,
@@ -134,6 +134,15 @@ class MediaItem(ImageFieldsModel):
     # runtime_minutes for games is always null — IGDB has no average
     # playtime field, unlike some other game catalogs.
     tagline: Optional[str] = None
+    # TMDB's Russian-localized tagline, when TMDB actually has one (see
+    # app/adapters/tmdb.py::full_detail) — same "second field, client
+    # picks" convention as poster_url_ru above, rather than folding this
+    # into a LocalizedText: only ever populated for source=="tmdb", and
+    # every other adapter's tagline (a synthesized "By <author>" byline
+    # for books, "Published by <x>" for manga) is already language-
+    # agnostic, so a full LocalizedText here would be dead weight for
+    # every non-tmdb title.
+    tagline_ru: Optional[str] = None
     runtime_minutes: Optional[int] = None
     certification: Optional[str] = None   # age rating, e.g. "PG-13", "TV-MA"
     release_date: Optional[str] = None    # full date when TMDB has one, else just the year
@@ -326,6 +335,92 @@ class TodayPickOut(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Release calendar — Home screen's two "what's coming out" blocks. See
+# app/routers/calendar.py.
+#
+# ReleaseCalendarItem backs the discovery grid (GET /calendar/releases): a
+# date-sorted mix of anime (Shikimori's own calendar), games (IGDB) and
+# movies (TMDB) — not tied to anything the current user has logged, same
+# spirit as the Collections tab's shelves.
+#
+# WatchingReleaseItem backs the personal strip (GET /calendar/watching):
+# per-title next-episode/release checks against whatever's actually on
+# this user's own "watching"/"watch later" shelves. See each schema's own
+# docstring for why the two need different shapes.
+# ---------------------------------------------------------------------------
+
+class ReleaseCalendarItem(ImageFieldsModel):
+    """One dated card on the Home screen's discovery calendar grid — see
+    TmdbAdapter.upcoming_movies_calendar, IgdbAdapter.calendar, and
+    ShikimoriAdapter.calendar for where each source's rows come from.
+
+    `item` carries the full catalog MediaItem for source in ("tmdb",
+    "igdb") — everything the client needs to open TitleDetailScreen the
+    same way any other poster grid in this app does. For source ==
+    "shikimori" there's no MediaItem-shaped detail screen behind the
+    card at all: this app has no id in common with Shikimori's own
+    catalog (see ShikimoriAdapter.calendar's own docstring on why a
+    title already in this app's library can't be resolved back to its
+    Shikimori id, and the same is just as true in reverse — a bare
+    calendar row has nothing to match against this app's own titles
+    with). `item` is null there and the client instead renders the card
+    from title/poster_url directly, opening `external_url` (Shikimori's
+    own page for it) on tap rather than an in-app detail screen.
+    """
+    source: str  # "tmdb" | "igdb" | "shikimori"
+    media_type: str  # "movie" | "game" | "anime"
+    # ISO date (YYYY-MM-DD) for tmdb/igdb rows; ISO datetime (with
+    # timezone offset, as Shikimori's own next_episode_at already is)
+    # for shikimori rows, since those carry a real air *time*, not just
+    # a day. The client parses either — DateTime.parse handles both
+    # shapes fine — and only ever displays the date portion on the grid.
+    release_date: str
+    title: LocalizedText
+    poster_url: Optional[str] = None
+    # Shikimori rows only — which episode number airs on release_date.
+    year: Optional[int] = None
+    episode: Optional[int] = None
+    item: Optional[MediaItem] = None
+    external_url: Optional[str] = None
+    # Genre labels (English, same vocabulary MediaItem.genres uses) so the
+    # calendar can be filtered by genre the way the "can't decide?" flow
+    # does. For tmdb/igdb rows this is a copy of item.genres; shikimori rows
+    # have no `item` at all, so this is the only place their genres live
+    # (see ShikimoriAdapter.calendar). Empty when the source had none.
+    genres: List[str] = []
+
+
+class WatchingReleaseItem(ImageFieldsModel):
+    """One row on the Home screen's "new episodes" strip — GET
+    /calendar/watching. Always about a title already on this user's own
+    watching/watch-later shelf (models.WatchStatus), never a discovery
+    suggestion — that's ReleaseCalendarItem's job.
+
+    `is_out` is the whole point of this shape: true means the
+    episode/release this row describes has already aired/shipped as of
+    `release_date` and this user hasn't logged it yet (see
+    app/routers/calendar.py::watching_releases for exactly how that's
+    decided per media_type) — "there's something new to watch right
+    now". False means it's still upcoming — "coming up", a countdown,
+    not a call to action. Both states share one shape/one shelf rather
+    than being two separate lists, since the client draws them as the
+    same card either way, just with a different label
+    ("new episode!" vs "in 3 days").
+    """
+    media_id: str
+    source: str  # "tmdb" | "igdb" — see app/routers/calendar.py::watching_releases for why never "shikimori" here
+    media_type: str  # "series" | "anime" | "game"
+    title: LocalizedText
+    poster_url: Optional[str] = None
+    release_date: str  # ISO date, or ISO datetime for a tmdb episode air date
+    is_out: bool
+    # Series/anime only — which episode this row is about. Null for games.
+    season: Optional[int] = None
+    episode: Optional[int] = None
+    episode_name: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
 # Teamira picks — hand-curated shelves (see app/models.py::TeamiraCollection
 # for the "why a third concept" reasoning, and app/curated_franchises.py for
 # the other, code-defined half of this feature — franchise shelves aren't
@@ -462,7 +557,7 @@ class EpisodeRatingRequest(BaseModel):
     season: int
     episode: int
     rating: Optional[int] = Field(default=None, ge=1, le=10)
-    note: Optional[str] = None
+    note: Optional[str] = Field(default=None, max_length=2000)
 
 
 class CompleteSeriesRequest(BaseModel):
@@ -480,23 +575,122 @@ class CompleteSeriesRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 class RegisterRequest(BaseModel):
-    username: str
-    password: str = Field(min_length=1, max_length=72)
+    # Length, character set, separator rules and the reserved-name list
+    # all live in app/usernames.py::validate_username, which
+    # routers/auth.py calls — one place decides what a username may be,
+    # rather than this schema and that router each enforcing half of it
+    # and disagreeing about case (which is exactly how "Anna" and "anna"
+    # both came to exist). The bounds here are the loose outer envelope
+    # so a hostile 10 MB string is rejected before it reaches any of it.
+    username: str = Field(min_length=1, max_length=64)
+    # Client already enforces >=6 (see register_screen.dart) — matched
+    # here too since this schema is what actually decides what's
+    # allowed, not the app screen in front of it; someone hitting the
+    # API directly shouldn't get a weaker bar than the app gives.
+    password: str = Field(min_length=6, max_length=72)
     # Someone else's standing invite code (see routers/friends.py) —
     # optional, matched case-insensitively at registration. An unknown or
     # empty code is silently ignored rather than rejected: a typo'd code
     # shouldn't block someone from making an account.
-    referral_code: Optional[str] = None
+    referral_code: Optional[str] = Field(default=None, max_length=32)
+
+    # Optional, sent by the mobile client so "where you're signed in"
+    # can say "iPhone 14" instead of an opaque id. Never trusted for
+    # anything but display — see models.RefreshSession.device_label.
+    device_label: Optional[str] = Field(default=None, max_length=60)
 
 
 class LoginRequest(BaseModel):
-    username: str
+    username: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=72)
+    device_label: Optional[str] = Field(default=None, max_length=60)
 
 
 class TokenResponse(BaseModel):
+    """The pair every sign-in hands back.
+
+    `refresh_token` is Optional only so this model can also describe a
+    response from a deployment with refresh disabled; in practice every
+    path in routers/auth.py fills it. `expires_in` is seconds and is
+    there so the client can refresh *before* a request fails rather than
+    discovering expiry by getting a 401 — see mobile's api_client.dart,
+    which does both (proactive refresh, plus a 401 retry as the backstop).
+    """
     access_token: str
     token_type: str = "bearer"
+    refresh_token: Optional[str] = None
+    expires_in: Optional[int] = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=10, max_length=256)
+
+
+class SessionOut(BaseModel):
+    """One row of "where you're signed in"."""
+    id: str
+    device_label: Optional[str] = None
+    created_at: Optional[datetime] = None
+    last_used_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    revoked: bool = False
+    revoked_reason: Optional[str] = None
+
+
+class SimpleMessageOut(BaseModel):
+    message: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=72)
+    new_password: str = Field(min_length=6, max_length=72)
+    device_label: Optional[str] = Field(default=None, max_length=60)
+
+
+class PasswordForgotRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=256)
+    new_password: str = Field(min_length=6, max_length=72)
+
+
+class EmailSetRequest(BaseModel):
+    email: EmailStr
+    # The account password, required because an email address can be
+    # traded for the account itself through password reset — see
+    # routers/auth.py::set_email.
+    password: str = Field(min_length=1, max_length=72)
+
+
+class EmailVerifyRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=256)
+
+
+class EulaAcceptRequest(BaseModel):
+    version: Optional[str] = Field(default=None, max_length=32)
+
+
+class AccountDeleteRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=72)
+    # Free-text, optional, never shown to the person again — a single
+    # line of "why" is the cheapest product feedback there is, and asking
+    # for it at the moment someone leaves is the only time they'll answer.
+    reason: Optional[str] = Field(default=None, max_length=500)
+
+
+class AccountDeletionOut(BaseModel):
+    deleted_at: datetime
+    purge_after: datetime
+    restore_days: int
+    message: str
+
+
+class AccountRestoreRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=72)
+    device_label: Optional[str] = Field(default=None, max_length=60)
 
 
 class UserOut(BaseModel):
@@ -507,9 +701,82 @@ class UserOut(BaseModel):
     avatar_preset: Optional[str] = None
     avatar_url: Optional[str] = None
     status_text: Optional[str] = None
+    # Recovery state, so the app knows whether to keep nudging for an
+    # address (see the mobile Account screen). The address itself is
+    # returned so someone can check *which* one they used; it's their
+    # own, so there's nothing to withhold.
+    email: Optional[str] = None
+    email_verified: bool = False
+    # False when the account has never accepted the agreement, or
+    # accepted a version older than the current one — the client shows
+    # the EULA sheet on next launch. See routers/auth.py::accept_eula.
+    eula_current: bool = True
+    is_admin: bool = False
 
     class Config:
         from_attributes = True
+
+
+# --- Moderation ------------------------------------------------------------
+
+class BlockRequest(BaseModel):
+    user_id: str = Field(min_length=1, max_length=64)
+
+
+class BlockedUserOut(BaseModel):
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_preset: Optional[str] = None
+    avatar_url: Optional[str] = None
+    blocked_at: Optional[datetime] = None
+
+
+class ReportCreateRequest(BaseModel):
+    # "user" | "diary_entry" | "activity_event" | "list" | "review"
+    target_type: str
+    # The account the complaint is about. Always required, even when the
+    # target is a piece of content: a moderator acting on a report needs
+    # to know whose it is, and resolving content -> author server-side
+    # for every target type would mean five separate lookups where the
+    # client already knows the answer.
+    reported_user_id: str = Field(min_length=1, max_length=64)
+    # NULL when target_type is "user".
+    target_id: Optional[str] = Field(default=None, max_length=64)
+    reason: str
+    details: Optional[str] = Field(default=None, max_length=1000)
+
+
+class ReportOut(BaseModel):
+    id: str
+    target_type: str
+    target_id: Optional[str] = None
+    reason: str
+    details: Optional[str] = None
+    status: str
+    created_at: Optional[datetime] = None
+    due_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    action_taken: Optional[str] = None
+    reported_username: Optional[str] = None
+
+
+class ReportAdminOut(ReportOut):
+    reporter_username: Optional[str] = None
+    reported_user_id: Optional[str] = None
+    target_snapshot: Optional[str] = None
+    # True once due_at has passed with the report still pending — the
+    # queue's own answer to Apple's 24-hour expectation.
+    overdue: bool = False
+
+
+class ReportResolveRequest(BaseModel):
+    # "none" | "content_removed" | "user_suspended" | "user_banned"
+    action_taken: str = "none"
+    note: Optional[str] = Field(default=None, max_length=1000)
+    # Only read when action_taken is a suspension. None means indefinite,
+    # which is what "banned" is.
+    suspend_days: Optional[int] = Field(default=None, ge=1, le=3650)
 
 
 # ---------------------------------------------------------------------------
@@ -633,7 +900,7 @@ class AddListItemRequest(BaseModel):
 class DiaryEntryCreate(BaseModel):
     item: MediaItem
     rating: Optional[int] = Field(default=None, ge=1, le=10)
-    note: Optional[str] = None
+    note: Optional[str] = Field(default=None, max_length=2000)
     mood_tags: Optional[List[str]] = None  # free-form vibe tags, e.g. "cozy night in", "background noise"
     # Up to 3 cast members picked as this evening's standouts — see
     # models.DiaryEntry.favorite_cast's own docstring. Optional/omittable
@@ -681,13 +948,132 @@ class DiaryEntryUpdate(BaseModel):
     a rating or a note).
     """
     rating: Optional[int] = Field(default=None, ge=1, le=10)
-    note: Optional[str] = None
+    note: Optional[str] = Field(default=None, max_length=2000)
     mood_tags: Optional[List[str]] = None
     watched_at: Optional[str] = None  # ISO date/datetime
     # Up to 3 cast members picked as this evening's standouts — see
     # models.DiaryEntry.favorite_cast's own docstring. Editable after the
     # fact from the "edit this evening" sheet, same as rating/note/mood.
     favorite_cast: Optional[List[CastMember]] = None
+
+
+
+
+# ---------------------------------------------------------------------------
+# Sincerity points — see app/sincerity.py's module docstring
+# ---------------------------------------------------------------------------
+
+class SincerityTransactionOut(BaseModel):
+    id: str
+    delta: int
+    reason: str
+    note: Optional[str] = None
+    created_at: datetime
+
+
+class SincerityStaleItemOut(BaseModel):
+    """One watch_later item old enough to owe (or already be exempt
+    from) stale_debt — what the Sincerity screen's "settle" section
+    renders a button from. `settle_cost` rides along rather than the
+    client hardcoding sincerity.DEBT_SETTLEMENT_COST, same reasoning as
+    SharedPlannedOut.limit not hardcoding CO_VIEW_FREE_LIMIT.
+    """
+    entry_id: str
+    title: str
+    poster_url: Optional[str] = None
+    age_days: int
+    debt_exempt: bool
+    settle_cost: int
+
+
+class SincerityBalanceOut(BaseModel):
+    balance: int
+    visible_to_friends: bool
+    # The merged level ring (see app/sincerity.py's module docstring for
+    # why this screen now carries both the spendable balance above and
+    # the lifetime level below): level and its progress are computed
+    # from lifetime_earned, which only ever goes up, so spending
+    # `balance` down can never knock the level itself back down.
+    level: int
+    lifetime_earned: int
+    points_into_level: int
+    points_for_next_level: int
+    # Most recent first, capped at a page size the router controls — the
+    # Sincerity screen shows this as a scroll-to-load list, not a fixed
+    # "last 10" preview.
+    history: List[SincerityTransactionOut]
+    has_more: bool
+    # Every still-`watch_later` item past STALE_DEBT_THRESHOLD, exempt or
+    # not — see routers/sincerity.py::get_my_sincerity. Small in
+    # practice (this is the same shelf apply_stale_planned_decay_for_user
+    # already walks), so it rides along on every GET rather than needing
+    # its own paginated endpoint.
+    stale_items: List[SincerityStaleItemOut] = Field(default_factory=list)
+
+
+class SincerityPrivacyUpdate(BaseModel):
+    visible_to_friends: bool
+
+
+# ---------------------------------------------------------------------------
+# Recommendation stakes — see app/sincerity.py's module docstring and
+# app/routers/recommendations.py
+# ---------------------------------------------------------------------------
+
+class RecommendationCreate(BaseModel):
+    friend_id: str
+    source: str
+    media_id: str
+    title: str
+    predicted_rating: int = Field(ge=1, le=10)
+    # Clamped server-side to [sincerity.MIN_RECOMMENDATION_STAKE,
+    # sincerity.MAX_RECOMMENDATION_STAKE] rather than here — same
+    # "caller validates" convention the underlying sincerity.py
+    # functions already use, so the two live bounds have one home.
+    stake: int = Field(ge=1)
+
+
+class RecommendationOut(BaseModel):
+    id: str
+    staker_id: str
+    staker_username: str
+    recipient_id: str
+    recipient_username: str
+    source: str
+    media_id: str
+    title: str
+    predicted_rating: int
+    staked_amount: int
+    status: str
+    actual_rating: Optional[int] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+    # True when the person asking is the one who staked it — lets the
+    # client render "ты поставил(а) на Борис — 8" vs "Борис поставил(а)
+    # на тебя — 8" from one shape instead of needing separate endpoints
+    # for outgoing vs incoming.
+    is_mine: bool
+
+
+class RecommendationsOut(BaseModel):
+    outgoing: List[RecommendationOut] = Field(default_factory=list)
+    incoming: List[RecommendationOut] = Field(default_factory=list)
+
+
+class WatchlistDropIn(BaseModel):
+    source: str
+    media_id: str
+    # Required for a mid-watch drop (status was `watching`) — see
+    # earn_honest_drop, which awards nothing without one. Optional for a
+    # watch_later item that was never actually started — that's
+    # earn_closed_gestalt's "not for me" case instead, which doesn't
+    # need a reason.
+    reason: Optional[str] = None
+
+
+class WatchlistDropOut(BaseModel):
+    status: str
+    sincerity_awarded: Optional[List[SincerityTransactionOut]] = None
 
 
 class DiaryEntryOut(ImageFieldsModel):
@@ -716,6 +1102,13 @@ class DiaryEntryOut(ImageFieldsModel):
     is_rewatch: bool
     watched_at: str
     created_at: str
+    # Only ever populated by POST /diary (routers/diary.py::log_entry)
+    # for the transaction(s) sincerity.py just awarded on this exact
+    # log — see log_watched's `_sincerity_awards` docstring. Always
+    # None from every other place a DiaryEntryOut gets built (GET
+    # /diary, co-view, imports, ...): nothing else has a "just
+    # happened" moment worth a toast for.
+    sincerity_awarded: Optional[List[SincerityTransactionOut]] = None
 
     class Config:
         from_attributes = True
@@ -726,7 +1119,32 @@ class DiaryEntryOut(ImageFieldsModel):
 # ---------------------------------------------------------------------------
 
 class AiAskRequest(BaseModel):
-    query: str
+    query: str = Field(min_length=1, max_length=500)
+    # "Сколько у тебя времени сегодня" — the evening-shaped half of Ask
+    # tanè (see routers/ai.py::_time_budget). Set by the time chips above
+    # the text field; None means the person didn't say, in which case the
+    # free text is still scanned for a spoken-out-loud budget ("у меня
+    # часа полтора") before giving up on the idea entirely.
+    #
+    # Capped at 12 hours rather than unbounded: past that it stops being a
+    # constraint and starts being a way to ask the ranker to sort the
+    # whole catalog by runtime.
+    minutes_available: Optional[int] = Field(default=None, ge=10, le=720)
+
+
+class TimeBudgetOut(BaseModel):
+    """What the ranker actually used as the evening's time budget, echoed
+    back so the results screen can say "под 40 минут" honestly — including
+    when the number came from the free text rather than a chip, which is
+    otherwise invisible to the person who typed it."""
+    minutes: int
+    # "chip" when it came from minutes_available, "text" when it was
+    # parsed out of the query itself.
+    source: str
+    # What that budget was read as wanting — "episode" under ~70 minutes,
+    # "movie" above it, "either" in the overlap. Drives the caption, not
+    # the filtering (which is done on real runtimes).
+    shape: str
 
 
 class AiMatchOut(BaseModel):
@@ -738,6 +1156,13 @@ class AiMatchOut(BaseModel):
 class AiAskResponse(BaseModel):
     results: List[AiMatchOut] = Field(default_factory=list)
     is_mock: bool = True
+    # Non-null whenever a time budget was in play — see TimeBudgetOut.
+    time_budget: Optional[TimeBudgetOut] = None
+    # True when a budget was asked for but the shortlist had to include
+    # titles that overrun it anyway (nothing short enough scored well
+    # enough). The client says so rather than quietly showing a
+    # three-hour film to someone who said they had forty minutes.
+    time_budget_relaxed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -745,6 +1170,11 @@ class AiAskResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 class ActivityItem(ImageFieldsModel):
+    # The underlying ActivityEvent id. Empty string for the (now
+    # theoretical) case of an item built without a backing row; used
+    # purely as an opaque paging cursor for GET /activity's `before` —
+    # never shown in the UI.
+    id: str = ""
     who: str
     text: str
     media_type: Optional[str] = None
@@ -765,6 +1195,16 @@ class ActivityItem(ImageFieldsModel):
     rating: Optional[int] = None
 
 
+class ActivityFeedOut(BaseModel):
+    """GET /activity — cursor-paginated the same way GET /sincerity/me
+    is (see routers/sincerity.py). Own events and friends' events are
+    merged into one chronological feed server-side (rather than two
+    fixed-size buckets stapled together), so `before` pages back through
+    real "show more" history instead of hitting a hard wall."""
+    items: List[ActivityItem]
+    has_more: bool
+
+
 # ---------------------------------------------------------------------------
 # Friends — see app/routers/friends.py for the whole flow. A `FriendRequest`
 # row with status=accepted *is* the friendship (no separate friendship
@@ -772,7 +1212,43 @@ class ActivityItem(ImageFieldsModel):
 # uses for co-viewing pairs.
 # ---------------------------------------------------------------------------
 
+class SharedTasteTitleOut(BaseModel):
+    """One title behind a TasteMatchOut's shared_titles — a light,
+    already-snapshotted reference (same title_ru/title_en/poster_url
+    shape as WatchlistEntry itself), never a fresh catalog fetch."""
+    media_id: str
+    source: str
+    media_type: str
+    title_ru: Optional[str] = None
+    title_en: Optional[str] = None
+    poster_url: Optional[str] = None
+
+
+class TasteMatchOut(BaseModel):
+    """The one similarity scale this app shows anywhere two people's
+    taste is compared — see app/similarity.py for how it's built.
+    Deliberately more than a bare percentage: `headline` is the single
+    best plain-language reason for the match (a shared title you're
+    both watching right now beats a shared genre), `shared_titles`/
+    `shared_genres` are the receipts behind it, and `confidence` lets
+    the client soften its own presentation for a very new account
+    rather than presenting a five-favorite guess with the same
+    certainty as a match built from years of diary history.
+    """
+    overall: int  # 0-100
+    headline: str
+    basis: str
+    confidence: str  # "new" | "some" | "solid"
+    shared_titles: List[SharedTasteTitleOut] = Field(default_factory=list)
+    shared_genres: List[str] = Field(default_factory=list)
+
+
 class FriendOut(BaseModel):
+    # The underlying (accepted) FriendRequest id — an opaque paging
+    # cursor for GET /friends's `before`, never shown in the UI. Not
+    # `user_id` because that's the *other* account's id, not something
+    # that orders the friendship itself.
+    request_id: str = ""
     user_id: str
     username: str
     level: int
@@ -788,6 +1264,10 @@ class FriendOut(BaseModel):
     # for a friend with nothing loggable yet, or who's hidden all three
     # shelves.
     recent_activity: Optional[ActivityItem] = None
+    # None when there isn't enough shelf data on either side yet to say
+    # anything (see similarity.compare) — the client shows nothing
+    # rather than a fabricated "0% match" in that case.
+    taste_match: Optional[TasteMatchOut] = None
 
 
 class FriendRequestOut(BaseModel):
@@ -801,7 +1281,19 @@ class FriendRequestOut(BaseModel):
 
 
 class FriendsOut(BaseModel):
+    # Cursor-paginated the same way GET /sincerity/me is (see
+    # routers/sincerity.py) — newest-accepted-first, `has_more` tells the
+    # client whether another page exists to ask for with `before`.
+    # `total_friends` is a plain count, independent of how much of the
+    # list has actually been paged in, so a badge/count display never
+    # needs the whole list loaded just to be accurate.
     friends: List[FriendOut] = Field(default_factory=list)
+    has_more: bool = False
+    total_friends: int = 0
+    # Pending requests aren't paginated — bounded by nature (nobody
+    # realistically has hundreds of open requests either way), unlike
+    # the accepted list above which only ever grows over the life of an
+    # account.
     incoming_requests: List[FriendRequestOut] = Field(default_factory=list)
     outgoing_requests: List[FriendRequestOut] = Field(default_factory=list)
 
@@ -823,13 +1315,13 @@ class FriendRequestCreate(BaseModel):
 
 # GET /friends/invite — a standing, reusable code plus this account's own
 # invite tally, so the profile's invite card can show "3 friends joined —
-# +90 xp" without a second round trip.
+# +9 sincerity points" without a second round trip.
 class InviteOut(BaseModel):
     code: str
     share_text: str
     invited_count: int
-    xp_bonus: int
-    xp_per_friend: int
+    sincerity_bonus: int
+    sincerity_per_friend: int
 
 
 class InviteClaimRequest(BaseModel):
@@ -865,6 +1357,9 @@ class ProfileMeOut(BaseModel):
     privacy_watching: str = "everyone"
     privacy_planned: str = "everyone"
     privacy_favorites: str = "everyone"
+    # "people can find me by my username" — see models.User.discoverable
+    # and routers/friends.py::search_users.
+    discoverable: bool = True
     # Up to 5 favorites shown as a swipeable stories deck on the Profile
     # header banner, in the order the person arranged them — see
     # models.User.top_favorite_picks. Empty until picked on the
@@ -886,6 +1381,7 @@ class ProfileUpdateIn(BaseModel):
     avatar_preset: Optional[str] = None
     # Any of these left unset leaves that shelf's setting untouched —
     # same "unset vs explicit" rule as display_name/status_text above.
+    discoverable: Optional[bool] = None
     privacy_watched: Optional[str] = None
     privacy_watching: Optional[str] = None
     privacy_planned: Optional[str] = None
@@ -928,7 +1424,20 @@ class CollectionsOut(BaseModel):
     watch_later/watched are the two the app has always produced from
     /feed/react; watching is the new mid-series shelf (see
     models.WatchStatus.watching), populated once an episode has been
-    logged but the series hasn't been explicitly completed yet."""
+    logged but the series hasn't been explicitly completed yet.
+
+    This body is exactly the three keys it's always had — tests pin
+    that exact shape (see tests/test_profile.py's
+    test_collections_do_not_leak_between_accounts). Each shelf is
+    cursor-paginated independently the same way GET /sincerity/me is
+    (see routers/sincerity.py), but the has-more flag for each rides in
+    a response header (X-Watch-Later-Has-More etc — see
+    routers/profile.py::get_collections) instead of a new body field,
+    for the same reason GET /diary's own docstring gives.
+    `GET /profile/collections?full=true` (the default for every current
+    caller, all of which need the complete shelves to compute
+    membership/status locally rather than browse them) bypasses paging
+    and returns everything, same as GET /diary's own `full` flag."""
     watch_later: List[WatchlistEntryOut]
     watching: List[WatchlistEntryOut] = Field(default_factory=list)
     watched: List[WatchlistEntryOut]
@@ -1034,6 +1543,11 @@ class FriendProfileOut(BaseModel):
     coview_status: str = "none"
     coview_invite_id: Optional[str] = None
 
+    # Same taste scale as FriendOut.taste_match/SuggestedFriendOut.taste_match
+    # — shown here too so opening someone's profile (friend or stranger)
+    # gets the full breakdown, not just the compact card version.
+    taste_match: Optional[TasteMatchOut] = None
+
 
 class SuggestedFriendOut(BaseModel):
     """One row in the friends screen's \"people you may know\" section —
@@ -1050,6 +1564,10 @@ class SuggestedFriendOut(BaseModel):
     avatar_url: Optional[str] = None
     status_text: Optional[str] = None
     recent_activity: List[ActivityItem] = Field(default_factory=list)
+    # Same taste scale as FriendOut.taste_match — this is what lets
+    # "people you may know" be ranked (and shown) by actual taste
+    # overlap instead of just "who signed up most recently."
+    taste_match: Optional[TasteMatchOut] = None
 
 
 class GenreCount(BaseModel):
@@ -1082,8 +1600,16 @@ class AchievementsOut(BaseModel):
     achievements: List[AchievementOut]
     # Which of the unlocked achievement ids this account has chosen to
     # pin to their profile showcase (see User.pinned_achievement_ids) —
-    # at most 3, in the order they were pinned.
+    # at most max_pinned, in the order they were pinned.
     pinned_ids: List[str] = []
+    # 3 + however many extra slots this account has bought (see
+    # User.bonus_pin_slots, app/sincerity.py::spend_pin_slot) — the
+    # client reads this instead of hardcoding 3, so a bought slot shows
+    # up without a client update. bonus_pin_slots rides along too so the
+    # client can tell "at the free cap" from "at a paid cap" and offer
+    # the purchase (or not) accordingly.
+    max_pinned: int = 3
+    bonus_pin_slots: int = 0
 
 
 class PinAchievementsIn(BaseModel):
@@ -1091,40 +1617,71 @@ class PinAchievementsIn(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Leveling — like Achievements above, this is computed fresh from the
-# person's own logged rows every time (see
-# app/routers/profile.py::get_level), never a stored counter. `xp` is the
-# lifetime total; `xp_into_level`/`xp_for_next_level` describe progress
-# toward the *next* level only, which is what the profile ring actually
-# draws. `progress` is that same progress pre-divided (0..1) so the client
-# doesn't need to replicate the level curve just to draw the arc.
+# Leveling — level and its ring are computed straight from
+# User.lifetime_sincerity_earned (see app/routers/profile.py::get_level
+# and app/sincerity.py::compute_level; that column only ever goes up,
+# even when the spendable sincerity balance is spent down). `points` is
+# that lifetime total; `points_into_level`/`points_for_next_level`
+# describe progress toward the *next* level only, which is what the
+# Sincerity screen's ring actually draws. `progress` is that same
+# progress pre-divided (0..1) so the client doesn't need to replicate
+# the level curve just to draw the arc.
 # ---------------------------------------------------------------------------
 
 class LevelOut(BaseModel):
+    # Level and its ring are computed straight from
+    # User.lifetime_sincerity_earned (see app/sincerity.py::compute_level
+    # and that column's own docstring for why level uses the lifetime
+    # total rather than the spendable sincerity_balance). This used to be
+    # a second, parallel point system with its own per-source XP
+    # breakdown; it no longer is — see app/sincerity.py's module
+    # docstring for that merge. The counts below are pure informational
+    # stats for the level-detail screen, not a weighted contribution to
+    # `points`: for the honest, itemized "where did my points actually
+    # come from", see GET /sincerity/me's transaction history instead.
     level: int
-    xp: int
-    xp_into_level: int
-    xp_for_next_level: int
+    points: int
+    points_into_level: int
+    points_for_next_level: int
     progress: float
-    # Breakdown of total_xp by source — same five wells levelXpNote already
-    # describes on the client, exposed here so the level detail screen can
-    # show its numbers instead of just naming the categories.
     watched_count: int = 0
-    xp_from_watched: int = 0
     reviews_count: int = 0
-    xp_from_reviews: int = 0
     rewatch_count: int = 0
-    xp_from_rewatches: int = 0
     genres_count: int = 0
-    xp_from_genres: int = 0
     longest_streak_ever: int = 0
-    xp_from_streak: int = 0
-    # A sixth well: friends who joined via this account's own invite code
-    # (see routers/friends.py) — real people onboarded, not something
-    # farmable by re-watching or re-tagging existing entries like the
-    # other five.
+    # Friends who joined via this account's own invite code (see
+    # routers/friends.py) — real people onboarded, not something
+    # farmable by re-watching or re-tagging existing entries.
     invites_count: int = 0
-    xp_from_invites: int = 0
+    # Only rewards the person actually pressed the button to collect
+    # (see app/challenges.py) — which is why the level detail screen
+    # labels it "собранные челленджи" rather than "выполненные".
+    challenges_claimed: int = 0
+    # Evenings watched *together* (a DiaryEntry the co-viewing screen or
+    # the log form's "watched with" toggle marked as such) and share
+    # cards sent out of the app (see routers/card_shares.py — once per
+    # distinct card, capped per day).
+    watched_together_count: int = 0
+    card_shares_count: int = 0
+
+
+class CardShareIn(BaseModel):
+    # The client's own stable id for the card being shared — see
+    # models.CardShare. Bounded so it can't be used to stuff arbitrary
+    # blobs into a table that exists to hold short ids.
+    card_key: str = Field(min_length=1, max_length=128)
+
+
+class CardShareOut(BaseModel):
+    # False when this card already paid out once, or today's cap was
+    # already used up — either way the share itself is fine, it just
+    # earned nothing. `reason` says which, for the client's own copy.
+    counted: bool
+    points_awarded: int = 0
+    reason: Optional[str] = None  # "already_counted" | "daily_limit" | None
+    total_points: int
+    level: int
+    leveled_up: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1150,7 +1707,7 @@ class WrappedBreakdown(BaseModel):
 # ---------------------------------------------------------------------------
 
 class TogetherCreateRequest(BaseModel):
-    type_filter: str = "all"  # "all" | "movie" | "series" | "game"
+    type_filter: Literal["all", "movie", "series", "game"] = "all"
     genres: List[str] = []  # TMDB-style genre names, e.g. ["Comedy", "Horror"]; [] = no narrowing
     # This device's own Settings > co-viewing choice — whether a match
     # should also land on *this* account's personal "watch together" list.
@@ -1251,6 +1808,19 @@ class PartnerInvitesOut(BaseModel):
     outgoing: List[PartnerInviteOut] = Field(default_factory=list)
 
 
+class CircleCompatibilityOut(BaseModel):
+    """This account's taste match (see app/similarity.py) against one
+    other member of its co-viewing circle — a couple gets exactly one
+    of these, a company one per other seat. Powers the \"мы\" tab's
+    compatibility section (see routers/partner.py::get_compatibility)."""
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_preset: Optional[str] = None
+    avatar_url: Optional[str] = None
+    taste_match: Optional[TasteMatchOut] = None
+
+
 class SendPartnerInviteRequest(BaseModel):
     user_id: str
 
@@ -1299,6 +1869,11 @@ class CoViewEntryOut(ImageFieldsModel):
     scheduled_date: Optional[datetime] = None
     scheduled_hour: Optional[int] = None
     scheduled_minute: Optional[int] = None
+    # Set only on the response to "mark watched": how many of the partner's
+    # sealed notes that call just opened for the caller. Non-zero is the
+    # client's cue to play the reveal (see routers/pair_album.py). Always 0
+    # everywhere else this shape is returned.
+    album_reveal_count: int = 0
 
     class Config:
         from_attributes = True
@@ -1327,6 +1902,49 @@ class PlanCoViewingRequest(BaseModel):
     scheduled_date: Optional[datetime] = None
     scheduled_hour: Optional[int] = None
     scheduled_minute: Optional[int] = None
+
+
+class AcceptSuggestionRequest(BaseModel):
+    """Optional body for POST /partner/suggestions/{id}/accept. Approving
+    a suggestion is planning an evening around it — see
+    routers/partner.py::accept_suggestion — so this carries the same
+    "when" the plan-an-evening ritual already collects for any other
+    title. All optional (and the whole body itself is optional) so an
+    older client that just wants the pre-existing bare-add behavior
+    doesn't need to change anything."""
+    scheduled_date: Optional[datetime] = None
+    scheduled_hour: Optional[int] = None
+    scheduled_minute: Optional[int] = None
+
+
+class MarkCoViewWatchedRequest(BaseModel):
+    """Optional body for POST /partner/co-viewing/{entry_id}/watched — the
+    client's own local wall-clock instant at the moment "watched" was
+    tapped, same convention DiaryEntryCreate.watched_at already uses (a
+    bare ISO date or full datetime, defaulting to the server's own UTC
+    now when omitted — see routers/diary.py::_parse_watched_at). Without
+    this, the co-viewing "mark watched" button was the one write path
+    that stamped a real UTC instant into DiaryEntry.watched_at while
+    every other path stamps the caller's own local time — and the
+    client always reads that column back as if it were local (see
+    mobile/lib/models/diary_entry.dart), so co-viewed evenings could
+    silently land under the wrong calendar day near a midnight
+    boundary."""
+    watched_at: Optional[str] = None
+    # True when the caller already wrote their own DiaryEntry for this
+    # evening some other way (the planned co-view card's "смотрю" button
+    # now sends the person through the normal per-title logging ritual —
+    # see WatchingChoiceScreen — instead of this endpoint's own bare,
+    # no-rating write). When set, this endpoint only flips the
+    # CoViewEntry's status/watched_at and skips log_watched entirely, for
+    # *every* member including the caller — writing a second, duplicate
+    # diary row for whoever just rated it themselves would be a bug, and
+    # the other member(s) get their own row the same way anyone else
+    # ends up in a shared evening: by logging it themselves. Defaults to
+    # False so every existing caller (the instant "mark watched" tick,
+    # still used wherever the full ritual isn't) keeps writing both
+    # diaries exactly as before.
+    already_logged: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -1646,4 +2264,499 @@ class WrappedPeriodsOut(BaseModel):
     years: List[int] = Field(default_factory=list)
     months: List[WrappedMonthPeriod] = Field(default_factory=list)
     has_any: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Premium (see routers/premium.py and models.UserPremiumState).
+# ---------------------------------------------------------------------------
+
+class PremiumStatusOut(BaseModel):
+    is_premium: bool
+    plan_kind: Optional[str] = None      # "individual" | "couple" | "family"
+    # How many people this account's own purchase covers, itself
+    # included (1 individual, 2 couple, 4 family) — None when there is
+    # no purchase. Lets the client say "covers up to N of you" without
+    # hardcoding the seat counts (routers/premium.py::PLAN_SEATS).
+    plan_seats: Optional[int] = None
+    plan_duration: Optional[str] = None  # "month" | "threeMonths" | "sixMonths" | "year"
+    ai_asks_used: int = 0
+    ai_asks_remaining: int = 0
+    # Mirrored here rather than hardcoded twice — PremiumService in the
+    # mobile app reads this instead of keeping its own copy of the free
+    # tier's monthly cap, so the two can't drift out of sync.
+    free_ai_asks_per_month: int = 3
+    # Referral-granted bonus days, see models.UserPremiumState.
+    # premium_expires_at and routers/referrals.py. None when no referral
+    # bonus has ever been granted to this account.
+    premium_expires_at: Optional[datetime] = None
+    # Whether this account can still call POST /premium/start-trial —
+    # false once either a purchase or a trial has ever been recorded
+    # (see routers/premium.py::_status_out). The paywall reads this to
+    # decide whether its main call-to-action is "start your free trial"
+    # or a straight purchase.
+    trial_available: bool = False
+    # Mirrored the same way free_ai_asks_per_month is, so the client
+    # never hardcodes a number that could drift from what the server
+    # actually grants.
+    trial_days: int = 3
+    # Where this account is in its free period: "active" (a trial that
+    # hasn't run out — includes any referral days stacked on it),
+    # "expired" (trialed, never bought, no premium left) or None (never
+    # trialed, or already a paying customer). `trial_ends_at` is the
+    # moment premium actually stops (premium_expires_at) while active.
+    # `trial_logged_count` is what the person did in the app since the
+    # trial began, for the "here's what you built" line on the expiry
+    # paywall; 0 whenever trial_phase is None. See app/trial.py.
+    trial_phase: Optional[str] = None
+    trial_ends_at: Optional[datetime] = None
+    trial_logged_count: int = 0
+    # Only set on the response to a POST /premium/purchase call that
+    # actually redeemed a promo code — a one-shot receipt for the
+    # "промокод применён: -15%" toast, not a standing property of the
+    # account, so it's always None on GET /premium/status.
+    applied_discount_percent: Optional[int] = None
+    # Where is_premium comes from right now: "own" (this account's own
+    # purchase, trial or referral days), "partner" (covered by the other
+    # person's couple or family plan — see routers/premium.py::_seat_covers), or
+    # None when not premium. Lets the client tell "you pay" from "you're
+    # covered" (no purchase CTA for the second, no double payment)
+    # without guessing from plan_kind, which stays None for a covered
+    # account: it has no plan of its own.
+    premium_source: Optional[str] = None
+    # Which kind of discount `applied_discount_percent` was: "promo" (a
+    # referral code) or "winback" (the personal comeback offer). Same
+    # one-shot receipt semantics as the percent itself.
+    applied_discount_kind: Optional[str] = None
+    # A purchased plan's life, see app/subscription.py: "active",
+    # "cancelling" (cancelled, still running until cancel_effective_at),
+    # "paused" (until paused_until), "lapsed" (cancelled and run out —
+    # the win-back moment), or None for an account that never bought.
+    subscription_phase: Optional[str] = None
+    # End of the paid period we're in (the next renewal) while the plan
+    # is "active"; None in every other phase.
+    paid_until: Optional[datetime] = None
+    cancel_effective_at: Optional[datetime] = None
+    paused_until: Optional[datetime] = None
+    # Whether POST /premium/pause would be accepted right now, and how
+    # long a pause lasts — echoed so the client never hardcodes either.
+    pause_available: bool = False
+    pause_days: int = 30
+    # The personal comeback discount open right now, if any: percent off
+    # and the moment it stops. None outside that window and once used.
+    winback_percent: Optional[int] = None
+    winback_expires_at: Optional[datetime] = None
+
+
+class PremiumPurchaseIn(BaseModel):
+    plan_kind: str      # "individual" | "couple" | "family"
+    plan_duration: str  # "month" | "threeMonths" | "sixMonths" | "year"
+    # A referred person's personal code (see models.PromoCode) — optional,
+    # matched case-insensitively. Invalid/foreign/already-used codes
+    # raise 400 rather than being silently ignored, so the purchase
+    # screen can tell the person their code didn't work instead of
+    # quietly charging them full price.
+    promo_code: Optional[str] = Field(default=None, max_length=16)
+
+
+class PremiumAiAskOut(BaseModel):
+    allowed: bool
+    ai_asks_used: int
+    ai_asks_remaining: int
+
+
+# ---------------------------------------------------------------------------
+# Referral program (see models.Referral / ReferralReward / PromoCode and
+# routers/referrals.py). Separate from InviteOut/InviteClaimRequest above,
+# which are the plain "who invited whom" graph — this is the reward layer
+# on top of it.
+# ---------------------------------------------------------------------------
+
+class ReferredUserOut(BaseModel):
+    """One row in "Мои приглашения" — enough to render the person's name,
+    their status, and — for anyone still pending — literal progress
+    against the three real-person conditions, so the UI can show exactly
+    what's missing instead of just a spinner."""
+    referred_user_id: str
+    display_name: Optional[str] = None
+    username: str
+    status: str  # "pending" | "verified" | "rewarded" | "rejected"
+    created_at: datetime
+    verified_at: Optional[datetime] = None
+
+    # Progress toward the three pending-only conditions — always present
+    # (0s once verified/rejected) so the client doesn't need separate
+    # optional-handling for "still relevant" vs "no longer relevant".
+    entries_count: int
+    entries_required: int
+    streak_days: int
+    streak_days_required: int
+    days_since_signup: int
+    days_since_signup_required: int
+    # The earliest calendar date this referral could ever be counted,
+    # regardless of how fast the other two conditions are met — mirrors
+    # the exact "не раньше [дата]" copy from the product spec.
+    eligible_not_before: datetime
+
+
+class ReferralStatusOut(BaseModel):
+    verified_count: int    # cumulative verified+rewarded, never resets
+    pending_count: int
+    next_milestone_at: Optional[int] = None       # next confirmed-invite count that pays out — see
+                                                    # routers/referrals.py::_next_milestone; None once
+                                                    # RECURRING_MILESTONE_LAST_AT is reached (nothing left)
+    next_milestone_days: Optional[int] = None      # bonus days that milestone grants
+    referred: List[ReferredUserOut]
+    promo_code: Optional[str] = None               # this account's OWN code, if it has one to share (i.e. was itself referred)
+    promo_discount_percent: int = 15
+    # Mirrored here rather than hardcoded on the client — see
+    # routers/referrals.py::REFERRED_WELCOME_DAYS's own comment on what
+    # this is (the invited person's own reward, separate from the
+    # referrer's milestones above).
+    referred_welcome_days: int = 3
+    # Fine-print for the referral screen — see invite_copy.py::
+    # REFERRAL_RULES_TEXT for why the wording lives there and not here.
+    rules_text: str = ""
+
+
+class AdminReferralOut(BaseModel):
+    id: str
+    referrer_username: str
+    referred_username: str
+    status: str
+    created_at: datetime
+    verified_at: Optional[datetime] = None
+    entries_count_snapshot: int
+    streak_days_current: int
+    ip_at_signup: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Shared (couple / company) diary — see app/routers/shared_diary.py
+# ---------------------------------------------------------------------------
+
+
+class SharedDiaryPersonOut(BaseModel):
+    """One member's side of a shared evening. A film watched together has
+    two (or more) of these on a single card — that's the whole point of
+    the shared diary over just seeing each other's separate feeds.
+
+    `rating` and `note` are each independently nullable for two different
+    reasons that the client deliberately doesn't get to tell apart: the
+    person didn't leave one, or their own privacy prefs hide it (see
+    models.PartnerPrefs). Leaking "they wrote something but you can't see
+    it" would be worse than leaking the note.
+    """
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_preset: Optional[str] = None
+    avatar_url: Optional[str] = None
+    rating: Optional[int] = None
+    note: Optional[str] = None
+    # True when `rating` reads null specifically because the viewer
+    # hasn't yet logged their own rating for this title and hasn't paid
+    # to peek (see app/sincerity.py's spoiler_unlock/formed_own_opinion
+    # pair and routers/shared_diary.py::_person_out) — distinct from a
+    # plain "didn't rate it" or a privacy-hidden rating, which both also
+    # read as `rating: null` but leave this False. The client uses it to
+    # show a "reveal for N points" affordance instead of just "no
+    # rating yet".
+    rating_hidden: bool = False
+    watched_at: str
+    entry_id: str
+    # True when this row belongs to the person asking — the client uses it
+    # to decide whose card gets the edit/unshare affordances, rather than
+    # comparing usernames itself.
+    is_me: bool = False
+
+
+class SharedDiaryItemOut(ImageFieldsModel):
+    """One title on the shared diary, with everyone's side of it merged
+    into a single card. Keyed by (source, media_id) rather than by diary
+    row id, since the whole job here is collapsing two people's separate
+    rows for the same film into one entry."""
+    media_id: str
+    source: str
+    media_type: str
+    title_ru: Optional[str] = None
+    title_en: Optional[str] = None
+    poster_url: Optional[str] = None
+    backdrop_url: Optional[str] = None
+    year: Optional[int] = None
+    genres: List[str] = Field(default_factory=list)
+    runtime_minutes: Optional[int] = None
+    # The most recent watched_at across everyone's rows — what the list
+    # sorts and groups by, so a card doesn't jump around as the second
+    # person logs their side of the same evening.
+    watched_at: str
+    watched_together: bool = False
+    people: List[SharedDiaryPersonOut] = Field(default_factory=list)
+    # Set only when every member visible on this card left a rating —
+    # the "вы разошлись на 4 балла" line needs both halves to mean
+    # anything.
+    rating_gap: Optional[int] = None
+
+
+class SharedDiaryOut(BaseModel):
+    items: List[SharedDiaryItemOut] = Field(default_factory=list)
+    # Cursor for "показать ещё" — the watched_at of the last item, to be
+    # sent back as `before`. Null when there's nothing older.
+    next_before: Optional[str] = None
+    member_usernames: List[str] = Field(default_factory=list)
+
+
+class SharedPlannedOut(BaseModel):
+    """The co-viewing queue, plus the free-tier ceiling alongside it so
+    the client never has to hardcode the number (see
+    routers/partner.py::CO_VIEW_FREE_LIMIT)."""
+    planned: List[CoViewEntryOut] = Field(default_factory=list)
+    limit: Optional[int] = None      # null once premium — no ceiling
+    used: int = 0
+    is_premium: bool = False
+
+
+class SharedStatsOut(BaseModel):
+    """"Наш год" — the couple's own numbers, the shared-diary answer to
+    the personal Wrapped. Almost everything here is computed from the
+    same shared rows the diary list shows, so a number can never
+    describe an evening the person can't scroll to — the one exception
+    is `added_by_counts`, see its own comment below."""
+    period: str                       # "year" | "all"
+    period_label: str
+    evenings_together: int = 0
+    evenings_shared_total: int = 0
+    hours_together: float = 0.0
+    top_genres: List[str] = Field(default_factory=list)
+    # Average rating each member gave across shared entries, only for
+    # members whose share_ratings is on.
+    average_ratings: dict = Field(default_factory=dict)
+    # The title with the largest disagreement, if any — the single best
+    # conversation starter this screen can produce.
+    biggest_disagreement: Optional[SharedDiaryItemOut] = None
+    # The highest-scoring title both people rated well.
+    best_shared_pick: Optional[SharedDiaryItemOut] = None
+    # Longest run of consecutive calendar days with a shared evening.
+    longest_streak_days: int = 0
+    first_evening_at: Optional[str] = None
+    planned_count: int = 0
+    # "кто чаще предлагает" — username -> count. The one field here NOT
+    # built from the shared-diary rows described above: it's sourced from
+    # the co-viewing inbox (CoViewEntry, planned + watched) instead, since
+    # the question is who reaches for the app to suggest something, not
+    # who watched more. See shared_stats() in routers/shared_diary.py.
+    added_by_counts: dict = Field(default_factory=dict)
+
+
+class PartnerPrefsOut(BaseModel):
+    auto_share_logs: bool = True
+    share_ratings: bool = True
+    share_notes: bool = False
+
+
+class PartnerPrefsUpdate(BaseModel):
+    auto_share_logs: Optional[bool] = None
+    share_ratings: Optional[bool] = None
+    share_notes: Optional[bool] = None
+
+
+class ShareDiaryEntryIn(BaseModel):
+    """Per-entry override for the auto-share setting — the "поделиться с
+    нами" / "убрать из общего" action on a diary card. `shared=False` on
+    an evening that was watched together is refused rather than honored;
+    see routers/shared_diary.py::set_entry_shared for why."""
+    shared: bool
+
+
+# ---------------------------------------------------------------------------
+# Challenges — see app/challenges.py
+# ---------------------------------------------------------------------------
+
+
+class ChallengeOut(BaseModel):
+    id: str
+    cadence: str            # "weekly" | "yearly"
+    icon_key: str
+    title: str
+    caption: str
+    rule: str = ""
+    current: int
+    target: int
+    progress: float = 0.0   # 0..1, pre-divided so the client doesn't redo it
+    completed: bool = False
+    claimed: bool = False
+    points: int = 0
+    days_left: Optional[int] = None
+    period_key: str = ""
+    completed_at: Optional[datetime] = None
+
+
+class ChallengesOut(BaseModel):
+    weekly: List[ChallengeOut] = Field(default_factory=list)
+    yearly: List[ChallengeOut] = Field(default_factory=list)
+    # Finished but not yet acknowledged by the client — what Home's
+    # banner shows. Emptied by POST /challenges/seen.
+    to_announce: List[ChallengeOut] = Field(default_factory=list)
+    # Ready to collect. Drives the badge on the Home card.
+    claimable_count: int = 0
+    week_ends_at: Optional[str] = None
+
+
+class ChallengeClaimOut(BaseModel):
+    challenge: ChallengeOut
+    points_awarded: int
+    # The level total *after* this claim, so the client can animate the
+    # ring without a second round trip to /sincerity/me.
+    total_points: int
+    level: int
+    leveled_up: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Pair album — see routers/pair_album.py and app/pair_album.py.
+# ---------------------------------------------------------------------------
+
+class AlbumPersonOut(BaseModel):
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_preset: Optional[str] = None
+    avatar_url: Optional[str] = None
+    is_you: bool = False
+
+
+class AlbumFirstEveningOut(ImageFieldsModel):
+    """The first evening the pair marked watched together — the anniversary
+    screen's \"our first film\"."""
+    title_ru: Optional[str] = None
+    title_en: Optional[str] = None
+    poster_url: Optional[str] = None
+    watched_at: Optional[datetime] = None
+
+
+class AlbumStatusOut(BaseModel):
+    is_couple: bool
+    # Whether either member has premium: unlimited notes and capsules, and
+    # the anniversary date. Reading is never gated, and a free circle still
+    # gets a small allowance of notes and one capsule — see the limits below.
+    is_premium: bool
+    # The server's calendar day. The client renders countdowns from this, not
+    # from its own clock, so a shifted phone clock can't fake an opening.
+    server_today: date
+    together_since: Optional[date] = None
+    together_set_by: Optional[str] = None  # username of whoever last set it
+    # The day the two accounts were linked here — offered as a starting point
+    # when nobody has set an anniversary yet, never assumed to be one.
+    linked_on: Optional[date] = None
+    people: List[AlbumPersonOut] = Field(default_factory=list)
+    evenings_together: int = 0
+    first_evening: Optional[AlbumFirstEveningOut] = None
+    pages_count: int = 0        # revealed evenings that have at least one note
+    unread_pages: int = 0       # revealed, partner's note, not opened by me yet
+    waiting_mine: int = 0       # my notes still sealed
+    waiting_partner: int = 0    # partner's notes still sealed (a count, never text)
+    capsules_sealed: int = 0    # not open yet
+    capsules_ready: int = 0     # open, and I haven't opened it yet
+    has_content: bool = False   # anything at all that unlinking would destroy
+    # The free allowance, sent rather than hardcoded in the client (same
+    # reasoning as SharedPlannedOut.limit). `null` limit = no ceiling, i.e.
+    # premium. Notes are counted per person (these are *mine*), capsules per
+    # couple; both count what exists now, see app/pair_album.py.
+    notes_limit: Optional[int] = None
+    notes_used: int = 0
+    capsules_limit: Optional[int] = None
+    capsules_used: int = 0
+
+
+class AlbumNoteOut(BaseModel):
+    id: str
+    is_mine: bool
+    author_username: str
+    body: str
+    mood: Optional[str] = None
+    # On my note: the partner's reaction to it. On the partner's note: mine.
+    reaction: Optional[str] = None
+    opened: bool = False  # for the partner's note: have I opened it yet
+    created_at: datetime
+
+
+class AlbumPageOut(ImageFieldsModel):
+    """One title's page in the shared book: the two notes (or one) left for
+    a given viewing. `state == "waiting"` pages carry only *my* text plus
+    `partner_sealed`; `"revealed"` pages carry both."""
+    source: str
+    media_id: str
+    media_type: str
+    title_ru: Optional[str] = None
+    title_en: Optional[str] = None
+    poster_url: Optional[str] = None
+    year: Optional[int] = None
+    round: int
+    state: str  # "waiting" | "revealed"
+    mine: Optional[AlbumNoteOut] = None
+    partner: Optional[AlbumNoteOut] = None
+    partner_sealed: bool = False
+    entry_id: Optional[str] = None       # the planned co-view entry, when there is one
+    evening_on: Optional[date] = None    # revealed pages: the evening's day
+    revealed_at: Optional[datetime] = None
+    unread: bool = False
+
+
+class AlbumPagesOut(BaseModel):
+    items: List[AlbumPageOut]
+    next_before: Optional[datetime] = None
+
+
+class PutAlbumNoteRequest(BaseModel):
+    item: MediaItem
+    body: str
+    mood: Optional[str] = None
+
+
+class AlbumReactRequest(BaseModel):
+    emoji: Optional[str] = None  # null clears the reaction
+
+
+class TogetherSinceRequest(BaseModel):
+    together_since: Optional[date] = None  # null clears it
+
+
+class CreateCapsuleRequest(BaseModel):
+    opens_on: date
+    title: Optional[str] = None
+    body: str
+
+
+class AddCapsuleLetterRequest(BaseModel):
+    body: str
+
+
+class CapsuleLetterOut(BaseModel):
+    is_mine: bool
+    author_username: str
+    body: str
+    sealed_at: datetime
+
+
+class CapsuleOut(BaseModel):
+    id: str
+    title: Optional[str] = None
+    opens_on: date
+    created_at: datetime
+    created_by_username: Optional[str] = None
+    created_by_me: bool = False
+    state: str  # "sealed" | "open"
+    days_left: int  # 0 once open
+    my_letter_sealed: bool = False
+    partner_letter_sealed: bool = False
+    # Empty until `state == "open"` — the server does not return sealed text
+    # to anyone, the author included.
+    letters: List[CapsuleLetterOut] = Field(default_factory=list)
+    opened_by_me: bool = False
+    # Creator only, before opening, and only while the partner hasn't put a
+    # letter in — nobody else's words get destroyed by deleting it.
+    can_delete: bool = False
+
+
+class CapsulesOut(BaseModel):
+    items: List[CapsuleOut]
 

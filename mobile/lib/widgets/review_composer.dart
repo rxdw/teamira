@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/palette.dart';
+import '../theme/seenly_skin.dart';
 import '../theme/text_styles.dart';
 import '../services/app_translations.dart';
 
@@ -157,7 +158,7 @@ class _ReviewComposerScreenState extends State<_ReviewComposerScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      ruCount(_wordCount, one: 'слово', few: 'слова', many: 'слов', englishOne: 'word', englishOther: 'words'),
+                      nCount('nWords', _wordCount),
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                   ),
@@ -183,6 +184,10 @@ class ExpandReviewLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Cozy skin swaps the plain "expand" icon for a pushpin — the
+    // little "pin a longer note to the page" gesture from the pastel
+    // mockups, tapped to the exact same full-page composer either way.
+    final icon = SeenlySkin.isCozy ? Icons.push_pin_outlined : Icons.open_in_full;
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: GestureDetector(
@@ -191,7 +196,7 @@ class ExpandReviewLink extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.open_in_full, size: 11, color: SeenlyPalette.accent),
+            Icon(icon, size: 11, color: SeenlyPalette.accent),
             const SizedBox(width: 5),
             Text('write more, full page'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.accent)),

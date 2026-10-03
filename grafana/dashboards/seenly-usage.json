@@ -1,0 +1,765 @@
+{
+  "uid": "seenly-usage",
+  "title": "Seenly — использование приложения",
+  "tags": [
+    "seenly",
+    "analytics"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "type": "custom",
+        "name": "build",
+        "label": "Сборка",
+        "query": "release,debug,profile",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": "$__all",
+            "selected": true
+          },
+          {
+            "text": "release",
+            "value": "release",
+            "selected": false
+          },
+          {
+            "text": "debug",
+            "value": "debug",
+            "selected": false
+          },
+          {
+            "text": "profile",
+            "value": "profile",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "type": "query",
+        "name": "screen",
+        "label": "Экран",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "seenly-pg"
+        },
+        "query": "SELECT DISTINCT screen FROM analytics_events WHERE name = 'screen_view' AND screen IS NOT NULL AND $__timeFilter(ts) ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "definition": "SELECT DISTINCT screen FROM analytics_events WHERE name = 'screen_view' AND screen IS NOT NULL AND $__timeFilter(ts) ORDER BY 1",
+        "options": []
+      },
+      {
+        "type": "query",
+        "name": "event",
+        "label": "Действие",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "seenly-pg"
+        },
+        "query": "SELECT DISTINCT name FROM analytics_events WHERE name NOT IN ('screen_view','app_open','app_background') AND $__timeFilter(ts) ORDER BY 1",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "definition": "SELECT DISTINCT name FROM analytics_events WHERE name NOT IN ('screen_view','app_open','app_background') AND $__timeFilter(ts) ORDER BY 1",
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Активных устройств",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT COUNT(DISTINCT anon_id) AS value FROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build)"
+        }
+      ],
+      "description": "Уникальных установок приложения с хотя бы одним событием за выбранный период. Устройства, не люди.",
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Новых устройств",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT COUNT(*) AS value FROM (\n  SELECT anon_id FROM analytics_events WHERE build IN ($build)\n  GROUP BY anon_id HAVING MIN(ts) >= $__timeFrom() AND MIN(ts) <= $__timeTo()) t"
+        }
+      ],
+      "description": "Устройства, которые впервые появились в выбранный период.",
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Сессий",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT COUNT(DISTINCT session_id) AS value FROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build)"
+        }
+      ],
+      "description": "Сессия — период работы до 30 минут неактивности.",
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Вошли в аккаунт",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT COUNT(DISTINCT anon_id) AS value FROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build) AND user_id IS NOT NULL"
+        }
+      ],
+      "description": "Устройств, с которых в периоде был выполнен вход в аккаунт.",
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Активные устройства и сессии по дням",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, SUM(active_devices) AS \"устройства\", SUM(sessions) AS \"сессии\"\nFROM v_analytics_daily_active WHERE $__timeFilter(day) AND build IN ($build) GROUP BY day ORDER BY day"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Регистрации и записи в дневник по дням",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, registrations AS \"регистрации\" FROM v_analytics_registrations_daily WHERE $__timeFilter(day) ORDER BY day"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day::timestamptz AS time, SUM(entries) AS \"записей в дневник\" FROM v_analytics_diary_daily WHERE $__timeFilter(day) GROUP BY day ORDER BY day"
+        }
+      ],
+      "description": "Считается по самим таблицам приложения (на сервере), а не по событиям: сюда попадают и пользователи, у которых выключена статистика.",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "Экраны: рейтинг",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 14,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT screen AS \"экран\",\n       COUNT(*) FILTER (WHERE nav <> 'back')            AS \"открытий\",\n       COUNT(DISTINCT anon_id)                          AS \"устройств\",\n       ROUND(AVG(secs) FILTER (WHERE secs IS NOT NULL)) AS \"ср. время, с\"\nFROM (\n  SELECT screen, anon_id, name,\n         COALESCE(props->>'nav', 'push')    AS nav,\n         COALESCE(props->>'kind', 'screen') AS kind,\n         LEAST(EXTRACT(EPOCH FROM (LEAD(ts) OVER (PARTITION BY session_id ORDER BY ts, id) - ts)), 600) AS secs\n  FROM analytics_events\n  WHERE name IN ('screen_view', 'app_background') AND $__timeFilter(ts) AND build IN ($build)\n) t\nWHERE name = 'screen_view' AND kind = 'screen'\nGROUP BY screen\nHAVING COUNT(*) FILTER (WHERE nav <> 'back') > 0\nORDER BY 2 DESC"
+        }
+      ],
+      "description": "Открытие = переход на экран; возврат «назад» не считается. Время — до следующего перехода или сворачивания, не больше 10 минут. Экраны, которые не открыли ни разу, в базе не видны — их показывает отчёт `scripts.analytics_report`.",
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "открытий",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Топ-15 экранов по открытиям",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 12,
+        "w": 10,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT screen AS \"экран\",\n       COUNT(*) FILTER (WHERE nav <> 'back')            AS \"открытий\",\n       COUNT(DISTINCT anon_id)                          AS \"устройств\",\n       ROUND(AVG(secs) FILTER (WHERE secs IS NOT NULL)) AS \"ср. время, с\"\nFROM (\n  SELECT screen, anon_id, name,\n         COALESCE(props->>'nav', 'push')    AS nav,\n         COALESCE(props->>'kind', 'screen') AS kind,\n         LEAST(EXTRACT(EPOCH FROM (LEAD(ts) OVER (PARTITION BY session_id ORDER BY ts, id) - ts)), 600) AS secs\n  FROM analytics_events\n  WHERE name IN ('screen_view', 'app_background') AND $__timeFilter(ts) AND build IN ($build)\n) t\nWHERE name = 'screen_view' AND kind = 'screen'\nGROUP BY screen\nHAVING COUNT(*) FILTER (WHERE nav <> 'back') > 0\nORDER BY 2 DESC LIMIT 15"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "auto",
+        "xTickLabelRotation": 0
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Шторки (bottom sheet)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT screen AS \"экран\",\n       COUNT(*) FILTER (WHERE nav <> 'back')            AS \"открытий\",\n       COUNT(DISTINCT anon_id)                          AS \"устройств\",\n       ROUND(AVG(secs) FILTER (WHERE secs IS NOT NULL)) AS \"ср. время, с\"\nFROM (\n  SELECT screen, anon_id, name,\n         COALESCE(props->>'nav', 'push')    AS nav,\n         COALESCE(props->>'kind', 'screen') AS kind,\n         LEAST(EXTRACT(EPOCH FROM (LEAD(ts) OVER (PARTITION BY session_id ORDER BY ts, id) - ts)), 600) AS secs\n  FROM analytics_events\n  WHERE name IN ('screen_view', 'app_background') AND $__timeFilter(ts) AND build IN ($build)\n) t\nWHERE name = 'screen_view' AND kind = 'sheet'\nGROUP BY screen\nHAVING COUNT(*) FILTER (WHERE nav <> 'back') > 0\nORDER BY 2 DESC"
+        }
+      ],
+      "options": {
+        "sortBy": [
+          {
+            "displayName": "открытий",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 10,
+      "type": "barchart",
+      "title": "Онбординг: где отваливаются",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 22,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT label AS \"шаг\", devices AS \"устройств\" FROM (\n  SELECT 0 AS ord, '0 welcome' AS label, COUNT(DISTINCT anon_id) AS devices\n  FROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build) AND name = 'screen_view' AND screen = 'OnboardingScreen'\n  UNION ALL\n  SELECT (props->>'step')::int, (props->>'step') || ' ' || (props->>'name'), COUNT(DISTINCT anon_id)\n  FROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build) AND name = 'onboarding_step' AND props->>'step' ~ '^[0-9]+$'\n  GROUP BY 1, 2\n  UNION ALL\n  SELECT 99, '✓ завершили', COUNT(DISTINCT anon_id)\n  FROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build) AND name = 'onboarding_completed'\n) t ORDER BY ord"
+        }
+      ],
+      "description": "Сколько устройств дошло до каждого из 10 шагов и до конца.",
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "auto",
+        "xTickLabelRotation": 0
+      }
+    },
+    {
+      "id": 11,
+      "type": "barchart",
+      "title": "Действия",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 22,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT name AS \"событие\", COUNT(*) AS \"раз\" FROM analytics_events\nWHERE $__timeFilter(ts) AND build IN ($build) AND name NOT IN ('screen_view', 'app_open', 'app_background')\nGROUP BY name ORDER BY 2 DESC LIMIT 20"
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "legend": {
+          "showLegend": false
+        },
+        "showValue": "auto",
+        "xTickLabelRotation": 0
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Открытия выбранных экранов по дням",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('day', ts) AS time, screen AS metric, COUNT(*) AS value\nFROM analytics_events\nWHERE $__timeFilter(ts) AND build IN ($build) AND name = 'screen_view' AND COALESCE(props->>'nav','push') <> 'back' AND screen IN ($screen)\nGROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "description": "Выберите экраны в переменной «Экран» вверху.",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Действия по дням",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('day', ts) AS time, name AS metric, COUNT(*) AS value\nFROM analytics_events\nWHERE $__timeFilter(ts) AND build IN ($build) AND name IN ($event)\nGROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "description": "Выберите действия в переменной «Действие» вверху.",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Поиск: доля запросов без результатов, %",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "time_series",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT date_trunc('day', ts) AS time,\n       ROUND(100.0 * COUNT(*) FILTER (WHERE props->>'results' = '0') / NULLIF(COUNT(*), 0), 1) AS \"% пустых\"\nFROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build) AND name = 'search_performed'\nGROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "description": "Высокая доля — люди ищут то, чего нет в каталоге.",
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Возвращаемость по когортам",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 39,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT day AS \"первый запуск\", SUM(cohort_size) AS \"устройств\",\n       ROUND(100.0 * SUM(returned_d1) / NULLIF(SUM(eligible_d1), 0)) AS \"D1, %\",\n       ROUND(100.0 * SUM(returned_d7) / NULLIF(SUM(eligible_d7), 0)) AS \"D7, %\"\nFROM v_analytics_retention WHERE $__timeFilter(day) AND build IN ($build)\nGROUP BY day ORDER BY day DESC"
+        }
+      ],
+      "description": "D1/D7 — доля устройств, вернувшихся на 1-й / 7-й день после первого запуска. Пока дней ещё не прошло, ячейка пустая. При десятках устройств проценты шумные."
+    },
+    {
+      "id": 16,
+      "type": "piechart",
+      "title": "Платформы и версии (устройств)",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "seenly-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 39,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "seenly-pg"
+          },
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT COALESCE(platform, '?') || ' ' || COALESCE(app_version, '?') AS metric, COUNT(DISTINCT anon_id) AS value\nFROM analytics_events WHERE $__timeFilter(ts) AND build IN ($build) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^value$/",
+          "values": true
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "text",
+      "title": "Как читать",
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [],
+      "options": {
+        "mode": "markdown",
+        "content": "**Считаются устройства, а не люди** (переустановка = новое устройство). Переменная **«Сборка»** отсекает ваши debug-запуски: для реальных пользователей оставьте `release`. Пока устройств десятки, проценты шумные — смотрите на порядок величин. Регистрации и записи в дневник (второй график) считаются по таблицам приложения, остальное — по событиям аналитики. Список экранов, которые не открыли ни разу за период, — в отчёте `docker compose exec api python -m scripts.analytics_report`."
+      }
+    }
+  ],
+  "annotations": {
+    "list": []
+  },
+  "links": []
+}

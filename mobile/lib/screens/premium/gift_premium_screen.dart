@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../services/app_translations.dart';
 import '../../services/premium_service.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/wow_motion.dart';
+import '../../theme/clay_kit.dart';
 
-/// "подарить подписку" — same shape as [PremiumScreen] but a gift vibe
+/// "Gift a subscription" — same shape as [PremiumScreen] but a gift vibe
 /// (a gift box instead of the sparkle mark, warmer copy, no couple
 /// toggle since a gift is always for one other person) and cheaper
 /// prices (see PremiumPricing.gift) than the regular individual plan.
-///
-/// Written directly in Russian, same reasoning as PremiumScreen's own
-/// doc comment.
+/// English source strings wired through `.tr`, same as PremiumScreen.
 class GiftPremiumScreen extends StatefulWidget {
   const GiftPremiumScreen({super.key});
 
@@ -22,7 +22,7 @@ class GiftPremiumScreen extends StatefulWidget {
 }
 
 class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
-  PremiumDuration _duration = PremiumDuration.sixMonths;
+  PremiumDuration _duration = PremiumDuration.threeMonths;
   bool _sending = false;
   final _nameController = TextEditingController();
   final _noteController = TextEditingController();
@@ -69,7 +69,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
       builder: (sheetContext) => Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(20),
           boxShadow: SeenlyPalette.softShadow,
@@ -95,13 +95,13 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
             ),
             const SizedBox(height: 18),
             Text(
-              recipient.isEmpty ? 'подарок готов' : 'подарок для $recipient готов',
+              recipient.isEmpty ? 'the gift is ready'.tr : '${'the gift for'.tr} $recipient ${'is ready'.tr}',
               textAlign: TextAlign.center,
               style: SeenlyText.serif(italic: true, size: 18, weight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
-              'отправь этот код — его нужно будет ввести в настройках, чтобы включить премиум',
+              'send this code — it\'ll need to be entered in settings to turn premium on'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.serif(size: 13, color: SeenlyPalette.inkMuted),
             ),
@@ -122,10 +122,10 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
               onTap: () {
                 final note = _noteController.text.trim();
                 final message = [
-                  if (recipient.isNotEmpty) 'Для $recipient —',
-                  'дарю тебе подписку teamira premium 🎁',
+                  if (recipient.isNotEmpty) '${'for'.tr} $recipient —',
+                  'gifting you a tanè premium subscription 🎁'.tr,
                   if (note.isNotEmpty) '"$note"',
-                  'код: $code',
+                  '${'code'.tr}: $code',
                 ].join('\n');
                 Share.share(message);
               },
@@ -141,7 +141,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
                   children: [
                     Icon(Icons.ios_share, size: 15, color: SeenlyPalette.accentOnAccent),
                     const SizedBox(width: 8),
-                    Text('поделиться подарком',
+                    Text('share the gift'.tr,
                         style: SeenlyText.serif(italic: true, color: SeenlyPalette.accentOnAccent)),
                   ],
                 ),
@@ -155,7 +155,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
               },
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text('готово',
+                child: Text('done'.tr,
                     textAlign: TextAlign.center,
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
               ),
@@ -195,22 +195,22 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
                   children: [
                     const _GiftHero(),
                     const SizedBox(height: 26),
-                    Text('кому дарим?', style: SeenlyText.metaLabel.copyWith(letterSpacing: 0.6)),
+                    Text('who is this gift for?'.tr, style: SeenlyText.metaLabel.copyWith(letterSpacing: 0.6)),
                     const SizedBox(height: 10),
                     _SoftField(
                       controller: _nameController,
-                      hint: 'имя (необязательно)',
+                      hint: 'name (optional)'.tr,
                       icon: Icons.person_outline,
                     ),
                     const SizedBox(height: 10),
                     _SoftField(
                       controller: _noteController,
-                      hint: 'тёплые слова к подарку (необязательно)',
+                      hint: 'warm words for the gift (optional)'.tr,
                       icon: Icons.edit_outlined,
                       maxLines: 2,
                     ),
                     const SizedBox(height: 24),
-                    Text('на сколько подарим премиум?',
+                    Text('how long should the gift last?'.tr,
                         style: SeenlyText.metaLabel.copyWith(letterSpacing: 0.6)),
                     const SizedBox(height: 10),
                     _GiftDurationList(
@@ -230,7 +230,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'подарок дешевле обычной подписки — это подарок, а не покупка для себя',
+                              'a gift costs less than the regular subscription — it\'s a gift, not a purchase for yourself'.tr,
                               style: SeenlyText.serif(size: 12, color: SeenlyPalette.inkMuted),
                             ),
                           ),
@@ -243,7 +243,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
             ),
             Container(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 14),
-              decoration: BoxDecoration(color: SeenlyPalette.paper, boxShadow: SeenlyPalette.softShadow),
+              decoration: ClayBoxDecoration(color: SeenlyPalette.paper, boxShadow: SeenlyPalette.softShadow),
               child: SafeArea(
                 top: false,
                 child: Column(
@@ -270,7 +270,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
                                     valueColor: AlwaysStoppedAnimation(SeenlyPalette.accentOnAccent),
                                   ),
                                 )
-                              : Text('подарить за $price ₽',
+                              : Text('${'gift for'.tr} $price ₽',
                                   style: SeenlyText.serif(
                                       italic: true, size: 15, color: SeenlyPalette.accentOnAccent)),
                         ),
@@ -278,7 +278,7 @@ class _GiftPremiumScreenState extends State<GiftPremiumScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      save > 0 ? 'на $save% дешевле обычной подписки на тот же срок' : 'разовый платёж, без автопродления',
+                      save > 0 ? '${'cheaper than the regular subscription for the same period, by'.tr} $save%' : 'a one-time payment, no auto-renewal'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.placeholder),
                     ),
@@ -300,7 +300,7 @@ class _GiftHero extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -326,12 +326,12 @@ class _GiftHero extends StatelessWidget {
             child: Icon(Icons.card_giftcard, size: 21, color: SeenlyPalette.accentOnAccent),
           ),
           const SizedBox(height: 16),
-          Text('подарить премиум',
+          Text('gift premium'.tr,
               style: SeenlyText.serif(
                   italic: true, size: 22, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent)),
           const SizedBox(height: 6),
           Text(
-            'подари уютные вечера без ограничений — своим, партнёру, другу',
+            'gift cozy, limit-free evenings — to a partner, a friend, or someone you love'.tr,
             style: SeenlyText.serif(size: 13, color: SeenlyPalette.accentOnAccent.withOpacity(0.9)),
           ),
         ],
@@ -356,7 +356,8 @@ class _SoftField extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: SeenlyPalette.border),
@@ -397,7 +398,7 @@ class _GiftDurationList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: PremiumDuration.values.map((d) {
+      children: purchasableDurations.map((d) {
         final price = PremiumPricing.gift[d]!;
         final isSelected = selected == d;
         return Expanded(
@@ -420,9 +421,10 @@ class _GiftDurationList extends StatelessWidget {
                   children: [
                     Text(
                       switch (d) {
-                        PremiumDuration.month => 'месяц',
-                        PremiumDuration.sixMonths => 'полгода',
-                        PremiumDuration.year => 'год',
+                        PremiumDuration.month => 'month'.tr,
+                        PremiumDuration.threeMonths => 'three months'.tr,
+                        PremiumDuration.sixMonths => 'six months'.tr,
+                        PremiumDuration.year => 'year'.tr,
                       },
                       style: SeenlyText.serif(
                           size: 13, weight: FontWeight.w600, color: SeenlyPalette.ink),

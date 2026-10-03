@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- minResizeWidth/Height let the "small" ~2x1 layout still read fine
+     even if someone drags it smaller than the ~4x2 default — the
+     layout's LinearLayout weighting already handles that, so one
+     layout serves both without a dedicated small variant.
+
+     updatePeriodMillis is a *floor*, not a guarantee — the OS batches
+     it and 30 minutes is itself the system-enforced minimum, it won't
+     actually go lower. It exists as a safety net for staleness, not as
+     the main refresh path: HomeWidgetService pushes on its own at app-
+     pause and sign-in (see that file's doc comment), which is both
+     faster and free of this floor. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="80dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="80dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/seenly_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen"
+    android:previewImage="@mipmap/ic_launcher"/>

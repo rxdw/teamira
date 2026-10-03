@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'shrink_to_fit_text.dart';
+import '../theme/clay_kit.dart';
+import '../theme/seenly_skin.dart';
 
 /// A 2:3 poster block. If [posterUrl] is null or fails to load, falls back
 /// to a flat color fill (from [fallbackColor], or rotated from the palette)
@@ -28,6 +30,19 @@ class PosterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final plain = _buildPlain(context);
+    if (!SeenlySkin.isClay) return plain;
+    // Clay: posters are fat-cornered clay tiles with a soft lifted shadow.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: ClayShadows.raised(elevation: 0.42),
+      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(18), child: plain),
+    );
+  }
+
+  Widget _buildPlain(BuildContext context) {
     final color = fallbackColor ?? SeenlyPalette.accent;
 
     return GestureDetector(

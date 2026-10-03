@@ -119,10 +119,16 @@ Future<JourneyTransfer?> _coachTransfer(SeriesRouteState state, MediaItem item) 
   }
   if (routes.isEmpty) return null;
   final r = routes.first;
+  // The leg lasts exactly as long as the episode — same rule as the
+  // picker (see JourneySelectScreen._withExactRuntimeOption) and as the
+  // three other themes' transfers below: the real city-to-city time is
+  // only ever an estimate, so the closest destination is used but its
+  // duration is set to the runtime.
+  final minutes = _effectiveMinutes(item);
   return JourneyTransfer(
     routeLabel: '${origin.name} → ${r.destCity}',
-    routeDetail: '${_fmtDuration(r.minutes)} on the rails · transfer at ${origin.name}',
-    routeMinutes: r.minutes,
+    routeDetail: '${_fmtDuration(minutes)} on the rails · transfer at ${origin.name}',
+    routeMinutes: minutes,
     destMatchKey: r.destCity,
     originLat: origin.lat,
     originLng: origin.lng,

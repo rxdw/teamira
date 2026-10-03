@@ -66,9 +66,32 @@ class EveningPlanService extends ChangeNotifier {
     return past.first;
   }
 
+  /// Same "soonest upcoming, else latest past" pick as [plan], but only
+  /// among plans matching [test] — for a screen that only cares about
+  /// one kind of evening. The co-viewing hub's own ticket card uses this
+  /// (matching `p.coViewing`) so a solo evening planned from Home/Profile
+  /// doesn't show up there as if it were a shared one, just because it
+  /// happens to be the soonest thing on the calendar overall.
+  PlannedEvening? planMatching(bool Function(PlannedEvening) test) {
+    final matching = _plans.where(test).toList();
+    if (matching.isEmpty) return null;
+    final upcoming = matching.where((p) => !p.isPast).toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    if (upcoming.isNotEmpty) return upcoming.first;
+    final past = [...matching]..sort((a, b) => b.date.compareTo(a.date));
+    return past.first;
+  }
+
   /// How many *other* evenings are planned besides the one [plan] is
   /// already showing — what a "+2 more" affordance counts against.
   int get otherPlansCount => _plans.isEmpty ? 0 : _plans.length - 1;
+
+  /// Same idea as [otherPlansCount], scoped to [test] — pairs with
+  /// [planMatching].
+  int otherCountMatching(bool Function(PlannedEvening) test) {
+    final matching = _plans.where(test).length;
+    return matching == 0 ? 0 : matching - 1;
+  }
 
   bool _loaded = false;
   bool get loaded => _loaded;

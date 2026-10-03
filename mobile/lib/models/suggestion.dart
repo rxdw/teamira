@@ -1,4 +1,5 @@
 import 'media_item.dart';
+import '../utils/server_time.dart';
 
 /// Mirrors `SuggestionOut` in backend/app/schemas.py — one title the
 /// linked partner sent over with a single tap ("I'm suggesting this for
@@ -58,6 +59,6 @@ class Suggestion {
         posterUrl: json['poster_url'] as String?,
         year: json['year'] as int?,
         senderUsername: json['sender_username'] as String,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }

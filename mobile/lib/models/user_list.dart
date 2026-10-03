@@ -1,4 +1,5 @@
 import 'media_item.dart';
+import '../utils/server_time.dart';
 
 /// Mirrors UserListOut — the lists screen's overview card: no items, just
 /// a count and a few posters for a collage preview.
@@ -27,7 +28,7 @@ class UserList {
         previewPosters: (json['preview_posters'] as List? ?? const [])
             .map((e) => e as String)
             .toList(),
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }
 
@@ -102,7 +103,7 @@ class UserListDetail {
         items: (json['items'] as List? ?? const [])
             .map((e) => UserListItem.fromJson(e as Map<String, dynamic>))
             .toList(),
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }
 

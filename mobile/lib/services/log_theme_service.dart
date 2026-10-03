@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
+import '../analytics/analytics.dart';
 
 /// Which set of visuals dresses the logging ritual, the diary
 /// centerpiece, and the "log another evening" button — a little
@@ -15,34 +17,32 @@ enum LogTheme { ticket, coach, garden, shuttle }
 /// [SharedPreferences], no backend endpoint, since this is a display
 /// choice rather than account data.
 class LogThemeService extends ChangeNotifier {
-  static const _key = 'seenly_log_theme';
-
-  LogTheme _theme = LogTheme.ticket;
-  LogTheme get theme => _theme;
-
-  Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final stored = prefs.getString(_key);
-    _theme = switch (stored) {
+  final _theme = PersistedPref<LogTheme>(
+    'seenly_log_theme',
+    defaultValue: LogTheme.ticket,
+    read: (prefs, key) => switch (prefs.getString(key)) {
       'coach' => LogTheme.coach,
       'garden' => LogTheme.garden,
       'shuttle' => LogTheme.shuttle,
       _ => LogTheme.ticket,
-    };
-    notifyListeners();
-  }
-
-  Future<void> setTheme(LogTheme value) async {
-    if (_theme == value) return;
-    _theme = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    final stored = switch (value) {
+    },
+    write: (prefs, key, value) => prefs.setString(key, switch (value) {
       LogTheme.coach => 'coach',
       LogTheme.ticket => 'ticket',
       LogTheme.garden => 'garden',
       LogTheme.shuttle => 'shuttle',
-    };
-    await prefs.setString(_key, stored);
+    }),
+  );
+
+  LogTheme get theme => _theme.value;
+
+  Future<void> load() async {
+    await _theme.load();
+    notifyListeners();
+  }
+
+  Future<void> setTheme(LogTheme value) async {
+    await _theme.save(value, onChanged: notifyListeners);
+    Analytics.instance.track('setting_changed', {'setting': 'log_theme', 'value': value.name});
   }
 }

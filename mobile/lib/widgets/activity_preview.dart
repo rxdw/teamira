@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/activity_item.dart';
 import '../theme/palette.dart';
+import '../utils/server_time.dart';
 import 'watched_preview_sheet.dart';
 
 /// Turns a friend's [ActivityItem] into the same [WatchedPreviewData]
@@ -22,7 +23,7 @@ import 'watched_preview_sheet.dart';
 /// (see friends_activity_feed_screen.dart / friend_profile_screen.dart,
 /// which don't offer the share button for a friend's card).
 WatchedPreviewData watchedPreviewFromActivity(ActivityItem item) {
-  final date = DateTime.tryParse(item.createdAt);
+  final date = tryParseServerUtc(item.createdAt);
   return WatchedPreviewData(
     mediaId: item.mediaId ?? '',
     source: item.source ?? '',

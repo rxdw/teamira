@@ -19,23 +19,29 @@ import '../../services/log_theme_service.dart';
 import '../../services/premium_service.dart';
 import '../../services/sources_display_prefs_service.dart';
 import '../../state/app_state.dart';
+import '../../state/diary_store.dart';
+import '../../state/watchlist_store.dart';
 import '../../theme/log_theme_copy.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../theme/notebook_paper.dart';
 import '../../widgets/achievement_badge.dart';
+import '../../widgets/challenges_teaser_row.dart';
+import '../../widgets/wrapped_teaser_card.dart';
 import '../../widgets/active_journey_badge.dart';
 import '../../widgets/evening_plan_card.dart';
 import '../../widgets/favorites_showcase_row.dart';
 import '../../widgets/series_episodes_sheet.dart';
+import '../../widgets/sincerity_card.dart';
 import '../../widgets/invite_friends_sheet.dart';
 import '../../widgets/mosaic_poster_grid.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/planned_preview_sheet.dart';
-import '../../widgets/planned_random_pick_sheet.dart';
 import '../../widgets/small_pieces.dart';
 import '../premium/premium_screen.dart';
 import '../../widgets/watched_preview_sheet.dart';
+import '../../widgets/notification_count_pill.dart';
 import '../../widgets/wow_motion.dart';
 import 'category_watched_screen.dart';
 import 'favorite_films_screen.dart';
@@ -45,12 +51,16 @@ import '../lists/lists_screen.dart';
 import '../sources/sources_screen.dart';
 import '../title/title_detail_screen.dart';
 import 'achievements_screen.dart';
+import 'challenges_screen.dart';
 import 'level_detail_screen.dart';
 import 'settings_screen.dart';
 import 'stats_screen.dart';
 import 'wrapped_screen.dart';
 import '../../widgets/user_avatar.dart';
 import '../../services/app_translations.dart';
+import '../decide/decide_random_screen.dart';
+import '../../models/media_item.dart';
+import '../../theme/clay_kit.dart';
 
 const _kWeekdayAbbrev = ['', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -134,13 +144,21 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   @override
   void didPopNext() => _refresh();
 
-  Future<_ProfileData> _load() async {
+  // forceRefresh=true (see _refresh below) bypasses the stores' cache
+  // and hits the network, same as this screen always did; the plain
+  // initState call stays cache-first (see Фаза 2.15 in the launch
+  // plan) — an empty Future.wait([...]) accepts either shape since
+  // DiaryStore/WatchlistStore's ensureLoaded/refresh return the same
+  // Future<T> either way.
+  Future<_ProfileData> _load({bool forceRefresh = false}) async {
     final app = context.read<AppState>();
+    final diaryStore = context.read<DiaryStore>();
+    final watchlistStore = context.read<WatchlistStore>();
     final mergeSources = context.read<SourcesDisplayPrefsService>().mergeIntoMainList;
     final results = await Future.wait([
-      app.profile.collections(),
+      forceRefresh ? watchlistStore.refresh() : watchlistStore.ensureLoaded(),
       app.profile.yearStats(),
-      app.diary.list(),
+      forceRefresh ? diaryStore.refresh() : diaryStore.ensureLoaded(),
       // Only fetched when the "mix your sources into the main list?"
       // setting is on (see SourcesDisplayPrefsService + Settings) — this
       // is the same request SourcesScreen itself makes, just folded into
@@ -207,7 +225,12 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
   }
 
   Future<void> _refresh() async {
-    final next = _load();
+    // forceRefresh: true — this is an explicit "go check the network"
+    // moment (pull-to-refresh, returning from a screen that might have
+    // changed something, marking a title watched right here), not the
+    // screen's first paint, so it should never settle for the stores'
+    // already-cached value the way plain _load() does.
+    final next = _load(forceRefresh: true);
     setState(() => _future = next);
     await next;
   }
@@ -369,6 +392,30 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                   ),
                 ),
               ),
+              // Wrapped sits right above sincerity points now (it used to
+              // be under the header). Still best-effort (see
+              // _ProfileData.wrapped): a failed fetch just skips this
+              // sliver rather than blocking the rest of the screen.
+              if (data.wrapped != null)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                  sliver: SliverToBoxAdapter(
+                    child: ScrollReveal(
+                      delay: nextReveal(),
+                      child: WrappedTeaserCard(
+                        wrapped: data.wrapped!,
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const WrappedScreen())),
+                      ),
+                    ),
+                  ),
+                ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+                sliver: SliverToBoxAdapter(
+                  child: ScrollReveal(delay: nextReveal(), child: const SincerityCard()),
+                ),
+              ),
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
                 sliver: SliverToBoxAdapter(
@@ -376,7 +423,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(21, 0, 21, 4),
+                padding: const EdgeInsets.fromLTRB(21, 0, 21, 10),
                 sliver: SliverToBoxAdapter(
                   child: ScrollReveal(
                     delay: nextReveal(),
@@ -386,9 +433,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                       crossAxisAlignment: CrossAxisAlignment.baseline,
                       textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Text('recently logged'.tr,
-                            style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)
-                                .copyWith(letterSpacing: 0.6)),
+                        Text('recently logged'.tr, style: SeenlyText.sectionTitle),
                         GestureDetector(
                           onTap: () => RootShell.switchTab(context, RootShell.diaryTab),
                           child: Text('diary ›'.tr,
@@ -408,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                   ),
                 ),
               ),
-              if (!context.watch<PremiumService>().isPremium)
+              if (!context.watch<PremiumService>().ownsPlan)
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
                   sliver: SliverToBoxAdapter(
@@ -421,22 +466,8 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                     ),
                   ),
                 ),
-              if (data.wrapped != null)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                  sliver: SliverToBoxAdapter(
-                    child: ScrollReveal(
-                      delay: nextReveal(),
-                      child: _WrappedTeaser(
-                        wrapped: data.wrapped!,
-                        onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const WrappedScreen())),
-                      ),
-                    ),
-                  ),
-                ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(21, 0, 21, 4),
+                padding: const EdgeInsets.fromLTRB(21, 0, 21, 10),
                 sliver: SliverToBoxAdapter(
                   child: ScrollReveal(
                     delay: nextReveal(),
@@ -450,8 +481,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                           data.achievements != null
                               ? 'badges · ${data.achievements!.unlockedCount} of ${data.achievements!.totalCount}'
                               : 'badges',
-                          style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)
-                              .copyWith(letterSpacing: 0.6),
+                          style: SeenlyText.sectionTitle,
                         ),
                         GestureDetector(
                           onTap: () => Navigator.of(context).push(
@@ -467,11 +497,59 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(21, 0, 21, 6),
+                // Right under its own "badges" header, not squeezed
+                // against the next header with nothing between — see
+                // the note on "challenges" below for why these two used
+                // to sit stacked on top of each other.
+                padding: const EdgeInsets.fromLTRB(21, 6, 21, 22),
                 sliver: SliverToBoxAdapter(
                   child: ScrollReveal(
                     delay: nextReveal(),
                     child: _AchievementsTeaserRow(achievements: data.achievements),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(21, 0, 21, 10),
+                sliver: SliverToBoxAdapter(
+                  child: ScrollReveal(
+                    delay: nextReveal(),
+                    riseBy: 10,
+                    // Badges and challenges are both "what have I earned"
+                    // entry points (achievements are lifetime, challenges
+                    // are this week/this year — see app/challenges.py's
+                    // own docstring on why both exist). Each now keeps
+                    // its own header directly over its own content — the
+                    // badge medallions above belong to "badges" alone,
+                    // with real space before "challenges" starts, rather
+                    // than the two headers sitting stacked with nothing
+                    // to tell them apart.
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ChallengesScreen()),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Text('challenges'.tr, style: SeenlyText.sectionTitle),
+                          Text('all ›'.tr, style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.inkFaint)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              SliverPadding(
+                // Same treatment as the badges row above: a preview of
+                // this week's/this year's challenges right under their
+                // own header, so the header isn't a title over nothing.
+                padding: const EdgeInsets.fromLTRB(21, 6, 21, 0),
+                sliver: SliverToBoxAdapter(
+                  child: ScrollReveal(
+                    delay: nextReveal(),
+                    child: const ChallengesTeaserRow(),
                   ),
                 ),
               ),
@@ -512,7 +590,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 21),
                   child: UnderlineTabRow(
-                    labels: const ['watched', 'plan to watch', 'watching now'],
+                    labels: ['watched'.tr, 'plan to watch'.tr, 'watching now'.tr],
                     activeIndex: _tab,
                     onChanged: (i) => setState(() => _tab = i),
                   ),
@@ -526,13 +604,24 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                       Text(
                         _tab == 2
                             ? '$watchingNowCount ${'in progress'.tr}'
-                            : ruCount(shelf.length, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'title', englishOther: 'titles'),
+                            : nCount('nTitles', shelf.length),
                         style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted),
                       ),
                       if (_tab == 1 && shelf.isNotEmpty) ...[
                         const Spacer(),
                         GestureDetector(
-                          onTap: () => showPlannedRandomPickSheet(context, shelf),
+                          // The very same random pick as "can't decide?" on
+                          // Home — dice, reveal and all — just drawn from
+                          // this shelf alone, and without a "plan to watch"
+                          // button since everything here already is.
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => DecideRandomScreen(
+                                pool: [for (final e in shelf) MediaItem.fromWatchlistEntry(e)],
+                                showSecondary: false,
+                              ),
+                            ),
+                          ),
                           behavior: HitTestBehavior.opaque,
                           child: Row(
                             children: [
@@ -556,8 +645,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                             padding: const EdgeInsets.symmetric(vertical: 24),
                             child: Text(
                               'nothing in progress — start watching something to see it here'.tr,
-                              style: SeenlyText.serif(
-                                  italic: true, color: SeenlyPalette.placeholder),
+                              style: SeenlyText.emptyState(),
                             ),
                           ),
                         )
@@ -601,8 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                               _tab == 0
                                   ? 'nothing marked watched yet'
                                   : 'nothing queued yet — search to add something',
-                              style: SeenlyText.serif(
-                                  italic: true, color: SeenlyPalette.placeholder),
+                              style: SeenlyText.emptyState(),
                             ),
                           ),
                         )
@@ -1420,7 +1507,8 @@ class _FriendsBlockState extends State<_FriendsBlock> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18)),
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1437,21 +1525,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                 // label doesn't compete with the eye for attention the
                 // way a request genuinely deserves to.
                 if (incoming > 0)
-                  BreathingGlow(
-                    color: SeenlyPalette.coral,
-                    size: 30,
-                    period: const Duration(milliseconds: 3400),
-                    maxOpacity: 0.28,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: SeenlyPalette.coral,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text('$incoming ${'new ›'.tr}',
-                          style: SeenlyText.mono(size: 10, color: Colors.white, weight: FontWeight.w700)),
-                    ),
-                  )
+                  NotificationCountPill(count: incoming)
                 else
                   Text('see all ›'.tr, style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
               ],
@@ -1494,7 +1568,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
                                   style: SeenlyText.serif(size: 20, weight: FontWeight.w700),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(ruPluralForm(friends.length, one: 'друг', few: 'друга', many: 'друзей', englishOne: 'friend', englishOther: 'friends'),
+                                Text(nOnly('nFriends', friends.length),
                                     style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkMuted)),
                               ],
                             ),
@@ -1591,7 +1665,7 @@ class _FriendsBlockState extends State<_FriendsBlock> {
 // sits up in the header next to the avatar/name (see _ProfileHeader), but
 // tapping anywhere on this card still opens LevelDetailScreen (see
 // ProfileService.level / backend/app/routers/profile.py::get_level for the
-// xp formula), same full-screen breakdown of where the xp came from.
+// points curve), same full-screen breakdown of what actually earned them.
 // ---------------------------------------------------------------------------
 
 class _StreakAndLevelCard extends StatelessWidget {
@@ -1620,7 +1694,7 @@ class _StreakAndLevelCard extends StatelessWidget {
             ),
           ),
           child: Container(
-            decoration: BoxDecoration(
+            decoration: ClayBoxDecoration(
               color: SeenlyPalette.paper,
               borderRadius: BorderRadius.circular(16),
               boxShadow: SeenlyPalette.softShadow,
@@ -1697,7 +1771,7 @@ class _TicketStub extends StatelessWidget {
   }
 }
 
-/// The level ring — real xp/level from the backend (see ProfileService.level
+/// The level ring — real points/level from the backend (see ProfileService.level
 /// / get_level). Lives in the profile header now, right next to the avatar
 /// and name (see _ProfileHeader), sized down via [size] to fit there; the
 /// streak card below still opens the same detail screen on tap. While the
@@ -2039,7 +2113,7 @@ class _StatsGridCardState extends State<_StatsGridCard>
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(18),
         boxShadow: SeenlyPalette.softShadow,
@@ -2497,7 +2571,8 @@ class _RecentEntryCard extends StatelessWidget {
       onTap: () => showWatchedPreview(context, WatchedPreviewData.fromDiaryEntry(entry)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: const BorderRadius.horizontal(left: Radius.circular(2), right: Radius.circular(10)),
           border: Border(left: BorderSide(color: SeenlyPalette.border, width: 2)),
@@ -2632,7 +2707,8 @@ class _YourListsRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(16),
         ),
@@ -2669,7 +2745,8 @@ class _YourSourcesRow extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(16),
         ),
@@ -2723,11 +2800,11 @@ class _PosterProgressBar extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
+          child: RuledProgressBar(
             value: progress,
             minHeight: 5,
             backgroundColor: Colors.white.withOpacity(0.28),
-            valueColor: AlwaysStoppedAnimation<Color>(accent),
+            valueColor: accent,
           ),
         ),
       ),
@@ -2894,7 +2971,8 @@ class _WatchingCollectionTileState extends State<_WatchingCollectionTile> {
   }
 }
 
-/// Soft, low-pressure premium plug — sits above the Wrapped teaser,
+/// Soft, low-pressure premium plug — sits down by "recently logged",
+/// well below the Wrapped teaser now (see the header sliver above),
 /// only for accounts that aren't premium yet (see PremiumService).
 /// Same rounded-card shape as everything else on this screen, warm
 /// gradient rather than a flat accent fill so it reads as an invite
@@ -2909,7 +2987,7 @@ class _PremiumBanner extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -2949,67 +3027,6 @@ class _PremiumBanner extends StatelessWidget {
               ),
             ),
             Icon(Icons.arrow_forward, size: 17, color: SeenlyPalette.accentOnAccent),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WrappedTeaser extends StatelessWidget {
-  final WrappedStat wrapped;
-  final VoidCallback onTap;
-  const _WrappedTeaser({required this.wrapped, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final hours = wrapped.hours;
-    final hoursLabel = hours >= 10 ? hours.round().toString() : hours.toStringAsFixed(1);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: SeenlyPalette.accent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.accentOnAccent.withOpacity(0.16),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    // Wrapped is free for everyone now — premium gates
-                    // unlimited AI asks, unlimited favorites, and the
-                    // shuttle theme instead (see PremiumScreen), so this
-                    // badge no longer claims a restriction that isn't real.
-                    child: Text('your year, at a glance'.tr,
-                        style: SeenlyText.mono(
-                            size: 8, color: SeenlyPalette.accentOnAccent)),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('your wrapped'.tr,
-                      style: SeenlyText.serif(
-                          italic: true, size: 16, color: SeenlyPalette.accentOnAccent)),
-                  const SizedBox(height: 3),
-                  Text(
-                    wrapped.totalLogged > 0
-                        ? '$hoursLabel hrs · ${wrapped.totalLogged} logged this month'
-                        : 'nothing logged yet this month',
-                    style: SeenlyText.mono(
-                        size: 10,
-                        color: SeenlyPalette.accentOnAccent.withOpacity(0.75)),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward, size: 18, color: SeenlyPalette.accentOnAccent),
           ],
         ),
       ),

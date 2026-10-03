@@ -9,6 +9,7 @@ import 'co_view_pick_screens.dart';
 import 'co_view_poll_screen.dart';
 import 'co_view_vote_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// The can't-decide entry point for co-viewing — same five methods as
 /// Home's own [DecideMethodScreen] plus one co-viewing-only extra
@@ -119,7 +120,7 @@ class CoViewDecideMethodScreen extends StatelessWidget {
                               child: _MethodTile(
                                 icon: Icons.auto_awesome_outlined,
                                 color: SeenlyPalette.periwinkle,
-                                title: 'ask teamira'.tr,
+                                title: 'ask tanè'.tr,
                                 blurb: 'describe the evening, propose the pick'.tr,
                                 onTap: () => _openAskTeamira(context),
                               ),
@@ -227,7 +228,7 @@ class _MethodTile extends StatelessWidget {
         width: double.infinity,
         height: double.infinity,
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: Color.alphaBlend(color.withOpacity(0.09), SeenlyPalette.paper),
           borderRadius: BorderRadius.circular(24),
           border: Border.all(color: SeenlyPalette.border),
@@ -293,7 +294,7 @@ class _WideMethodTile extends StatelessWidget {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: Color.alphaBlend(color.withOpacity(0.09), SeenlyPalette.paper),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: SeenlyPalette.border),

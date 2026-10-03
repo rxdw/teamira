@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fixed light "diary paper" look — the widget doesn't have access to
+     SeenlyPalette's runtime skin/flavor/brightness resolution (that's
+     all in-app static Dart state, see theme/palette.dart), so rather
+     than guess at which of light/dark/cozy/orange/strawberry to
+     mirror, it always renders the neutral light-classic set
+     (palette.dart's `_light`). A future pass could push the resolved
+     hex values themselves through HomeWidgetService and swap this for
+     a couple of prebuilt variants, but that's real added scope, not a
+     v1 requirement. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#FFFDF8"/>
+    <corners android:radius="18dp"/>
+    <stroke android:width="1dp" android:color="#E4D9C4"/>
+</shape>

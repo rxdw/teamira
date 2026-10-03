@@ -1,4 +1,5 @@
 import '../services/app_translations.dart';
+import '../utils/server_time.dart';
 class GenreCount {
   final String genre;
   final int count;
@@ -416,64 +417,68 @@ class WrappedSummary {
       );
 }
 
-/// Mirrors `LevelOut` — powers the profile's level ring. Computed fresh
-/// server-side from real activity every call, same honesty as
-/// Achievements; there's nothing here the person didn't actually earn by
-/// logging.
+/// Mirrors `LevelOut` — powers the merged Sincerity screen's level ring.
+/// Level and its progress come straight off the account's lifetime
+/// sincerity total (see backend/app/sincerity.py::compute_level — that
+/// module's docstring covers the old, separate XP system this merged
+/// into), so `points` only ever goes up, even when the spendable
+/// sincerity balance shown alongside it (see SincerityBalance) gets
+/// spent down.
+///
+/// Everything below `progress` is informational stats for the
+/// level-detail screen (how many titles, how many with a note, and so
+/// on) — not a per-source breakdown of `points`. For the honest,
+/// itemized "where did my points actually come from", see
+/// SincerityBalance.history instead.
 class ProfileLevel {
   final int level;
-  final int xp;
-  final int xpIntoLevel;
-  final int xpForNextLevel;
+  final int points;
+  final int pointsIntoLevel;
+  final int pointsForNextLevel;
   final double progress;
 
-  // Breakdown of `xp` by source — same five wells LogThemeCopy.levelXpNote
-  // names (logged evenings, reviews, rewatches, streaks, genres explored).
   final int watchedCount;
-  final int xpFromWatched;
   final int reviewsCount;
-  final int xpFromReviews;
   final int rewatchCount;
-  final int xpFromRewatches;
   final int genresCount;
-  final int xpFromGenres;
   final int longestStreakEver;
-  final int xpFromStreak;
+  final int invitesCount;
+  final int challengesClaimed;
+  final int watchedTogetherCount;
+  final int cardSharesCount;
 
   const ProfileLevel({
     required this.level,
-    required this.xp,
-    required this.xpIntoLevel,
-    required this.xpForNextLevel,
+    required this.points,
+    required this.pointsIntoLevel,
+    required this.pointsForNextLevel,
     required this.progress,
     this.watchedCount = 0,
-    this.xpFromWatched = 0,
     this.reviewsCount = 0,
-    this.xpFromReviews = 0,
     this.rewatchCount = 0,
-    this.xpFromRewatches = 0,
     this.genresCount = 0,
-    this.xpFromGenres = 0,
     this.longestStreakEver = 0,
-    this.xpFromStreak = 0,
+    this.invitesCount = 0,
+    this.challengesClaimed = 0,
+    this.watchedTogetherCount = 0,
+    this.cardSharesCount = 0,
   });
 
   factory ProfileLevel.fromJson(Map<String, dynamic> json) => ProfileLevel(
         level: json['level'] as int,
-        xp: json['xp'] as int,
-        xpIntoLevel: json['xp_into_level'] as int,
-        xpForNextLevel: json['xp_for_next_level'] as int,
+        points: json['points'] as int,
+        pointsIntoLevel: json['points_into_level'] as int,
+        pointsForNextLevel: json['points_for_next_level'] as int,
         progress: (json['progress'] as num).toDouble(),
         watchedCount: json['watched_count'] as int? ?? 0,
-        xpFromWatched: json['xp_from_watched'] as int? ?? 0,
         reviewsCount: json['reviews_count'] as int? ?? 0,
-        xpFromReviews: json['xp_from_reviews'] as int? ?? 0,
         rewatchCount: json['rewatch_count'] as int? ?? 0,
-        xpFromRewatches: json['xp_from_rewatches'] as int? ?? 0,
         genresCount: json['genres_count'] as int? ?? 0,
-        xpFromGenres: json['xp_from_genres'] as int? ?? 0,
         longestStreakEver: json['longest_streak_ever'] as int? ?? 0,
-        xpFromStreak: json['xp_from_streak'] as int? ?? 0,
+        invitesCount: json['invites_count'] as int? ?? 0,
+        challengesClaimed: json['challenges_claimed'] as int? ?? 0,
+        watchedTogetherCount: json['watched_together_count'] as int? ?? 0,
+        cardSharesCount: json['card_shares_count'] as int? ?? 0,
       );
 }
 
@@ -510,6 +515,22 @@ class SeenlyUser {
   final String? avatarUrl;
   final String? statusText;
 
+  /// Recovery address, and whether it has been confirmed. Both drive the
+  /// Account screen's nudge: an account with no address at all loses its
+  /// whole diary to a forgotten password, and an unconfirmed one can't be
+  /// used for reset at all (the backend refuses — an unconfirmed address
+  /// only proves somebody typed it).
+  final String? email;
+  final bool emailVerified;
+
+  /// False when this account has never accepted the terms, or accepted a
+  /// version older than the current one — the app shows the agreement
+  /// sheet on next launch. Accounts created before the EULA existed land
+  /// here rather than being locked out.
+  final bool eulaCurrent;
+
+  final bool isAdmin;
+
   const SeenlyUser({
     required this.id,
     required this.username,
@@ -518,7 +539,15 @@ class SeenlyUser {
     this.avatarPreset,
     this.avatarUrl,
     this.statusText,
+    this.email,
+    this.emailVerified = false,
+    this.eulaCurrent = true,
+    this.isAdmin = false,
   });
+
+  /// True when there is no usable way back into this account if the
+  /// password is forgotten. Drives the one nudge the Account screen shows.
+  bool get needsRecoveryEmail => email == null || !emailVerified;
 
   /// What the header/friend rows should actually show — the edited
   /// display name if one was ever set, otherwise the login username.
@@ -528,13 +557,15 @@ class SeenlyUser {
   factory SeenlyUser.fromJson(Map<String, dynamic> json) => SeenlyUser(
         id: json['id'] as String,
         username: json['username'] as String,
-        createdAt: json['created_at'] != null
-            ? DateTime.tryParse(json['created_at'] as String)
-            : null,
+        createdAt: tryParseServerUtc(json['created_at'] as String?),
         displayName: json['display_name'] as String?,
         avatarPreset: json['avatar_preset'] as String?,
         avatarUrl: json['avatar_url'] as String?,
         statusText: json['status_text'] as String?,
+        email: json['email'] as String?,
+        emailVerified: json['email_verified'] as bool? ?? false,
+        eulaCurrent: json['eula_current'] as bool? ?? true,
+        isAdmin: json['is_admin'] as bool? ?? false,
       );
 }
 
@@ -556,6 +587,12 @@ class ProfileMe {
   // Same, for the "favorite" shelf on Profile — see PrivacyShelf.favorites
   // below.
   final String privacyFavorites;
+
+  /// "people can find me by my username" — the opt-out for friend
+  /// search. Separate from the four shelf settings above: those decide
+  /// what a viewer sees once they're already looking at this profile,
+  /// this decides whether a stranger can reach it at all.
+  final bool discoverable;
   // Up to 5 favorites shown as a swipeable stories deck on the Profile
   // header banner, in the order the person arranged them — see
   // models.User.top_favorite_picks on the backend. Empty until picked
@@ -573,6 +610,7 @@ class ProfileMe {
     this.privacyWatching = 'everyone',
     this.privacyPlanned = 'everyone',
     this.privacyFavorites = 'everyone',
+    this.discoverable = true,
     this.topFavoritePicks = const [],
   });
 
@@ -587,6 +625,7 @@ class ProfileMe {
         privacyWatching: json['privacy_watching'] as String? ?? 'everyone',
         privacyPlanned: json['privacy_planned'] as String? ?? 'everyone',
         privacyFavorites: json['privacy_favorites'] as String? ?? 'everyone',
+        discoverable: json['discoverable'] as bool? ?? true,
         topFavoritePicks: (json['top_favorite_picks'] as List? ?? const [])
             .map((e) => FavoritePick.fromJson(e as Map<String, dynamic>))
             .toList(),

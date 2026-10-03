@@ -2,13 +2,15 @@ import json
 import random
 from typing import List, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import WebSocket
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from app import models
+from app import models, realtime
 from app.database import get_db
-from app.deps import get_current_user
+from app.deps import get_current_user, get_ws_user
+from app import push
 from app.routers.feed import get_discover_pool
 from app.routers.partner import _coview_item, _member_ids, add_coview_entries, get_active_link
 from app.schemas import (
@@ -122,6 +124,23 @@ def _require_link(db: Session, user_id: str) -> models.PartnerLink:
     return link
 
 
+def _lock_link(db: Session, link: models.PartnerLink) -> models.PartnerLink:
+    """Re-fetches `link` with a row lock, held for the rest of this
+    transaction. start_vote/propose_vote both do "is there already an
+    active round? if not, create one" — without a lock, two requests
+    for the same link (both partners tapping "vote" within the same
+    instant, or a double-tap) can both pass that check before either
+    commits, so both create a session — silently breaking the "at most
+    one active round per link" invariant CoViewVoteSession's own
+    docstring promises, with no unique constraint backing it up at the
+    database level either. Locking the link row here serializes the
+    two: the second call now blocks until the first commits, then sees
+    the session the first one just created and hands that back instead
+    of making a second one.
+    """
+    return db.get(models.PartnerLink, link.id, with_for_update=True)
+
+
 def _deck_items(row: models.CoViewVoteSession) -> List[MediaItem]:
     return TypeAdapter(List[MediaItem]).validate_json(row.deck_json)
 
@@ -150,8 +169,17 @@ def _to_out(row: models.CoViewVoteSession, current_user_id: str) -> CoViewVoteSe
     )
 
 
-def _get_session_for_link(db: Session, session_id: str, link: models.PartnerLink) -> models.CoViewVoteSession:
-    row = db.get(models.CoViewVoteSession, session_id)
+def _get_session_for_link(
+    db: Session, session_id: str, link: models.PartnerLink, *, for_update: bool = False,
+) -> models.CoViewVoteSession:
+    """`for_update=True` takes a row lock (`SELECT ... FOR UPDATE`) on the
+    session for the rest of this transaction — see cast_vote's own
+    comment for why that matters there. Plain reads (get_vote, the `.tr`
+    round display) stay unlocked; there's no correctness reason for a
+    GET to block on a concurrent vote, only cast_vote's read-then-decide
+    needs exclusivity.
+    """
+    row = db.get(models.CoViewVoteSession, session_id, with_for_update=for_update)
     if row is None or row.link_id != link.id:
         raise HTTPException(status_code=404, detail="Round not found")
     return row
@@ -182,9 +210,16 @@ async def start_vote(
     looking at."""
     link = _require_link(db, current_user.id)
 
-    existing = _get_active_session(db, link)
-    if existing is not None:
-        return _to_out(existing, current_user.id)
+    # Unlocked pre-check: skip building the pool entirely in the common
+    # case where a round's already active. Not the actual race guard —
+    # see the locked re-check right below, after the pool (which can hit
+    # TMDB/IGDB on a cold cache — see _build_vote_pool's "catalog"
+    # branch) is already built. Locking any earlier would hold the link
+    # row locked across that network round trip, blocking the partner's
+    # own request for no reason.
+    precheck = _get_active_session(db, link)
+    if precheck is not None:
+        return _to_out(precheck, current_user.id)
 
     pool = await _build_vote_pool(db, link, source)
     if not pool:
@@ -192,6 +227,11 @@ async def start_vote(
             status_code=422,
             detail="Nothing there to vote on yet",
         )
+
+    _lock_link(db, link)
+    existing = _get_active_session(db, link)
+    if existing is not None:
+        return _to_out(existing, current_user.id)
 
     row = models.CoViewVoteSession(
         link_id=link.id,
@@ -222,6 +262,7 @@ def propose_vote(
     can't fork the circle into two rounds it disagrees about.
     """
     link = _require_link(db, current_user.id)
+    _lock_link(db, link)
 
     existing = _get_active_session(db, link)
     if existing is not None:
@@ -261,11 +302,25 @@ def get_vote(
 def cast_vote(
     session_id: str,
     payload: CoViewVoteCastRequest,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     link = _require_link(db, current_user.id)
-    row = _get_session_for_link(db, session_id, link)
+    # Locked (see _get_session_for_link's own comment): two partners
+    # tapping "yes" on the same title within milliseconds of each other
+    # both used to read row.votes before the other's cast was committed,
+    # so each independently saw only its own vote and neither ever
+    # concluded "everyone said yes" — the match silently didn't fire
+    # until someone acted again. Locking the row here serializes the
+    # two requests: the second one now blocks until the first commits,
+    # then reads row.votes fresh and actually sees the first vote. The
+    # same lock also closes a second race one level up — both requests
+    # racing past the `status != active` check below and both trying to
+    # finish the round (and both calling add_coview_entries) — since the
+    # second request's status read now happens only after the first has
+    # already committed its status change.
+    row = _get_session_for_link(db, session_id, link, for_update=True)
     if row.status != models.CoViewVoteStatus.active:
         raise HTTPException(status_code=409, detail="This round is already done")
 
@@ -291,6 +346,8 @@ def cast_vote(
     else:
         existing.decision = 1 if payload.decision else 0
 
+    matched_title_name = None
+    matched_member_ids = None
     if payload.decision:
         # A match needs a yes from *everyone* else currently in the
         # circle, not just one specific other id — the couple case (one
@@ -314,9 +371,31 @@ def cast_vote(
                 # only needs to land on the shared list, not re-sync either
                 # personal one.
                 add_coview_entries(db, link, [winner], added_by_id=None, sync_own_watchlist=False)
+                matched_title_name = winner.title.ru or winner.title.en or "что-то"
+                matched_member_ids = list(yes_ids)
+                matched_media_type = (
+                    winner.media_type.value if hasattr(winner.media_type, "value") else winner.media_type
+                )
 
+    # Every successful cast changes something the *other* side's screen
+    # shows — partner_decided_count at minimum, possibly a match — so
+    # this always publishes, not just on the everyone_said_yes branch
+    # above. Same transaction as the commit right below (see
+    # app/realtime.py's own docstring for why that ordering matters).
+    realtime.publish(db, realtime.topic_for("vote", row.id))
     db.commit()
     db.refresh(row)
+    if matched_member_ids:
+        # After commit, not before: a push describing a match that then
+        # failed to save (row.status never actually reaching `done`)
+        # would be worse than sending nothing — see app/push.py's own
+        # docstring on this. Backgrounded so the person who just tapped
+        # "yes" gets their response immediately regardless of how long
+        # the actual FCM call takes.
+        background_tasks.add_task(
+            push.notify_match, matched_member_ids, matched_title_name,
+            payload.media_id, payload.source, matched_media_type,
+        )
     return _to_out(row, current_user.id)
 
 
@@ -330,5 +409,43 @@ def end_vote(
     pick randomly, or you want to reshuffle and start over."""
     link = _require_link(db, current_user.id)
     row = _get_session_for_link(db, session_id, link)
+    topic = realtime.topic_for("vote", row.id)
     db.delete(row)
+    # Still fires even though the row is gone by commit time — a
+    # subscriber's own refetch just gets a 404 either way, which
+    # run_ws_loop's `fetch` below already treats as "close, nothing
+    # wrong". Publishing is what makes that happen right away instead
+    # of only at the next heartbeat.
+    realtime.publish(db, topic)
     db.commit()
+
+
+@router.websocket("/{session_id}/ws")
+async def watch_vote(
+    websocket: WebSocket,
+    session_id: str,
+    token: str | None = None,
+    db: Session = Depends(get_db),
+):
+    """Pushed updates for an open round — what replaces the mobile
+    client's old `Timer.periodic(2s)` GET poll (see
+    CoViewVoteService.poll and the `_pollTimer` in
+    co_view_vote_screen.dart). See app/realtime.py for the actual pump;
+    this just authenticates the connection and hands it a `fetch`
+    closure that re-runs the same lookup+serialize get_vote above does.
+    """
+    await websocket.accept()
+    user = await get_ws_user(token, db)
+    if user is None:
+        await websocket.close(code=4401)
+        return
+
+    def _fetch() -> str | None:
+        try:
+            link = _require_link(db, user.id)
+            row = _get_session_for_link(db, session_id, link)
+        except HTTPException:
+            return None
+        return _to_out(row, user.id).model_dump_json()
+
+    await realtime.run_ws_loop(websocket, realtime.topic_for("vote", session_id), _fetch)

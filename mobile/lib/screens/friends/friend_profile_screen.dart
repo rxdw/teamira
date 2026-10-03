@@ -7,14 +7,20 @@ import '../../models/friend.dart';
 import '../../models/watchlist_entry.dart';
 import '../../services/api_client.dart';
 import '../../services/log_theme_service.dart';
+import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
+import '../../widgets/report_sheet.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../utils/server_time.dart';
 import '../../widgets/achievement_badge.dart';
 import '../../widgets/activity_preview.dart';
 import '../../widgets/favorites_showcase_row.dart';
 import '../../widgets/mosaic_poster_grid.dart';
+import '../../widgets/plan_outgrown_sheet.dart';
+import '../../widgets/premium_upsell_sheet.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/taste_match_card.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_poster_tile.dart';
 import '../../widgets/user_avatar.dart';
@@ -22,6 +28,7 @@ import '../../widgets/watched_preview_sheet.dart';
 import '../../widgets/wow_motion.dart';
 import '../profile/favorite_films_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// A friend's own profile — reached by tapping their row on the friends
 /// screen, a card in the friends activity feed, or a "people you may
@@ -119,6 +126,25 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                   Expanded(
                     child: Text(displayName, style: SeenlyText.screenTitle, overflow: TextOverflow.ellipsis),
                   ),
+                  // The two things App Store guideline 1.2 asks for, on
+                  // the one screen where somebody would actually look for
+                  // them: block and report, on every profile that isn't
+                  // your own. An overflow menu rather than two visible
+                  // buttons — a profile is usually a friend's, and a
+                  // permanent "report" button next to their name sets a
+                  // tone this app isn't for. One tap away is the right
+                  // distance: findable when needed, invisible otherwise.
+                  if (data != null)
+                    _ProfileOverflowMenu(
+                      userId: widget.userId,
+                      name: displayName,
+                      onChanged: () {
+                        // Blocking makes this profile a 404 server-side,
+                        // so there is nothing left to show — leave rather
+                        // than reload into an error.
+                        if (mounted) Navigator.of(context).pop();
+                      },
+                    ),
                 ],
               ),
             ),
@@ -155,6 +181,10 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                             padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                             children: [
                               _Header(data: data, onRefresh: _load),
+                              if (data.tasteMatch != null) ...[
+                                const SizedBox(height: 14),
+                                TasteMatchDetail(match: data.tasteMatch!, compact: true),
+                              ],
                               const SizedBox(height: 18),
                               FavoritesShowcaseRow(
                                 entries: data.collections.favorites,
@@ -162,9 +192,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                                 topKeys: data.collections.topFavoritePicks.map((p) => p.key).toList(),
                                 trailingEmpty: 'none yet ›',
                                 bodyEmptyText:
-                                    "${data.nameForDisplay} hasn't pinned any favorite films yet",
+                                    '${data.nameForDisplay} ${"hasn't pinned any favorite films yet".tr}',
                                 bodyPrivateText:
-                                    '${data.nameForDisplay} keeps their favorites private',
+                                    '${data.nameForDisplay} ${'keeps their favorites private'.tr}',
                                 onSeeAll: () => Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (_) => FavoriteFilmsScreen(
@@ -208,7 +238,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                                 const SizedBox(height: 14),
                               ],
                               UnderlineTabRow(
-                                labels: const ['watched', 'watching now', 'plan to watch'],
+                                labels: ['watched'.tr, 'watching now'.tr, 'plan to watch'.tr],
                                 activeIndex: _tab,
                                 onChanged: (i) => setState(() => _tab = i),
                               ),
@@ -423,7 +453,7 @@ class _Header extends StatelessWidget {
 /// app (see _LevelRing on the person's own profile) — same paper disc
 /// with a soft shadow and an accent ring, just without the fill
 /// animation, since a friend's profile only ever gets the flat level
-/// number (see FriendProfile.level), never the XP fraction the ring on
+/// number (see FriendProfile.level), never the points fraction the ring on
 /// one's own profile animates in from.
 class _LevelBadge extends StatelessWidget {
   final int level;
@@ -546,10 +576,42 @@ class _ActionRowState extends State<_ActionRow> {
     }
   }
 
+  /// A couple stays free forever; growing past that into a company is
+  /// premium (see PremiumService.canGrowCoViewCircle) — same rule
+  /// CoViewingScreen's own "add to circle" button enforces, just
+  /// checked here too since this button is the other way to reach
+  /// PartnerService.sendInvite. Needs a fresh look at this account's
+  /// own circle size first, since that isn't part of a friend's profile
+  /// data.
   Future<void> _sendCoviewInvite() async {
     setState(() => _coviewBusy = true);
     try {
-      await context.read<AppState>().partner.sendInvite(widget.data.userId);
+      final app = context.read<AppState>();
+      final myStatus = await app.partner.status();
+      final currentSize = myStatus.linked ? myStatus.members.length : 1;
+      if (!mounted) return;
+      if (!context.read<PremiumService>().canGrowCoViewCircle(currentSize)) {
+        setState(() => _coviewBusy = false);
+        await showPremiumUpsellSheet(
+          context,
+          triggerSource: 'co_view_circle_size',
+          // Someone growing a pair into a company is exactly who the
+          // family plan is for.
+          initialKind: PremiumPlanKind.family,
+          icon: Icons.people_outline,
+          title: 'a bigger circle is premium'.tr,
+          message: 'a couple stays free forever — premium lets you watch together as a company, three and up'.tr,
+        );
+        return;
+      }
+      final premium = context.read<PremiumService>();
+      if (premium.circleOutgrowsPlan(currentSize)) {
+        setState(() => _coviewBusy = false);
+        final proceed = await confirmCircleOutgrowsPlan(context, premium: premium);
+        if (!proceed || !mounted) return;
+        setState(() => _coviewBusy = true);
+      }
+      await app.partner.sendInvite(widget.data.userId);
       widget.onRefresh();
     } on ApiException catch (e) {
       if (mounted) _showError(e.message);
@@ -563,7 +625,16 @@ class _ActionRowState extends State<_ActionRow> {
     if (id == null) return;
     setState(() => _coviewBusy = true);
     try {
-      await context.read<AppState>().partner.acceptInvite(id);
+      final status = await context.read<AppState>().partner.acceptInvite(id);
+      // Fresh couple, just formed — see AppState.notePartnerJustLinked's
+      // own doc comment on why exactly-two is enough to mean that
+      // without extra bookkeeping.
+      if (status.linked &&
+          status.members.length == 2 &&
+          mounted &&
+          !context.read<PremiumService>().isPremium) {
+        context.read<AppState>().notePartnerJustLinked();
+      }
       widget.onRefresh();
     } on ApiException catch (e) {
       if (mounted) _showError(e.message);
@@ -766,7 +837,8 @@ class _PillSpinner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 16),
-      decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(20)),
       child: SizedBox(
         width: 13,
         height: 13,
@@ -806,7 +878,7 @@ class _Shelf extends StatelessWidget {
         child: Center(
           child: Entrance(
             child: Text('nothing here yet'.tr,
-                style: SeenlyText.serif(italic: true, color: SeenlyPalette.placeholder)),
+                style: SeenlyText.emptyState()),
           ),
         ),
       );
@@ -862,20 +934,20 @@ class _ActivitySection extends StatelessWidget {
   const _ActivitySection({required this.friendName, required this.items});
 
   String _relativeTime(String iso) {
-    final parsed = DateTime.tryParse(iso);
+    final parsed = tryParseServerUtc(iso);
     if (parsed == null) return '';
-    final diff = DateTime.now().difference(parsed);
+    final diff = DateTime.now().difference(parsed.toLocal());
     if (diff.inMinutes < 1) return 'just now'.tr;
     if (diff.inMinutes < 60) {
-      return '${ruCount(diff.inMinutes, one: 'минуту', few: 'минуты', many: 'минут', englishOne: 'minute', englishOther: 'minutes')} ${'ago'.tr}';
+      return '${nCount('nMinutes', diff.inMinutes)} ${'ago'.tr}';
     }
     if (diff.inHours < 24) {
-      return '${ruCount(diff.inHours, one: 'час', few: 'часа', many: 'часов', englishOne: 'hour', englishOther: 'hours')} ${'ago'.tr}';
+      return '${nCount('nHours', diff.inHours)} ${'ago'.tr}';
     }
     if (diff.inDays < 7) {
-      return '${ruCount(diff.inDays, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'ago'.tr}';
+      return '${nCount('nDays', diff.inDays)} ${'ago'.tr}';
     }
-    return '${ruCount((diff.inDays / 7).floor(), one: 'неделю', few: 'недели', many: 'недель', englishOne: 'week', englishOther: 'weeks')} ${'ago'.tr}';
+    return '${nCount('nWeeks', (diff.inDays / 7).floor())} ${'ago'.tr}';
   }
 
   @override
@@ -996,4 +1068,109 @@ void _shareEntry(WatchlistEntry e) {
     if (e.year != null) '(${e.year})',
   ].join(' ');
   Share.share(bits);
+}
+
+
+/// Block / report, on any profile that isn't your own.
+///
+/// Blocking is confirmed first and reporting is not: a block is
+/// immediate, consequential, and easy to hit by accident in a menu, while
+/// the report sheet is itself the confirmation step (pick a reason, add
+/// detail, send). Asking twice for a report would just be a second thing
+/// to dismiss.
+class _ProfileOverflowMenu extends StatelessWidget {
+  final String userId;
+  final String name;
+  final VoidCallback onChanged;
+
+  const _ProfileOverflowMenu({
+    required this.userId,
+    required this.name,
+    required this.onChanged,
+  });
+
+  Future<void> _confirmBlock(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: SeenlyPalette.paper,
+        title: Text('${'block'.tr} $name?',
+            style: SeenlyText.serif(weight: FontWeight.w700)),
+        content: Text(
+          "they won't be able to see your profile or your evenings, or reach you — and you won't see them anywhere. they're never told."
+              .tr,
+          style: SeenlyText.serif(size: 12.5, color: SeenlyPalette.inkMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text('cancel'.tr,
+                style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text('block'.tr,
+                style: SeenlyText.mono(
+                    size: 11, color: SeenlyPalette.coral, weight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await context.read<AppState>().moderation.block(userId);
+      onChanged();
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
+  Future<void> _report(BuildContext context) async {
+    final blocked = await showReportSheet(
+      context,
+      reportedUserId: userId,
+      reportedName: name,
+    );
+    // The report sheet offers "also block them" — if it was taken, this
+    // profile no longer exists for us either.
+    if (blocked) onChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      color: SeenlyPalette.paper,
+      icon: Icon(Icons.more_horiz, size: 19, color: SeenlyPalette.inkMuted),
+      onSelected: (value) {
+        if (value == 'block') _confirmBlock(context);
+        if (value == 'report') _report(context);
+      },
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'report',
+          child: Row(
+            children: [
+              Icon(Icons.flag_outlined, size: 16, color: SeenlyPalette.inkMuted),
+              const SizedBox(width: 10),
+              Text('report'.tr, style: SeenlyText.serif(size: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'block',
+          child: Row(
+            children: [
+              Icon(Icons.block_outlined, size: 16, color: SeenlyPalette.coral),
+              const SizedBox(width: 10),
+              Text('block'.tr,
+                  style: SeenlyText.serif(size: 13, color: SeenlyPalette.coral)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

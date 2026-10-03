@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../widgets/settings_motion.dart';
+import '../../widgets/soft_motion.dart';
+import '../../widgets/wow_motion.dart' show PressScale, Entrance;
 import 'package:provider/provider.dart';
 
 import '../../models/import_row.dart';
@@ -9,6 +12,7 @@ import '../../widgets/poster_tile.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 enum _Phase { input, loading, review, importing, done }
 
@@ -120,7 +124,17 @@ class _AddSourceScreenState extends State<AddSourceScreen> {
                 ],
               ),
             ),
-            Expanded(child: _buildBody()),
+            Expanded(
+              child: SoftSwap(
+                expand: true,
+                alignment: Alignment.topCenter,
+                rise: 0.02,
+                child: KeyedSubtree(
+                  key: ValueKey<_Phase>(_phase),
+                  child: _buildBody(),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -178,9 +192,9 @@ class _InputStep extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 6, 22, 24),
-      children: [
+      children: staggerChildren([
         Text(
-          "paste a public YouTube or Twitch link — a single video, a whole playlist, a channel's uploads, or a Twitch channel's past broadcasts — and teamira will pull in what's there.".tr,
+          "paste a public YouTube or Twitch link — a single video, a whole playlist, a channel's uploads, or a Twitch channel's past broadcasts — and tanè will pull in what's there.".tr,
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
         ),
         const SizedBox(height: 6),
@@ -214,7 +228,8 @@ class _InputStep extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Container(
-          decoration: BoxDecoration(
+          decoration: ClayBoxDecoration(
+            boxShadow: SeenlyPalette.flatCardShadow,
             color: SeenlyPalette.paper,
             borderRadius: BorderRadius.circular(12),
           ),
@@ -237,7 +252,7 @@ class _InputStep extends StatelessWidget {
         ],
         const SizedBox(height: 20),
         PrimaryButton(label: 'fetch link'.tr, onTap: onSubmit),
-      ],
+      ]),
     );
   }
 }
@@ -300,14 +315,27 @@ class _ReviewStep extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 22),
             itemCount: preview.rows.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) => _SourceRowCard(row: preview.rows[i], onChanged: onChanged),
+            // The first screenful settles in row by row; later rows just
+            // come in as they're scrolled to.
+            itemBuilder: (context, i) => Entrance(
+              key: ValueKey<String>('src$i${preview.rows[i].raw}'),
+              delay: Duration(milliseconds: i < 10 ? 45 * i : 0),
+              duration: const Duration(milliseconds: 420),
+              riseBy: 12,
+              child: _SourceRowCard(row: preview.rows[i], onChanged: onChanged),
+            ),
           ),
         ),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
-            child: Text(error!, style: SeenlyText.mono(size: 10, color: SeenlyPalette.coral)),
-          ),
+        SoftSwap(
+          rise: 0.3,
+          child: error == null
+              ? const SizedBox(key: ValueKey<String>('no-error'), width: double.infinity)
+              : Padding(
+                  key: ValueKey<String>(error!),
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Text(error!, style: SeenlyText.mono(size: 10, color: SeenlyPalette.coral)),
+                ),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 10, 22, 18),
           child: Row(
@@ -318,11 +346,16 @@ class _ReviewStep extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: PrimaryButton(
-                  label: selectedCount == 0
-                      ? 'nothing selected'.tr
-                      : '${'add'.tr} ${ruCount(selectedCount, one: 'тайтл', few: 'тайтла', many: 'тайтлов', englishOne: 'item', englishOther: 'items')}',
-                  onTap: selectedCount == 0 ? null : onImport,
+                // Dims and wakes as rows are ticked on and off.
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 240),
+                  opacity: selectedCount == 0 ? 0.5 : 1.0,
+                  child: PrimaryButton(
+                    label: selectedCount == 0
+                        ? 'nothing selected'.tr
+                        : '${'add'.tr} ${nCount('nTitlesAsItems', selectedCount)}',
+                    onTap: selectedCount == 0 ? null : onImport,
+                  ),
                 ),
               ),
             ],
@@ -352,22 +385,33 @@ class _SourceRowCard extends StatelessWidget {
       );
     }
 
-    return Container(
+    // Ticking a row on or off: its outline draws in / fades out, the
+    // round checkbox fills and its tick pops.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
+        boxShadow: SeenlyPalette.flatCardShadow,
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(10),
-        border: row.selected ? Border.all(color: SeenlyPalette.accent, width: 1.2) : null,
+        border: Border.all(
+          color: row.selected ? SeenlyPalette.accent : Colors.transparent,
+          width: 1.2,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
+          PressScale(
+            scaleTo: 0.86,
             onTap: () {
               row.selected = !row.selected;
               onChanged();
             },
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
               width: 22,
               height: 22,
               margin: const EdgeInsets.only(top: 2),
@@ -377,9 +421,14 @@ class _SourceRowCard extends StatelessWidget {
                 border: Border.all(
                     color: row.selected ? SeenlyPalette.accent : SeenlyPalette.dashedBorder, width: 1.4),
               ),
-              child: row.selected
-                  ? Icon(Icons.check, size: 14, color: SeenlyPalette.accentOnAccent)
-                  : null,
+              child: SoftSwap(
+                pop: true,
+                alignment: Alignment.center,
+                duration: const Duration(milliseconds: 240),
+                child: row.selected
+                    ? Icon(Icons.check, key: const ValueKey<bool>(true), size: 14, color: SeenlyPalette.accentOnAccent)
+                    : const SizedBox(key: ValueKey<bool>(false), width: 14, height: 14),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -452,18 +501,23 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    const fade = Duration(milliseconds: 220);
+    return PressScale(
       onTap: onTap,
-      child: Container(
+      scaleTo: 0.92,
+      child: AnimatedContainer(
+        duration: fade,
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: active ? SeenlyPalette.accent.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: active ? SeenlyPalette.accent : SeenlyPalette.dashedBorder, width: 1),
         ),
-        child: Text(
-          label,
+        child: AnimatedDefaultTextStyle(
+          duration: fade,
           style: SeenlyText.mono(size: 9, color: active ? SeenlyPalette.accent : SeenlyPalette.placeholder),
+          child: Text(label),
         ),
       ),
     );
@@ -488,17 +542,33 @@ class _DoneStep extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.accent),
+            // The icon pops in with a little overshoot, the words and the
+            // button follow a beat behind it.
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0.4, end: 1),
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.easeOutBack,
+              builder: (context, scale, child) => Transform.scale(scale: scale, child: child),
+              child: Icon(Icons.smart_display_outlined, size: 30, color: SeenlyPalette.accent),
+            ),
             const SizedBox(height: 14),
-            Text(
-              parts.isEmpty
-                  ? 'nothing was added'.tr
-                  : '${'added'.tr} ' + parts.join(' ${'and'.tr} '),
-              textAlign: TextAlign.center,
-              style: SeenlyText.serif(italic: true, size: 15),
+            Entrance(
+              delay: const Duration(milliseconds: 220),
+              riseBy: 10,
+              child: Text(
+                parts.isEmpty
+                    ? 'nothing was added'.tr
+                    : '${'added'.tr} ' + parts.join(' ${'and'.tr} '),
+                textAlign: TextAlign.center,
+                style: SeenlyText.serif(italic: true, size: 15),
+              ),
             ),
             const SizedBox(height: 20),
-            PrimaryButton(label: 'done'.tr, onTap: onDone, expand: false),
+            Entrance(
+              delay: const Duration(milliseconds: 380),
+              riseBy: 10,
+              child: PrimaryButton(label: 'done'.tr, onTap: onDone, expand: false),
+            ),
           ],
         ),
       ),

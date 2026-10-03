@@ -1,0 +1,49 @@
+name: Mobile tests
+
+# Only runs when something under mobile/ actually changed — mirrors
+# backend-tests.yml's own path filter for the same reason.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-tests.yml"
+  pull_request:
+    paths:
+      - "mobile/**"
+      - ".github/workflows/mobile-tests.yml"
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No exact version pinned (matches this project's own setup — see
+      # pubspec.yaml's `sdk: ">=3.3.0 <4.0.0"` and .metadata's
+      # `channel: "stable"`, neither of which pins a specific release).
+      # "stable" means this can occasionally break on a new Flutter
+      # release before the code catches up — pinning a `flutter-version:`
+      # here once the project itself starts pinning one (e.g. via fvm)
+      # would make this reproducible instead of drifting with upstream.
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      # --dart-define values referenced by lib/ code (SEENLY_API_BASE_URL,
+      # SENTRY_DSN, ...) are all read via String.fromEnvironment with
+      # explicit defaults (see main.dart) specifically so analyze/test
+      # never need real values to run — nothing to pass here.
+      - name: Analyze
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Test
+        working-directory: mobile
+        run: flutter test

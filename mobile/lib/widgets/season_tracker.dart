@@ -11,6 +11,8 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../widgets/themed_loading_indicator.dart';
 import '../services/app_translations.dart';
+import '../theme/notebook_paper.dart';
+import '../theme/clay_kit.dart';
 
 /// The series title screen's season/episode checklist. Loads the show's
 /// season structure (public, cached forever server-side) and the current
@@ -153,17 +155,17 @@ class _SeasonTrackerState extends State<SeasonTracker> {
           children: [
             Text('seasons'.tr,
                 style: SeenlyText.serif(italic: true, size: 14, color: SeenlyPalette.accent)),
-            Text('$watched/$total ${ruPluralForm(total, one: 'серия', few: 'серии', many: 'серий', englishOne: 'episode', englishOther: 'episodes')}', style: SeenlyText.metaLabel),
+            Text('$watched/$total ${nOnly('nEpisodes', total)}', style: SeenlyText.metaLabel),
           ],
         ),
         const SizedBox(height: 10),
         ClipRRect(
           borderRadius: BorderRadius.circular(3),
-          child: LinearProgressIndicator(
+          child: RuledProgressBar(
             value: total == 0 ? 0.0 : watched / total,
             minHeight: 5,
             backgroundColor: SeenlyPalette.paper,
-            valueColor: AlwaysStoppedAnimation(SeenlyPalette.accent),
+            valueColor: SeenlyPalette.accent,
           ),
         ),
         const SizedBox(height: 12),
@@ -239,7 +241,7 @@ class _SeasonPagerState extends State<_SeasonPager> {
     final allWatched = watchedCount == season.episodes.length && season.episodes.isNotEmpty;
 
     return Container(
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         color: SeenlyPalette.paper,
         borderRadius: BorderRadius.circular(16),
         boxShadow: SeenlyPalette.softShadow,
@@ -308,7 +310,7 @@ class _SeasonPagerState extends State<_SeasonPager> {
               ],
             ),
           ),
-          Divider(height: 1, thickness: 1, color: SeenlyPalette.background),
+          CozyDivider(height: 1, thickness: 1, color: SeenlyPalette.background),
           SizedBox(
             height: 340,
             child: PageView.builder(
@@ -378,7 +380,7 @@ class _EpisodeRow extends StatelessWidget {
     return Column(
       children: [
         if (showDivider)
-          Divider(height: 1, thickness: 1, color: SeenlyPalette.background),
+          CozyDivider(height: 1, thickness: 1, color: SeenlyPalette.background),
         InkWell(
           onTap: busy ? null : onTap,
           child: Opacity(

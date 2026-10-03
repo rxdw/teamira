@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/wow_motion.dart' show PressScale;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
@@ -6,10 +7,12 @@ import '../../models/profile_stats.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
-import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../../widgets/settings_motion.dart';
+import '../../widgets/decide_motion.dart' show BouncingDots;
+import '../../widgets/soft_motion.dart';
 
 /// Edits the one part of the profile that isn't derived from watch
 /// history — name, avatar, status line. Reads its starting values from
@@ -84,7 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       setState(() => _uploadingPhoto = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(LocaleService.appIsRussian ? 'Не получилось загрузить фото: $e' : "Couldn't upload photo: $e")));
+          content: Text(LocaleService.appIsRussian ? 'не получилось загрузить фото: $e' : "couldn't upload photo: $e")));
     }
   }
 
@@ -111,7 +114,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted) return;
       setState(() {
         _saving = false;
-        _error = LocaleService.appIsRussian ? 'Не получилось сохранить: $e' : "Couldn't save: $e";
+        _error = LocaleService.appIsRussian ? 'не получилось сохранить: $e' : "couldn't save: $e";
       });
     }
   }
@@ -130,15 +133,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(width: 16, height: 16, child: ThemedLoadingIndicator(size: 16))
-                : Text('сохранить'.tr, style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent)),
+            child: SoftSwap(
+              alignment: Alignment.center,
+              duration: const Duration(milliseconds: 200),
+              child: _saving
+                  ? SizedBox(
+                      key: const ValueKey<String>('saving'),
+                      height: 18,
+                      child: Center(child: BouncingDots(color: SeenlyPalette.accent, dotSize: 4)),
+                    )
+                  : Text('сохранить'.tr,
+                      key: const ValueKey<String>('label'),
+                      style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent)),
+            ),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
-        children: [
+        children: staggerChildren([
           Center(
             child: Stack(
               clipBehavior: Clip.none,
@@ -149,8 +162,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   fallbackLetter: letter,
                   size: 88,
                 ),
-                if (_uploadingPhoto)
-                  const Positioned.fill(child: Center(child: ThemedLoadingIndicator(size: 22))),
+                // While a photo uploads, a soft scrim with hopping dots
+                // fades over the avatar.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 220),
+                      opacity: _uploadingPhoto ? 1 : 0,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: SeenlyPalette.ink.withOpacity(0.38),
+                        ),
+                        child: Center(child: BouncingDots(color: SeenlyPalette.paper, dotSize: 5)),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -170,9 +198,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             runSpacing: 12,
             children: kAvatarPresets.map((preset) {
               final selected = _avatarUrl == null && _avatarPreset == preset.id;
-              return GestureDetector(
+              return PressScale(
                 onTap: () => _pickPreset(preset.id),
-                child: Container(
+                // The chosen avatar's ring fades in and it lifts a touch.
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
                   padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
@@ -181,8 +212,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       width: 2,
                     ),
                   ),
-                  child: ClipOval(
-                    child: Image.asset(preset.assetPath, width: 52, height: 52, fit: BoxFit.cover),
+                  child: AnimatedScale(
+                    duration: const Duration(milliseconds: 260),
+                    curve: Curves.easeOutBack,
+                    scale: selected ? 1.06 : 1.0,
+                    child: ClipOval(
+                      child: Image.asset(preset.assetPath, width: 52, height: 52, fit: BoxFit.cover),
+                    ),
                   ),
                 ),
               );
@@ -229,7 +265,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 16),
             Text(_error!, style: SeenlyText.mono(size: 12, color: Colors.red)),
           ],
-        ],
+        ]),
       ),
     );
   }

@@ -11,6 +11,7 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/wow_motion.dart' show Entrance, FadeInNetworkImage, PressScale;
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 /// The very first thing a signed-in person sees on each cold launch —
 /// a full-bleed "good evening, you're still on {last title}" front door,
@@ -190,7 +191,8 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                           child: Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            decoration: BoxDecoration(
+                            decoration: ClayBoxDecoration(
+                              boxShadow: SeenlyPalette.flatCardShadow,
                               color: SeenlyPalette.paper,
                               borderRadius: BorderRadius.circular(28),
                             ),

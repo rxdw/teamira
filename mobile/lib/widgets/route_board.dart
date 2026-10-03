@@ -9,6 +9,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'boarding_pass.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the "Evening Route" theme — the
 /// counterpart to `TicketJar`: a small split-flap
@@ -65,7 +66,7 @@ class _RouteBoardState extends State<RouteBoard> with SingleTickerProviderStateM
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.ink,
           borderRadius: BorderRadius.circular(20),
           boxShadow: SeenlyPalette.softShadow,

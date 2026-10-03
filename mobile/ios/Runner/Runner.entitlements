@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	Universal Links (backend/app/routers/linking.py's /i/{code} and /t
+	pages). Without this entitlement, iOS never even asks
+	https://<domain>/.well-known/apple-app-site-association for
+	verification — it just always opens the URL in Safari — no matter
+	what Settings.ios_app_id is set to on the backend. This file is the
+	other half of that story that a backend env var alone can't cover.
+
+	"applinks:yourdomain.com" is a placeholder: replace yourdomain.com
+	with the exact host from backend's Settings.PUBLIC_WEB_BASE_URL
+	(no scheme, no path, e.g. "teamira.app" for
+	"https://teamira.app") before shipping a build that should support
+	Universal Links. Until then this entitlement quietly does nothing
+	useful (there's no real domain to verify against), which is the
+	same "unconfigured, not broken" state as an empty
+	Settings.ios_app_id on the backend side — every link still opens
+	via the seenly:// custom scheme (already declared in Info.plist) or
+	the /i/{code} / /t landing page's own JS redirect instead.
+
+	Also needs, once a real domain is chosen:
+	  - Settings.ios_app_id back on the backend, as "TEAMID.bundle.id"
+	    (Apple Team ID + com.example.seenly, or whatever the bundle id
+	    is by then).
+	  - This file's CODE_SIGN_ENTITLEMENTS wiring in
+	    Runner.xcodeproj/project.pbxproj (already done) picked up by an
+	    actual signed build — associated domains are verified by the
+	    OS against Apple's servers, not locally, so this can't be
+	    tested in the simulator; a real device build is required.
+	-->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:yourdomain.com</string>
+	</array>
+</dict>
+</plist>

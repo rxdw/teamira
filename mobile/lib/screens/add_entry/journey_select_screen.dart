@@ -16,6 +16,7 @@ import '../../theme/text_styles.dart';
 import '../../widgets/journey_real_map.dart';
 import 'journey_progress_screen.dart';
 import '../../services/app_translations.dart';
+import '../../theme/clay_kit.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -31,8 +32,13 @@ const Map<String, int> _runtimeFallback = {
 
 class _JourneyOption {
   final String title;
-  final String detail;
   final int minutes;
+  // How the leg's caption reads for a given duration ("1h 45m on the
+  // rails", ...). A function rather than a fixed string so the same
+  // option can be re-stamped with a different duration (see [withMinutes])
+  // without its caption going stale.
+  final String Function(int minutes) _detailFor;
+  String get detail => _detailFor(minutes);
   // Real destination coordinates — coach and ticket land here (a city,
   // a cinema); garden lands here too (the inner point of its walk).
   final double? destLat;
@@ -49,14 +55,28 @@ class _JourneyOption {
   final String matchKey;
   const _JourneyOption({
     required this.title,
-    required this.detail,
+    required String Function(int minutes) detailFor,
     required this.minutes,
     required this.matchKey,
     this.destLat,
     this.destLng,
     this.originLat,
     this.originLng,
-  });
+  }) : _detailFor = detailFor;
+
+  /// The same place, but with [minutes] as its duration — the caption
+  /// follows. Used to make sure one option always lasts exactly as long
+  /// as the title (see _JourneySelectScreenState._withExactRuntimeOption).
+  _JourneyOption withMinutes(int minutes) => _JourneyOption(
+        title: title,
+        detailFor: _detailFor,
+        minutes: minutes,
+        matchKey: matchKey,
+        destLat: destLat,
+        destLng: destLng,
+        originLat: originLat,
+        originLng: originLng,
+      );
 }
 
 /// Which of the from/to panel's two rows is currently expanded inline
@@ -80,12 +100,17 @@ class JourneySelectScreen extends StatefulWidget {
   // route for the title as a whole, same as before this existed.
   final int? season;
   final int? episode;
+  // See WatchingChoiceScreen's own doc comment — carried through to
+  // JourneyProgressScreen so the rating screen at the end of this leg
+  // starts with the same pre-checked toggle.
+  final bool initialWatchedWithPartner;
   const JourneySelectScreen({
     super.key,
     required this.item,
     required this.theme,
     this.season,
     this.episode,
+    this.initialWatchedWithPartner = false,
   });
 
   @override
@@ -217,13 +242,37 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
 
   Future<void> _loadOptions() async {
     setState(() => _loadingOptions = true);
-    final options = await _buildOptions();
+    final options = _withExactRuntimeOption(await _buildOptions());
     if (!mounted) return;
     setState(() {
       _options = options;
       _selected = 0;
       _loadingOptions = false;
     });
+  }
+
+  /// Guarantees the list always has a leg that lasts *exactly* as long as
+  /// the title — the whole point of the journey is that the trip and the
+  /// film end together. The bundled routes / gardens / cinemas / launch
+  /// sites (and the estimated train and flight times from an arbitrary
+  /// "from" city) only ever come *close* to a given runtime, so when
+  /// nothing already matches, the closest option (index 0 — every
+  /// _buildOptions branch sorts closest-first) is re-stamped with the
+  /// runtime. The place is real, its time is a little off — deliberately:
+  /// a matching duration matters more here than the exact real-world
+  /// travel time. Same for all four themes, since they all come through
+  /// here.
+  List<_JourneyOption> _withExactRuntimeOption(List<_JourneyOption> options) {
+    if (options.isEmpty) return options;
+    final film = _filmMinutes;
+    final exact = options.indexWhere((o) => o.minutes == film);
+    if (exact == 0) return options;
+    if (exact > 0) {
+      // Already there, just not first — bring it to the front so it's the
+      // one preselected.
+      return [options[exact], ...options.sublist(0, exact), ...options.sublist(exact + 1)];
+    }
+    return [options.first.withMinutes(film), ...options.sublist(1)];
   }
 
   Future<List<_JourneyOption>> _buildOptions() async {
@@ -237,7 +286,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         return routes
             .map((r) => _JourneyOption(
                   title: r.destCity,
-                  detail: '${_fmtDuration(r.minutes)} on the rails',
+                  detailFor: (m) => '${_fmtDuration(m)} on the rails',
                   minutes: r.minutes,
                   matchKey: r.destCity,
                   destLat: r.destLat,
@@ -248,7 +297,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         return closestGardens(runtimeMinutes: widget.item.runtimeMinutes, mediaType: widget.item.mediaType)
             .map((g) => _JourneyOption(
                   title: g.name,
-                  detail: '${_fmtDuration(g.minutes)} walk · ${g.city}, ${g.country}',
+                  detailFor: (m) => '${_fmtDuration(m)} walk · ${g.city}, ${g.country}',
                   minutes: g.minutes,
                   matchKey: g.name,
                   originLat: g.gateLat,
@@ -265,7 +314,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         )
             .map((o) => _JourneyOption(
                   title: '${o.cinema.name}, ${o.cinema.city}',
-                  detail: '${_fmtDuration(o.minutes)} flight · ${o.cinema.country}',
+                  detailFor: (m) => '${_fmtDuration(m)} flight · ${o.cinema.country}',
                   minutes: o.minutes,
                   matchKey: o.cinema.code,
                   destLat: o.cinema.lat,
@@ -276,7 +325,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         return closestLaunchSites(runtimeMinutes: widget.item.runtimeMinutes, mediaType: widget.item.mediaType)
             .map((s) => _JourneyOption(
                   title: s.name,
-                  detail: '${_fmtDuration(s.minutes)} to the pad · ${s.city}, ${s.country}',
+                  detailFor: (m) => '${_fmtDuration(m)} to the pad · ${s.city}, ${s.country}',
                   minutes: s.minutes,
                   matchKey: s.name,
                   originLat: s.gateLat,
@@ -355,6 +404,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
           season: widget.season,
           episode: widget.episode,
           destMatchKey: option.matchKey,
+          initialWatchedWithPartner: widget.initialWatchedWithPartner,
         ),
       ),
     );
@@ -451,7 +501,8 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
               borderRadius: 18,
             )
           : Container(
-              decoration: BoxDecoration(color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18)),
+              decoration: ClayBoxDecoration(
+                boxShadow: SeenlyPalette.flatCardShadow,color: SeenlyPalette.paper, borderRadius: BorderRadius.circular(18)),
               alignment: Alignment.center,
               child: _loadingOptions
                   ? SizedBox(

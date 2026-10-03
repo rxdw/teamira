@@ -3,6 +3,7 @@ import '../models/media_item.dart';
 import '../models/today_pick.dart';
 import 'api_client.dart';
 import 'locale_service.dart';
+import '../analytics/analytics.dart';
 
 class FeedService {
   final ApiClient _client;
@@ -71,6 +72,11 @@ class FeedService {
   Future<List<MediaItem>> feed() async {
     final json = await _client.get(
       '/feed',
+      // Same as collections(): without it the pool's posters come back
+      // English-only and only turn Russian once a title's own card is opened.
+      query: {
+        if (LocaleService.contentPrefersRussian) 'lang': 'ru',
+      },
       timeout: const Duration(seconds: 60),
     ) as List;
     return json
@@ -87,6 +93,9 @@ class FeedService {
   Future<List<MediaItem>> forYou() async {
     final json = await _client.get(
       '/feed/for-you',
+      query: {
+        if (LocaleService.contentPrefersRussian) 'lang': 'ru',
+      },
       timeout: const Duration(seconds: 60),
     ) as List;
     return json
@@ -95,10 +104,14 @@ class FeedService {
   }
 
   /// "like" -> watch_later, "watched" -> watched, "skip" -> no-op.
-  Future<void> react(MediaItem item, String action) {
-    return _client.post('/feed/react', body: {
+  Future<void> react(MediaItem item, String action) async {
+    await _client.post('/feed/react', body: {
       'item': item.toJson(),
       'action': action,
+    });
+    Analytics.instance.track('title_reacted', {
+      'action': action, // like / watched / skip
+      'media_type': item.mediaType,
     });
   }
 }

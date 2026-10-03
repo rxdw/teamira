@@ -1,5 +1,7 @@
+import '../utils/server_time.dart';
 import 'achievement.dart';
 import 'activity_item.dart';
+import 'taste_match.dart';
 import 'watchlist_entry.dart';
 
 /// Mirrors `FriendOut` in backend/app/schemas.py — one accepted friend,
@@ -18,6 +20,10 @@ class Friend {
   // allowed a friend to see (privacy — see PrivacySettings below) —
   // null if they've hidden every shelf, or simply have nothing yet.
   final ActivityItem? recentActivity;
+  // Null when there isn't enough shelf data on either side yet to say
+  // anything (see similarity.compare on the backend) — the UI shows
+  // nothing rather than a fabricated "0% match" in that case.
+  final TasteMatch? tasteMatch;
 
   const Friend({
     required this.userId,
@@ -29,6 +35,7 @@ class Friend {
     this.avatarUrl,
     this.statusText,
     this.recentActivity,
+    this.tasteMatch,
   });
 
   String get nameForDisplay =>
@@ -38,9 +45,7 @@ class Friend {
         userId: json['user_id'] as String,
         username: json['username'] as String,
         level: json['level'] as int? ?? 1,
-        friendsSince: json['friends_since'] != null
-            ? DateTime.tryParse(json['friends_since'] as String)
-            : null,
+        friendsSince: tryParseServerUtc(json['friends_since'] as String?),
         displayName: json['display_name'] as String?,
         avatarPreset: json['avatar_preset'] as String?,
         avatarUrl: json['avatar_url'] as String?,
@@ -48,6 +53,7 @@ class Friend {
         recentActivity: json['recent_activity'] != null
             ? ActivityItem.fromJson(json['recent_activity'] as Map<String, dynamic>)
             : null,
+        tasteMatch: TasteMatch.tryParse(json['taste_match']),
       );
 }
 
@@ -80,9 +86,7 @@ class FriendRequestItem {
         id: json['id'] as String,
         userId: json['user_id'] as String,
         username: json['username'] as String,
-        createdAt: json['created_at'] != null
-            ? DateTime.tryParse(json['created_at'] as String)
-            : null,
+        createdAt: tryParseServerUtc(json['created_at'] as String?),
         displayName: json['display_name'] as String?,
         avatarPreset: json['avatar_preset'] as String?,
         avatarUrl: json['avatar_url'] as String?,
@@ -149,29 +153,29 @@ class FriendSearchResult {
 }
 
 /// Mirrors `InviteOut` — this account's own standing invite code, plus
-/// how many friends have joined through it and the XP that's earned
-/// (see backend/app/routers/profile.py's xp_from_invites well).
+/// how many friends have joined through it and the sincerity points
+/// that's earned (see backend/app/sincerity.py::earn_friend_invited).
 class InviteInfo {
   final String code;
   final String shareText;
   final int invitedCount;
-  final int xpBonus;
-  final int xpPerFriend;
+  final int sincerityBonus;
+  final int sincerityPerFriend;
 
   const InviteInfo({
     required this.code,
     required this.shareText,
     required this.invitedCount,
-    required this.xpBonus,
-    required this.xpPerFriend,
+    required this.sincerityBonus,
+    required this.sincerityPerFriend,
   });
 
   factory InviteInfo.fromJson(Map<String, dynamic> json) => InviteInfo(
         code: json['code'] as String,
         shareText: json['share_text'] as String,
         invitedCount: json['invited_count'] as int? ?? 0,
-        xpBonus: json['xp_bonus'] as int? ?? 0,
-        xpPerFriend: json['xp_per_friend'] as int? ?? 0,
+        sincerityBonus: json['sincerity_bonus'] as int? ?? 0,
+        sincerityPerFriend: json['sincerity_per_friend'] as int? ?? 0,
       );
 }
 
@@ -210,6 +214,11 @@ class FriendProfile {
   final String coviewStatus;
   final String? coviewInviteId;
 
+  // Same taste scale as Friend.tasteMatch/SuggestedFriend.tasteMatch —
+  // shown here too so opening someone's profile (friend or stranger)
+  // gets the full breakdown, not just a compact card version.
+  final TasteMatch? tasteMatch;
+
   const FriendProfile({
     required this.userId,
     required this.username,
@@ -225,6 +234,7 @@ class FriendProfile {
     this.friendRequestId,
     this.coviewStatus = 'none',
     this.coviewInviteId,
+    this.tasteMatch,
   });
 
   String get nameForDisplay =>
@@ -249,6 +259,7 @@ class FriendProfile {
         friendRequestId: json['friend_request_id'] as String?,
         coviewStatus: json['coview_status'] as String? ?? 'none',
         coviewInviteId: json['coview_invite_id'] as String?,
+        tasteMatch: TasteMatch.tryParse(json['taste_match']),
       );
 }
 
@@ -264,6 +275,10 @@ class SuggestedFriend {
   final String? avatarUrl;
   final String? statusText;
   final List<ActivityItem> recentActivity;
+  // Same taste scale as Friend.tasteMatch — this is what lets "people
+  // you may know" be ranked (and shown) by actual taste overlap instead
+  // of just "who signed up most recently."
+  final TasteMatch? tasteMatch;
 
   const SuggestedFriend({
     required this.userId,
@@ -274,6 +289,7 @@ class SuggestedFriend {
     this.avatarUrl,
     this.statusText,
     this.recentActivity = const [],
+    this.tasteMatch,
   });
 
   String get nameForDisplay =>
@@ -290,5 +306,6 @@ class SuggestedFriend {
         recentActivity: (json['recent_activity'] as List? ?? const [])
             .map((e) => ActivityItem.fromJson(e as Map<String, dynamic>))
             .toList(),
+        tasteMatch: TasteMatch.tryParse(json['taste_match']),
       );
 }

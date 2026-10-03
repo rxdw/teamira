@@ -14,9 +14,8 @@ forced into one mechanism:
   refresh, so a franchise that grows a new entry shows up automatically.
 - Hand-picked shelves ("Top 10 Movies of 2020") — nothing on TMDB groups
   these, so they're added one title at a time through the API below,
-  guarded by a single shared header key (see
-  app/deps.py::require_teamira_admin), since there's no admin-flag/role
-  system anywhere else in this app.
+  guarded by an actual admin account rather than a per-user action (see
+  app/deps.py::require_admin_user, User.is_admin).
 """
 
 import asyncio
@@ -30,8 +29,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app import cache, models
 from app.curated_franchises import FRANCHISE_COLLECTIONS
-from app.database import get_db
-from app.deps import get_current_user, require_teamira_admin
+from app.database import get_db, SessionLocal
+from app.deps import get_current_user, require_admin_user
 from app.schemas import (
     Collection,
     MediaItem,
@@ -149,14 +148,28 @@ async def _resolve_manual_item(db: Session, media_id: str, media_type: str, sour
 @router.get("/feed/teamira", response_model=List[Collection])
 async def get_teamira_collections(
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Franchise shelves from app/curated_franchises.py first, then
     hand-picked shelves from the DB — both resolved into the same
     Collection(title, items) shape /feed/collections returns. Cached as
     one dynamic snapshot (cache.TEAMIRA_TTL): a handful of shelves, each
     up to a whole franchise's worth of TMDB calls, isn't something to redo
-    on every single tab open."""
+    on every single tab open.
+
+    No `db: Session = Depends(get_db)` here — same reasoning as
+    routers/media.py::search_media and routers/feed.py::get_feed. The
+    franchise half of _fetch() below is a real TMDB fan-out (one full
+    collection lookup plus a per-movie trailer lookup, per franchise);
+    holding a pooled connection for that whole stretch on every cache-
+    miss request was exactly the shape that caused the pool-exhaustion
+    incident database.py's own docstring describes, and TEAMIRA_TTL
+    being long doesn't prevent a burst of concurrent requests landing
+    during the same cold window right after a cache invalidation (see
+    routers/teamira.py's own admin endpoints, and
+    cache.invalidate_teamira_cache) or right after a deploy. The one
+    genuine DB read this needs (the hand-picked shelves themselves) opens
+    its own short-lived session below instead, right around the query,
+    not the whole request."""
 
     async def _fetch() -> List[Collection]:
         out: List[Collection] = []
@@ -206,24 +219,34 @@ async def get_teamira_collections(
                 history_url=history_url,
             ))
 
-        rows = (
-            db.query(models.TeamiraCollection)
-            .options(selectinload(models.TeamiraCollection.items))
-            .order_by(models.TeamiraCollection.position, models.TeamiraCollection.created_at)
-            .all()
-        )
-        for row in rows:
+        # Own short-lived session, closed before the per-item resolve
+        # loop below (which is its own round of TMDB/IGDB/etc calls via
+        # _resolve_manual_item) even starts — see this function's own
+        # docstring. selectinload means row.items is already loaded by
+        # the time the `with` block below exits, so reading it after the
+        # session closes doesn't trigger a lazy-load query against a
+        # closed session.
+        with SessionLocal() as db:
+            rows = (
+                db.query(models.TeamiraCollection)
+                .options(selectinload(models.TeamiraCollection.items))
+                .order_by(models.TeamiraCollection.position, models.TeamiraCollection.created_at)
+                .all()
+            )
+            shelves = [(row.title, row.title_en, list(row.items)) for row in rows]
+
+        for shelf_title, shelf_title_en, shelf_items in shelves:
             try:
                 items = []
-                for item in row.items:
-                    media_item = await _resolve_manual_item(db, item.media_id, item.media_type, item.source)
+                for item in shelf_items:
+                    media_item = await _resolve_manual_item(None, item.media_id, item.media_type, item.source)
                     if media_item is not None:
                         items.append(media_item)
             except Exception:
-                logger.warning("feed/teamira: shelf %r failed to resolve, skipping it", row.title, exc_info=True)
+                logger.warning("feed/teamira: shelf %r failed to resolve, skipping it", shelf_title, exc_info=True)
                 continue
             if items:
-                out.append(Collection(title=row.title, title_en=row.title_en, items=items))
+                out.append(Collection(title=shelf_title, title_en=shelf_title_en, items=items))
 
         return out
 
@@ -239,7 +262,7 @@ async def get_teamira_collections(
     # payload's shape or source changes, bump this so a stale snapshot
     # isn't served past the change. Bump again any time the cached
     # payload's shape changes.
-    payload_json = await cache.cached_dynamic(db, "feed:teamira:v7", _fetch, ttl=cache.TEAMIRA_TTL)
+    payload_json = await cache.cached_dynamic(None, cache.TEAMIRA_CACHE_KEY, _fetch, ttl=cache.TEAMIRA_TTL)
     return TypeAdapter(List[Collection]).validate_json(payload_json)
 
 
@@ -247,7 +270,6 @@ async def get_teamira_collections(
 async def get_today_pick(
     offset: int = 0,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Home screen's \"today's pick\" card — one franchise shelf, plus how
     far this user already is into it. Franchise items themselves come from
@@ -282,8 +304,16 @@ async def get_today_pick(
     "shelf isn't available right now" degradation GET /feed/teamira uses,
     just surfaced as a single empty collection here since the client only
     ever renders one at a time.
+
+    No `db: Session = Depends(get_db)` here — get_teamira_collections
+    below (on a cache miss) is the same franchise TMDB fan-out as
+    GET /feed/teamira itself, now running session-free (see that
+    function's own docstring); holding a pooled connection here for that
+    whole stretch just to use it afterwards for a few small watched-count
+    counts would put the problem right back. Those counts open their own
+    short-lived session instead, after the slow part is already done.
     """
-    collections = await get_teamira_collections(current_user=current_user, db=db)
+    collections = await get_teamira_collections(current_user=current_user)
     franchises = [c for c in collections if c.is_franchise and c.items]
 
     today = date.today()
@@ -298,35 +328,40 @@ async def get_today_pick(
 
     day_index = (today.toordinal() + offset) % len(franchises)
 
-    def _watched_count(items: List[MediaItem]) -> int:
-        tmdb_ids = [item.external_ids.tmdb for item in items if item.external_ids.tmdb]
-        if not tmdb_ids:
-            return 0
-        return (
-            db.query(models.WatchlistEntry)
-            .filter(
-                models.WatchlistEntry.user_id == current_user.id,
-                models.WatchlistEntry.source == "tmdb",
-                models.WatchlistEntry.media_type == models.MediaType.movie,
-                models.WatchlistEntry.status == models.WatchStatus.watched,
-                models.WatchlistEntry.media_id.in_(tmdb_ids),
+    # Everything below is local Postgres reads only (no further network
+    # I/O), so one short-lived session for all of it is fine — this is
+    # exactly the "open it late, right around the real DB work" half of
+    # the pattern described above.
+    with SessionLocal() as db:
+        def _watched_count(items: List[MediaItem]) -> int:
+            tmdb_ids = [item.external_ids.tmdb for item in items if item.external_ids.tmdb]
+            if not tmdb_ids:
+                return 0
+            return (
+                db.query(models.WatchlistEntry)
+                .filter(
+                    models.WatchlistEntry.user_id == current_user.id,
+                    models.WatchlistEntry.source == "tmdb",
+                    models.WatchlistEntry.media_type == models.MediaType.movie,
+                    models.WatchlistEntry.status == models.WatchStatus.watched,
+                    models.WatchlistEntry.media_id.in_(tmdb_ids),
+                )
+                .count()
             )
-            .count()
-        )
 
-    chosen = None
-    chosen_watched = 0
-    for step in range(len(franchises)):
-        candidate = franchises[(day_index + step) % len(franchises)]
-        watched = _watched_count(candidate.items)
-        if watched < len(candidate.items):
-            chosen, chosen_watched = candidate, watched
-            break
-    if chosen is None:
-        # Every franchise is fully watched — fall back to today's plain
-        # rotated pick rather than showing nothing.
-        chosen = franchises[day_index]
-        chosen_watched = _watched_count(chosen.items)
+        chosen = None
+        chosen_watched = 0
+        for step in range(len(franchises)):
+            candidate = franchises[(day_index + step) % len(franchises)]
+            watched = _watched_count(candidate.items)
+            if watched < len(candidate.items):
+                chosen, chosen_watched = candidate, watched
+                break
+        if chosen is None:
+            # Every franchise is fully watched — fall back to today's plain
+            # rotated pick rather than showing nothing.
+            chosen = franchises[day_index]
+            chosen_watched = _watched_count(chosen.items)
 
     return TodayPickOut(
         collection=chosen,
@@ -339,24 +374,13 @@ async def get_today_pick(
 # ---------------------------------------------------------------------------
 # Admin — create/edit hand-picked shelves. Franchise shelves aren't managed
 # here at all; add/remove them by editing app/curated_franchises.py.
-# Not a public surface; see require_teamira_admin.
+# Not a public surface; see require_admin_user.
 # ---------------------------------------------------------------------------
-
-def _invalidate_teamira_cache(db: Session) -> None:
-    """Any admin write makes the cached /feed/teamira snapshot stale —
-    clear it immediately rather than waiting out cache.TEAMIRA_TTL, so an
-    edit shows up the next time someone opens the tab, not up to a day
-    later."""
-    row = db.get(models.CachedFeedSnapshot, "feed:teamira:v7")
-    if row is not None:
-        db.delete(row)
-        db.commit()
-
 
 @router.get(
     "/teamira/admin/collections",
     response_model=List[TeamiraCollectionOut],
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 def admin_list_collections(db: Session = Depends(get_db)):
     return (
@@ -371,7 +395,7 @@ def admin_list_collections(db: Session = Depends(get_db)):
     "/teamira/admin/collections",
     response_model=TeamiraCollectionOut,
     status_code=201,
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 def admin_create_collection(payload: TeamiraCollectionIn, db: Session = Depends(get_db)):
     max_position = db.query(models.TeamiraCollection).count()
@@ -379,14 +403,14 @@ def admin_create_collection(payload: TeamiraCollectionIn, db: Session = Depends(
     db.add(row)
     db.commit()
     db.refresh(row)
-    _invalidate_teamira_cache(db)
+    cache.invalidate_teamira_cache(db)
     return row
 
 
 @router.patch(
     "/teamira/admin/collections/{collection_id}",
     response_model=TeamiraCollectionOut,
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 def admin_rename_collection(collection_id: str, payload: TeamiraCollectionIn, db: Session = Depends(get_db)):
     """Rename an existing hand-picked shelf (e.g. to add/fix its
@@ -399,14 +423,14 @@ def admin_rename_collection(collection_id: str, payload: TeamiraCollectionIn, db
     row.title_en = payload.title_en
     db.commit()
     db.refresh(row)
-    _invalidate_teamira_cache(db)
+    cache.invalidate_teamira_cache(db)
     return row
 
 
 @router.delete(
     "/teamira/admin/collections/{collection_id}",
     status_code=204,
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 def admin_delete_collection(collection_id: str, db: Session = Depends(get_db)):
     row = db.get(models.TeamiraCollection, collection_id)
@@ -414,14 +438,14 @@ def admin_delete_collection(collection_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Collection not found")
     db.delete(row)
     db.commit()
-    _invalidate_teamira_cache(db)
+    cache.invalidate_teamira_cache(db)
     return None
 
 
 @router.post(
     "/teamira/admin/collections/{collection_id}/items",
     response_model=TeamiraCollectionOut,
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 async def admin_add_item(collection_id: str, payload: TeamiraCollectionItemIn, db: Session = Depends(get_db)):
     row = db.get(models.TeamiraCollection, collection_id)
@@ -457,14 +481,14 @@ async def admin_add_item(collection_id: str, payload: TeamiraCollectionItemIn, d
         db.rollback()
         raise HTTPException(status_code=409, detail="That title is already in this collection") from exc
     db.refresh(row)
-    _invalidate_teamira_cache(db)
+    cache.invalidate_teamira_cache(db)
     return row
 
 
 @router.delete(
     "/teamira/admin/collections/{collection_id}/items/{item_id}",
     response_model=TeamiraCollectionOut,
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 def admin_remove_item(collection_id: str, item_id: str, db: Session = Depends(get_db)):
     row = db.get(models.TeamiraCollection, collection_id)
@@ -476,14 +500,14 @@ def admin_remove_item(collection_id: str, item_id: str, db: Session = Depends(ge
     db.delete(item)
     db.commit()
     db.refresh(row)
-    _invalidate_teamira_cache(db)
+    cache.invalidate_teamira_cache(db)
     return row
 
 
 @router.get(
     "/teamira/admin/search",
     response_model=List[TeamiraSearchResultOut],
-    dependencies=[Depends(require_teamira_admin)],
+    dependencies=[Depends(require_admin_user)],
 )
 async def admin_search_catalogs(q: str = Query(..., min_length=1)):
     """Convenience so adding a hand-picked item never requires leaving

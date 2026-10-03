@@ -2,16 +2,20 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/media_item.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/decide_motion.dart';
 import '../../widgets/small_pieces.dart';
+import '../../widgets/soft_motion.dart';
 import '../../widgets/wow_motion.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../widgets/saved_celebration.dart';
 
 enum _Phase { idle, spinning, landed }
 
@@ -91,6 +95,10 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
   int? _resultIndex;
   bool _addingToPlan = false;
   bool _addedToPlan = false;
+
+  // Bumped whenever the frame should "lock on" — the reel landing, or
+  // another poster being picked — so it can play its little flourish.
+  int _landTick = 0;
 
   // Once the reel lands, it's still just a scroll position — the person can
   // browse past it and tap any other poster to pick that one instead. Shown
@@ -194,17 +202,39 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
     // inside it.
     final target = targetIndex * _extent + _itemGap / 2;
     final clamped = target.clamp(0.0, _controller.position.maxScrollExtent);
+
+    // Like the detent of a real wheel: once the reel is in its last stretch
+    // and slowing, each poster that passes the pointer gives a light tick.
+    // The fast part stays silent (it would just buzz), and a floor between
+    // ticks keeps the slow part from clattering.
+    var lastIndex = -1;
+    var lastTick = DateTime.fromMillisecondsSinceEpoch(0);
+    void tickAsPostersPass() {
+      if (clamped <= 0 || _controller.offset / clamped < 0.85) return;
+      final index = ((_controller.offset - _itemGap / 2) / _extent).round();
+      if (index == lastIndex) return;
+      lastIndex = index;
+      final now = DateTime.now();
+      if (now.difference(lastTick) < const Duration(milliseconds: 90)) return;
+      lastTick = now;
+      HapticFeedback.selectionClick();
+    }
+
+    _controller.addListener(tickAsPostersPass);
     await _controller.animateTo(
       clamped,
       duration: const Duration(milliseconds: 2600),
       curve: Curves.easeOutCubic,
     );
+    _controller.removeListener(tickAsPostersPass);
     if (!mounted) return;
+    HapticFeedback.mediumImpact();
     setState(() {
       _phase = _Phase.landed;
       _result = _reel[targetIndex];
       _resultIndex = targetIndex;
       _showBrowseHint = true;
+      _landTick++;
     });
     // Doesn't overstay: fades on its own if the person doesn't touch the
     // reel, same as it would if they'd already noticed and moved on.
@@ -220,10 +250,12 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
   Future<void> _selectItem(int index) async {
     if (_phase != _Phase.landed || !_controller.hasClients) return;
     _dismissHint();
+    HapticFeedback.selectionClick();
     setState(() {
       _result = _reel[index];
       _resultIndex = index;
       _addedToPlan = false;
+      _landTick++;
     });
     final target = index * _extent + _itemGap / 2;
     final clamped = target.clamp(0.0, _controller.position.maxScrollExtent);
@@ -255,6 +287,13 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
         _addingToPlan = false;
         _addedToPlan = true;
       });
+      showSavedCelebration(
+        context,
+        kind: SavedKind.planned,
+        title: result.title.display,
+        posterUrl: result.posterUrl,
+        mediaType: result.mediaType,
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _addingToPlan = false);
@@ -344,73 +383,100 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
   /// loop endlessly and drift in parallax with the real reel. `factor`
   /// < 1 keeps them lagging behind the center column so the whole thing
   /// reads as depth rather than three identical reels.
-  Widget _ghostColumn(List<MediaItem> strip, {required double factor, required double width}) {
+  ///
+  /// Built to be cheap while the reel spins: the column of tiles is
+  /// created *once* and only its offset changes per frame (it used to be
+  /// rebuilt from scratch on every scroll tick — dozens of tiles, each
+  /// with its own blur, dimming and desaturation layers), the blur /
+  /// dim / desaturate is applied once to the whole column instead of
+  /// once per tile (the tiles never overlap, so it looks the same), the
+  /// column sits in its own repaint boundary so moving it doesn't repaint
+  /// the rest of the screen, and the posters are decoded at the size
+  /// they're actually drawn rather than at full resolution.
+  Widget _ghostColumn(List<MediaItem> strip,
+      {required double factor, required double width, required double pixelRatio}) {
     if (strip.isEmpty || width < 36) return const SizedBox.shrink();
     final tileWidth = width;
     final tileHeight = tileWidth * _ghostRatio;
     final loopExtent = tileHeight + _ghostGap;
     final loopHeight = loopExtent * strip.length;
-    return ClipRect(
-      child: ShaderMask(
-        shaderCallback: (rect) => const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
-          stops: [0.0, 0.18, 0.82, 1.0],
-        ).createShader(rect),
-        blendMode: BlendMode.dstIn,
-        child: SizedBox(
-          height: _viewportHeight,
-          child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final raw = _controller.hasClients ? _controller.offset * factor : 0.0;
-            final shift = raw % loopHeight;
-            return OverflowBox(
-              minHeight: 0,
-              maxHeight: loopHeight * 2,
-              alignment: Alignment.topCenter,
-              child: Transform.translate(
-                offset: Offset(0, -shift),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  // Two laps back-to-back so the loop point is never on screen.
-                  children: [...strip, ...strip].map((item) {
-                    final color = SeenlyPalette.mediaColor(item.mediaType);
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: _ghostGap / 2),
-                      child: ImageFiltered(
-                        imageFilter: ui.ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
-                        child: Opacity(
-                          opacity: 0.38,
-                          child: ColorFiltered(
-                            colorFilter: const ColorFilter.matrix(<double>[
-                              0.28, 0.5, 0.1, 0, 0,
-                              0.28, 0.5, 0.1, 0, 0,
-                              0.28, 0.5, 0.1, 0, 0,
-                              0, 0, 0, 1, 0,
-                            ]),
-                            child: Container(
-                              width: tileWidth,
-                              height: tileHeight,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              clipBehavior: Clip.antiAlias,
-                              child: item.posterUrl != null && item.posterUrl!.isNotEmpty
-                                  ? Image.network(item.posterUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox())
-                                  : Icon(_typeIcon(item.mediaType), color: SeenlyPalette.paper.withOpacity(0.6)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            );
-          },
+    final decodeWidth = (tileWidth * pixelRatio).ceil();
+
+    final tiles = Column(
+      mainAxisSize: MainAxisSize.min,
+      // Two laps back-to-back so the loop point is never on screen.
+      children: [...strip, ...strip].map((item) {
+        final color = SeenlyPalette.mediaColor(item.mediaType);
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: _ghostGap / 2),
+          child: Container(
+            width: tileWidth,
+            height: tileHeight,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: item.posterUrl != null && item.posterUrl!.isNotEmpty
+                ? Image.network(
+                    item.posterUrl!,
+                    fit: BoxFit.cover,
+                    cacheWidth: decodeWidth,
+                    errorBuilder: (_, __, ___) => const SizedBox(),
+                  )
+                : Icon(_typeIcon(item.mediaType), color: SeenlyPalette.paper.withOpacity(0.6)),
+          ),
+        );
+      }).toList(),
+    );
+
+    final softened = ImageFiltered(
+      imageFilter: ui.ImageFilter.blur(sigmaX: 1.4, sigmaY: 1.4),
+      child: Opacity(
+        opacity: 0.38,
+        child: ColorFiltered(
+          colorFilter: const ColorFilter.matrix(<double>[
+            0.28, 0.5, 0.1, 0, 0,
+            0.28, 0.5, 0.1, 0, 0,
+            0.28, 0.5, 0.1, 0, 0,
+            0, 0, 0, 1, 0,
+          ]),
+          child: tiles,
+        ),
+      ),
+    );
+
+    return RepaintBoundary(
+      child: ClipRect(
+        child: ShaderMask(
+          shaderCallback: (rect) => const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
+            stops: [0.0, 0.18, 0.82, 1.0],
+          ).createShader(rect),
+          blendMode: BlendMode.dstIn,
+          child: SizedBox(
+            height: _viewportHeight,
+            child: AnimatedBuilder(
+              animation: _controller,
+              // The softened column is the (unchanging) child, so a scroll
+              // tick only rebuilds the offset around it.
+              child: RepaintBoundary(child: softened),
+              builder: (context, child) {
+                final raw = _controller.hasClients ? _controller.offset * factor : 0.0;
+                final shift = raw % loopHeight;
+                return OverflowBox(
+                  minHeight: 0,
+                  maxHeight: loopHeight * 2,
+                  alignment: Alignment.topCenter,
+                  child: Transform.translate(
+                    offset: Offset(0, -shift),
+                    child: child,
+                  ),
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -449,6 +515,7 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   _viewportHeight = constraints.maxHeight;
+                  final pixelRatio = MediaQuery.of(context).devicePixelRatio;
                   // Center column sized off real poster proportions (2:3),
                   // capped so on wide screens it doesn't balloon. Whatever's
                   // left on each side goes to the ghost columns instead of
@@ -466,7 +533,8 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                           width: sideWidth,
                           child: Align(
                             alignment: Alignment.centerRight,
-                            child: _ghostColumn(_ghostLeft, factor: _leftFactor, width: sideWidth * 0.82),
+                            child: _ghostColumn(_ghostLeft,
+                                factor: _leftFactor, width: sideWidth * 0.82, pixelRatio: pixelRatio),
                           ),
                         ),
                         Positioned(
@@ -476,7 +544,8 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                           width: sideWidth,
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: _ghostColumn(_ghostRight, factor: _rightFactor, width: sideWidth * 0.82),
+                            child: _ghostColumn(_ghostRight,
+                                factor: _rightFactor, width: sideWidth * 0.82, pixelRatio: pixelRatio),
                           ),
                         ),
                       ],
@@ -507,6 +576,11 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                                       ? const BouncingScrollPhysics()
                                       : const NeverScrollableScrollPhysics(),
                                   padding: EdgeInsets.symmetric(vertical: _viewportHeight / 2 - _itemHeight / 2),
+                                  // Every row is exactly this tall anyway (poster + its
+                                  // margin) — saying so lets the list place rows
+                                  // without measuring them, which matters when the
+                                  // reel is flying past dozens of them.
+                                  itemExtent: _extent,
                                   itemCount: _reel.length,
                                   itemBuilder: (context, index) => Center(
                                     child: _reelTile(
@@ -520,15 +594,16 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
                               ),
                             ),
                       IgnorePointer(
-                        child: Container(
-                          width: _itemWidth + 18,
-                          height: _itemHeight + 18,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: SeenlyPalette.accent, width: 3),
-                            boxShadow: [
-                              BoxShadow(color: SeenlyPalette.accent.withOpacity(0.22), blurRadius: 26),
-                            ],
+                        // Locks on with a swell, a ring and a few sparkles
+                        // each time the reel lands or another poster is
+                        // picked. Its own repaint boundary: it's still
+                        // while the reel spins, so it shouldn't be
+                        // repainted along with everything that moves.
+                        child: RepaintBoundary(
+                          child: PointerFrame(
+                            width: _itemWidth + 18,
+                            height: _itemHeight + 18,
+                            landedTick: _landTick,
                           ),
                         ),
                       ),
@@ -569,113 +644,93 @@ class _DecideRouletteScreenState extends State<DecideRouletteScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: SizedBox(
                 height: 46,
-                child: _phase == _Phase.landed && result != null
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            result.title.display,
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: SeenlyText.serif(size: 17, weight: FontWeight.w700),
+                // "ready" → "rolling…" → the title that landed (and again,
+                // if another poster is picked) — each a soft swap.
+                child: SoftSwap(
+                  alignment: Alignment.center,
+                  rise: 0.3,
+                  child: KeyedSubtree(
+                    key: ValueKey<String>('${_phase.name}:${_resultIndex ?? -1}'),
+                    child: _phase == _Phase.landed && result != null
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                result.title.display,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: SeenlyText.serif(size: 17, weight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                [result.mediaType, if (result.year != null) '${result.year}'].join(' · '),
+                                style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
+                              ),
+                            ],
+                          )
+                        : Center(
+                            child: Text(
+                              _phase == _Phase.spinning ? 'rolling…'.tr : 'ready when you are'.tr,
+                              style: SeenlyText.serif(italic: true, size: 13.5, color: SeenlyPalette.inkMuted),
+                            ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            [result.mediaType, if (result.year != null) '${result.year}'].join(' · '),
-                            style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
-                          ),
-                        ],
-                      )
-                    : Center(
-                        child: Text(
-                          _phase == _Phase.spinning ? 'rolling…' : 'ready when you are',
-                          style: SeenlyText.serif(italic: true, size: 13.5, color: SeenlyPalette.inkMuted),
-                        ),
-                      ),
+                  ),
+                ),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 22),
-              child: Column(
-                children: [
-                  if (_phase == _Phase.landed) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _SecondaryButton(
-                            icon: Icons.rotate_right_rounded,
-                            label: 'spin again'.tr,
+              // Spin ⇄ (spin again / plan / open): the buttons swap softly
+              // and the panel eases to the new height instead of jumping.
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: SoftSwap(
+                  alignment: Alignment.topCenter,
+                  rise: 0.05,
+                  child: KeyedSubtree(
+                    key: ValueKey<bool>(_phase == _Phase.landed),
+                    child: _phase == _Phase.landed
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: SecondaryActionButton(
+                                      leading: DiceGlyph(size: 18, color: SeenlyPalette.ink),
+                                      label: 'spin again'.tr,
+                                      onTap: _spin,
+                                      haptics: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: SecondaryActionButton(
+                                      icon: _addedToPlan ? widget.secondaryDoneIcon : widget.secondaryIcon,
+                                      label: _addedToPlan ? widget.secondaryDoneLabel : widget.secondaryLabel,
+                                      onTap: _addedToPlan ? null : _addToPlan,
+                                      loading: _addingToPlan,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              PrimaryButton(label: 'open'.tr, onTap: _open),
+                            ],
+                          )
+                        : DiceButton(
+                            label: (_phase == _Phase.spinning ? 'rolling…' : 'spin').tr,
+                            rolling: _phase == _Phase.spinning,
                             onTap: _spin,
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _SecondaryButton(
-                            icon: _addedToPlan ? widget.secondaryDoneIcon : widget.secondaryIcon,
-                            label: _addedToPlan ? widget.secondaryDoneLabel : widget.secondaryLabel,
-                            onTap: _addedToPlan ? null : _addToPlan,
-                            loading: _addingToPlan,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    PrimaryButton(label: 'open'.tr, onTap: _open),
-                  ] else
-                    PrimaryButton(
-                      label: (_phase == _Phase.spinning ? 'rolling…' : 'spin').tr,
-                      loading: _phase == _Phase.spinning,
-                      onTap: _phase == _Phase.spinning ? null : _spin,
-                    ),
-                ],
+                  ),
+                ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SecondaryButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-  final bool loading;
-
-  const _SecondaryButton({required this.icon, required this.label, required this.onTap, this.loading = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return PressScale(
-      onTap: onTap,
-      scaleTo: 0.96,
-      child: Opacity(
-        opacity: onTap == null && !loading ? 0.45 : 1,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: SeenlyPalette.paper,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: SeenlyPalette.border),
-          ),
-          child: loading
-              ? Center(
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: SeenlyPalette.ink),
-                  ),
-                )
-              : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(icon, size: 17, color: SeenlyPalette.ink),
-                    const SizedBox(width: 7),
-                    Text(label, style: SeenlyText.mono(size: 12.5, color: SeenlyPalette.ink, weight: FontWeight.w600)),
-                  ],
-                ),
         ),
       ),
     );

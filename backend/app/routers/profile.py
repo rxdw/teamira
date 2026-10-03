@@ -1,19 +1,20 @@
-import os
 import re
 import calendar
 import uuid
 from collections import Counter
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import and_, func, or_
 
 from app.database import get_db
-from app import models
+from app import content_filter, models, sincerity
 from app.deps import get_current_user
 from app.routers.teamira import get_teamira_collections
+from app.storage import get_avatar_storage
+from app.streaks import current_streak
 from app.schemas import (
     ProfileStats,
     CollectionsOut,
@@ -59,9 +60,46 @@ AVATAR_PRESETS = {
 
 # Local avatar upload storage — see main.py's StaticFiles mount at
 # /static, which serves exactly this directory back out.
-_AVATAR_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "uploads", "avatars")
 _ALLOWED_AVATAR_TYPES = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
 _MAX_AVATAR_BYTES = 5 * 1024 * 1024
+# Read in bounded chunks (see upload_avatar) rather than one
+# `await file.read()` for the whole thing — a client can send
+# Content-Type: image/jpeg and then just keep streaming bytes past
+# _MAX_AVATAR_BYTES; reading unconditionally would buffer all of it in
+# memory before the size check ever runs. 256 KB is arbitrary but
+# reasonable: small enough that the worst case over-read past the cap
+# is negligible, large enough not to spend more time in the read loop
+# than the request is worth.
+_AVATAR_READ_CHUNK_BYTES = 256 * 1024
+
+# First bytes of each format upload_avatar actually accepts, checked
+# against the real file content rather than trusting the client's
+# Content-Type header — that header is just whatever the client sends,
+# and a request lying about it (a same-site scripting payload named
+# avatar.jpg, say) would otherwise get written to disk/S3 and served
+# back out from this app's own origin under an image content-type.
+_AVATAR_MAGIC_BYTES = {
+    "image/jpeg": (b"\xff\xd8\xff",),
+    "image/png": (b"\x89PNG\r\n\x1a\n",),
+    # RIFF????WEBP — the 4-byte size in the middle varies per file, so
+    # this is checked as two separate prefixes rather than one contiguous
+    # signature (see _sniff_avatar_type below).
+    "image/webp": (b"RIFF", b"WEBP"),
+}
+
+
+def _sniff_avatar_type(head: bytes) -> Optional[str]:
+    """Returns the content-type `head` (the first _AVATAR_MAGIC_BYTES-
+    worth of the upload) actually looks like, by its own magic bytes —
+    or None if it doesn't match any format this endpoint accepts."""
+    if head.startswith(_AVATAR_MAGIC_BYTES["image/jpeg"][0]):
+        return "image/jpeg"
+    if head.startswith(_AVATAR_MAGIC_BYTES["image/png"][0]):
+        return "image/png"
+    riff, webp = _AVATAR_MAGIC_BYTES["image/webp"]
+    if head.startswith(riff) and head[8:12] == webp:
+        return "image/webp"
+    return None
 
 
 def _me_out(user: models.User) -> ProfileMeOut:
@@ -77,6 +115,7 @@ def _me_out(user: models.User) -> ProfileMeOut:
         privacy_watching=user.privacy_watching or "everyone",
         privacy_planned=user.privacy_planned or "everyone",
         privacy_favorites=user.privacy_favorites or "everyone",
+        discoverable=True if user.discoverable is None else bool(user.discoverable),
         top_favorite_picks=[TopFavoritePick(**p) for p in (user.top_favorite_picks or [])],
     )
 
@@ -106,12 +145,27 @@ def update_me(
     same call."""
     changes = payload.model_dump(exclude_unset=True)
 
+    # Both of these are shown to other people — on the friends screen, on
+    # the profile screen, on every activity-feed card — so they're
+    # user-generated content and go through the same filter as anything
+    # else that is (see app/content_filter.py). A nickname carrying a
+    # Telegram handle or a zero-width character is the single most common
+    # abuse of a profile field, and catching it at write time is what
+    # keeps it from needing a report at all.
     if "display_name" in changes:
         name = (changes["display_name"] or "").strip()
+        try:
+            content_filter.check(name, field="display name")
+        except content_filter.ContentRejected as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
         current_user.display_name = name or None
 
     if "status_text" in changes:
         status_text = (changes["status_text"] or "").strip()
+        try:
+            content_filter.check(status_text, field="status")
+        except content_filter.ContentRejected as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
         current_user.status_text = status_text or None
 
     if "avatar_preset" in changes:
@@ -134,6 +188,14 @@ def update_me(
         current_user.privacy_planned = changes["privacy_planned"]
     if "privacy_favorites" in changes and changes["privacy_favorites"] is not None:
         current_user.privacy_favorites = changes["privacy_favorites"]
+
+    # "people can find me by my username" — the opt-out for
+    # routers/friends.py::search_users. Separate from the three shelf
+    # settings above because it governs whether this account turns up in
+    # a stranger's search at all, not what a viewer sees once they're
+    # already looking at it.
+    if "discoverable" in changes and changes["discoverable"] is not None:
+        current_user.discoverable = bool(changes["discoverable"])
 
     db.commit()
     db.refresh(current_user)
@@ -191,27 +253,50 @@ async def upload_avatar(
     db: Session = Depends(get_db),
 ):
     """The other half of avatar_preset (see its docstring) — a photo the
-    person picked from their own device. MVP local-disk storage, same
-    "swap for real object storage before real launch" story as the rest
-    of this backend; the returned avatar_url is already the full path
-    the client hands straight to Image.network."""
+    person picked from their own device. Written through
+    app/storage.py's AvatarStorage (local disk by default, S3-compatible
+    when Settings.avatar_storage_backend=s3 — see that module for why);
+    the returned avatar_url is already the full path/URL the client
+    hands straight to Image.network either way."""
     content_type = (file.content_type or "").lower()
     if content_type not in _ALLOWED_AVATAR_TYPES:
         raise HTTPException(status_code=400, detail="Use a JPEG, PNG, or WebP image")
 
-    body = await file.read()
-    if len(body) > _MAX_AVATAR_BYTES:
+    # Bounded read: stop as soon as the cap is crossed rather than
+    # buffering an arbitrarily large upload first and only checking its
+    # size once it's all in memory. `over` short-circuits the loop the
+    # moment there's any evidence the file is too big — the exact final
+    # size stops mattering at that point, only the 400 does.
+    chunks = []
+    total = 0
+    over = False
+    while True:
+        chunk = await file.read(_AVATAR_READ_CHUNK_BYTES)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > _MAX_AVATAR_BYTES:
+            over = True
+            break
+        chunks.append(chunk)
+    if over:
         raise HTTPException(status_code=400, detail="Image is larger than 5 MB")
+    body = b"".join(chunks)
 
-    os.makedirs(_AVATAR_UPLOAD_DIR, exist_ok=True)
+    # The Content-Type header above is just whatever the client claims —
+    # confirm the bytes actually are what it says before writing them to
+    # disk/S3 and serving them back out from this app's own origin.
+    sniffed = _sniff_avatar_type(body)
+    if sniffed is None or sniffed != content_type:
+        raise HTTPException(status_code=400, detail="File content doesn't match a JPEG, PNG, or WebP image")
+
     ext = _ALLOWED_AVATAR_TYPES[content_type]
     filename = f"{current_user.id}-{uuid.uuid4().hex[:8]}.{ext}"
-    with open(os.path.join(_AVATAR_UPLOAD_DIR, filename), "wb") as f:
-        f.write(body)
+    avatar_url = get_avatar_storage().save(filename, body, content_type)
 
     # An uploaded photo always wins over a previously chosen preset —
     # same mutual-exclusivity rule as update_me's preset branch above.
-    current_user.avatar_url = f"/static/avatars/{filename}"
+    current_user.avatar_url = avatar_url
     current_user.avatar_preset = None
     db.commit()
     return AvatarUploadOut(avatar_url=current_user.avatar_url)
@@ -243,24 +328,103 @@ def get_stats(
     )
 
 
+_COLLECTIONS_PAGE_SIZE = 200
+
+
+def _paginate_shelf(
+    db: Session,
+    q,
+    before: Optional[str],
+    limit: int,
+    full: bool,
+) -> tuple[list, bool]:
+    """One shelf's slice of the WatchlistEntry query, cursor-paginated
+    the same way GET /sincerity/me is (see routers/sincerity.py) —
+    factored out since GET /profile/collections runs this three times,
+    once per shelf, each with its own independent cursor."""
+    if full:
+        return q.order_by(models.WatchlistEntry.updated_at.desc(), models.WatchlistEntry.id.desc()).all(), False
+    if before:
+        anchor = db.query(models.WatchlistEntry).filter(models.WatchlistEntry.id == before).first()
+        if anchor is not None:
+            q = q.filter(
+                or_(
+                    models.WatchlistEntry.updated_at < anchor.updated_at,
+                    and_(
+                        models.WatchlistEntry.updated_at == anchor.updated_at,
+                        models.WatchlistEntry.id < anchor.id,
+                    ),
+                )
+            )
+    rows = (
+        q.order_by(models.WatchlistEntry.updated_at.desc(), models.WatchlistEntry.id.desc())
+        .limit(limit + 1)
+        .all()
+    )
+    has_more = len(rows) > limit
+    return rows[:limit], has_more
+
+
 @router.get("/collections", response_model=CollectionsOut)
 def get_collections(
+    response: Response,
+    watch_later_before: Optional[str] = Query(default=None),
+    watching_before: Optional[str] = Query(default=None),
+    watched_before: Optional[str] = Query(default=None),
+    limit: int = Query(default=_COLLECTIONS_PAGE_SIZE, ge=1, le=500),
+    full: bool = Query(
+        default=True,
+        description=(
+            "return every entry on every shelf in one response, ignoring "
+            "the cursors above. Every current caller needs the complete "
+            "shelves to compute a title's status locally (already-in-my-"
+            "watchlist badges, favorite pickers, wrapped/stats) rather than "
+            "browse them, so this defaults to True; a future shelf-browsing "
+            "screen would pass full=false and page with the *_before params."
+        ),
+    ),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Splits the WatchlistEntry rows into the shelves the app shows:
     "watch later", "watching" (mid-series, at least one episode logged
-    but not completed — see models.WatchStatus.watching), and "watched"."""
-    entries = (
-        db.query(models.WatchlistEntry)
-        .filter(models.WatchlistEntry.user_id == current_user.id)
-        .order_by(models.WatchlistEntry.updated_at.desc())
-        .all()
+    but not completed — see models.WatchStatus.watching), and "watched".
+    Each shelf is cursor-paginated independently (see _paginate_shelf
+    above) the same way GET /sincerity/me is (see routers/sincerity.py);
+    the body keeps its original three keys (see CollectionsOut's own
+    docstring), so each shelf's has-more flag comes back in its own
+    header instead."""
+    base = db.query(models.WatchlistEntry).filter(models.WatchlistEntry.user_id == current_user.id)
+
+    watch_later_rows, watch_later_more = _paginate_shelf(
+        db,
+        base.filter(models.WatchlistEntry.status == models.WatchStatus.watch_later),
+        watch_later_before,
+        limit,
+        full,
     )
-    watch_later = [e for e in entries if e.status == models.WatchStatus.watch_later]
-    watching = [e for e in entries if e.status == models.WatchStatus.watching]
-    watched = [e for e in entries if e.status == models.WatchStatus.watched]
-    return CollectionsOut(watch_later=watch_later, watching=watching, watched=watched)
+    watching_rows, watching_more = _paginate_shelf(
+        db,
+        base.filter(models.WatchlistEntry.status == models.WatchStatus.watching),
+        watching_before,
+        limit,
+        full,
+    )
+    watched_rows, watched_more = _paginate_shelf(
+        db,
+        base.filter(models.WatchlistEntry.status == models.WatchStatus.watched),
+        watched_before,
+        limit,
+        full,
+    )
+    response.headers["X-Watch-Later-Has-More"] = "true" if watch_later_more else "false"
+    response.headers["X-Watching-Has-More"] = "true" if watching_more else "false"
+    response.headers["X-Watched-Has-More"] = "true" if watched_more else "false"
+    return CollectionsOut(
+        watch_later=watch_later_rows,
+        watching=watching_rows,
+        watched=watched_rows,
+    )
 
 
 @router.get("/favorites/status", response_model=FavoriteToggleOut)
@@ -384,22 +548,11 @@ def get_year_stats(
     top_genres = [GenreCount(genre=g, count=c) for g, c in genre_counter.most_common(5)]
 
     # Streak: consecutive calendar days (ending today or yesterday) with at
-    # least one ActivityEvent — a simple, honest read of real event dates,
-    # not a stored counter that can drift out of sync.
-    event_dates = {
-        e.created_at.date()
-        for e in db.query(models.ActivityEvent)
-        .filter(models.ActivityEvent.user_id == current_user.id)
-        .all()
-        if e.created_at
-    }
-    streak = 0
-    cursor = datetime.utcnow().date()
-    if cursor not in event_dates:
-        cursor -= timedelta(days=1)  # allow "today hasn't happened yet"
-    while cursor in event_dates:
-        streak += 1
-        cursor -= timedelta(days=1)
+    # least one ActivityEvent — see app/streaks.py::current_streak for the
+    # actual algorithm (shared with scripts/send_scheduled_push.py's
+    # streak-at-risk reminder, which needs the exact same definition of
+    # what a streak is).
+    streak = current_streak(db, current_user.id)
 
     return ProfileYearStats(
         movies=movies,
@@ -419,45 +572,40 @@ def get_year_stats(
 # year-stats endpoints already draw from (watched count, diary notes,
 # rewatches, streaks, genre breadth), rather than a stored XP counter, so
 # it can never drift out of sync with what's actually logged and can't be
-# farmed by anything other than actually using the app. Kept independent
+# farmed by anything other than actually using the app. Two sources are
+# event rows rather than a tally of diary entries — collected challenges
+# (models.ChallengeProgress) and share cards (models.CardShare) — because
+# "was pressed" / "left the app" isn't something the diary can tell us;
+# both are still summed fresh on every read, never a stored total, and
+# card shares carry their own once-per-card and per-day limits (see
+# routers/card_shares.py). Kept independent
 # of get_achievements() on purpose — that one makes a network call out to
 # the Teamira/TMDB franchise data for saga badges, which this endpoint
 # has no need to pay for just to draw a progress ring.
 # ---------------------------------------------------------------------------
 
-_XP_PER_WATCHED = 10       # every logged title, any media type
-_XP_PER_REVIEW = 8         # a diary entry with an actual note attached
-_XP_PER_REWATCH = 4        # logged a second viewing
-_XP_PER_GENRE_EXPLORED = 5  # distinct genres watched across, breadth over depth
-_XP_PER_STREAK_DAY = 3     # longest-ever streak, not the currently-active one
-_XP_PER_FRIEND_INVITED = 30  # a friend who registered with this account's invite code
-
-# Each level costs more than the last — level 1->2 takes 100 xp, and every
-# level after that costs 40 more than the one before it, so the ring
-# never feels like it stalls out but later levels still take real use to
-# reach. Simple integer arithmetic on purpose — no exponents/logs needed
-# just to walk a rising staircase.
-_LEVEL_BASE_XP = 100
-_LEVEL_XP_STEP = 40
-
-
-def _compute_level(total_xp: int) -> tuple[int, int, int]:
-    """Returns (level, xp_into_current_level, xp_needed_for_next_level)."""
-    level = 1
-    remaining = max(total_xp, 0)
-    needed = _LEVEL_BASE_XP
-    while remaining >= needed:
-        remaining -= needed
-        level += 1
-        needed += _LEVEL_XP_STEP
-    return level, remaining, needed
-
-
 def compute_level_for_user(db: Session, user_id: str) -> LevelOut:
     """The actual GET /level implementation, pulled out so other routers
     (routers/friends.py, for the level shown next to each friend) can get
-    someone's level without duplicating this whole well-by-well tally.
+    someone's level without duplicating this query.
+
+    Level itself now comes straight off User.lifetime_sincerity_earned
+    and app/sincerity.py::compute_level — see that column's own
+    docstring for why level is computed from the lifetime total rather
+    than the spendable sincerity_balance. Everything below the level
+    fields is pure informational stats for the level-detail screen (how
+    many titles, how many with a note, and so on) — none of it is
+    weighted into a point total any more, on purpose: the honest
+    breakdown of *where* someone's points actually came from now lives
+    in the sincerity ledger itself (GET /sincerity/me's history), not in
+    a second, parallel formula here that could quietly drift from what
+    was actually paid out.
     """
+    user = db.query(models.User).filter(models.User.id == user_id).one()
+    level, points_into_level, points_for_next_level = sincerity.compute_level(
+        user.lifetime_sincerity_earned
+    )
+
     watched_total = (
         db.query(func.count(models.WatchlistEntry.id))
         .filter(
@@ -521,35 +669,47 @@ def compute_level_for_user(db: Session, user_id: str) -> LevelOut:
         .scalar()
     ) or 0
 
-    total_xp = (
-        watched_total * _XP_PER_WATCHED
-        + reviews_written * _XP_PER_REVIEW
-        + rewatches_logged * _XP_PER_REWATCH
-        + len(distinct_genres) * _XP_PER_GENRE_EXPLORED
-        + longest_streak_ever * _XP_PER_STREAK_DAY
-        + invites_count * _XP_PER_FRIEND_INVITED
+    # Evenings watched together — same predicate app/challenges.py uses
+    # for its own "together" measures: the co-viewing screen's "watched"
+    # button and the log form's "watched with" toggle both set
+    # watched_together, and watched_with_username is the snapshot left
+    # behind by either of them.
+    together_count = sum(
+        1 for e in diary_entries if e.watched_together or e.watched_with_username
     )
 
-    level, xp_into_level, xp_for_next_level = _compute_level(total_xp)
+    # Share cards sent out of the app — one row per distinct card, only
+    # ever written by POST /shares/card, which enforces the daily cap.
+    card_shares_count = (
+        db.query(func.count(models.CardShare.id))
+        .filter(models.CardShare.user_id == user_id)
+        .scalar()
+    ) or 0
+
+    challenges_claimed = (
+        db.query(func.count(models.ChallengeProgress.id))
+        .filter(
+            models.ChallengeProgress.user_id == user_id,
+            models.ChallengeProgress.claimed_at.isnot(None),
+        )
+        .scalar()
+    ) or 0
 
     return LevelOut(
         level=level,
-        xp=total_xp,
-        xp_into_level=xp_into_level,
-        xp_for_next_level=xp_for_next_level,
-        progress=xp_into_level / xp_for_next_level if xp_for_next_level else 0.0,
+        points=user.lifetime_sincerity_earned,
+        points_into_level=points_into_level,
+        points_for_next_level=points_for_next_level,
+        progress=points_into_level / points_for_next_level if points_for_next_level else 0.0,
         watched_count=watched_total,
-        xp_from_watched=watched_total * _XP_PER_WATCHED,
         reviews_count=reviews_written,
-        xp_from_reviews=reviews_written * _XP_PER_REVIEW,
         rewatch_count=rewatches_logged,
-        xp_from_rewatches=rewatches_logged * _XP_PER_REWATCH,
         genres_count=len(distinct_genres),
-        xp_from_genres=len(distinct_genres) * _XP_PER_GENRE_EXPLORED,
         longest_streak_ever=longest_streak_ever,
-        xp_from_streak=longest_streak_ever * _XP_PER_STREAK_DAY,
         invites_count=invites_count,
-        xp_from_invites=invites_count * _XP_PER_FRIEND_INVITED,
+        challenges_claimed=challenges_claimed,
+        watched_together_count=together_count,
+        card_shares_count=card_shares_count,
     )
 
 
@@ -594,12 +754,12 @@ def get_wrapped(
     if period not in ("month", "year"):
         period = "month"
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if period == "month":
-        start = datetime(now.year, now.month, 1)
+        start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
         period_label = f"{_MONTH_NAMES[now.month]} {now.year}"
     else:
-        start = datetime(now.year, 1, 1)
+        start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
         period_label = str(now.year)
 
     entries = (
@@ -770,14 +930,23 @@ def _resolve_wrapped_range(scope: str, year: Optional[int], month: Optional[int]
     """Returns (start, end, anchor_year, anchor_month, period_label,
     range_label_or_None). range_label is None for scope=="all" — the
     caller fills it in afterwards from the actual first/last entry, since
-    "all time" has no fixed calendar bound to print up front."""
+    "all time" has no fixed calendar bound to print up front.
+
+    start/end are always UTC-aware (built with tzinfo=timezone.utc), to
+    match DiaryEntry.watched_at (DateTime(timezone=True) — see
+    app/models.py) and `now`, which every caller already passes in aware.
+    A naive boundary here would still filter without raising, but
+    Postgres would read it in the connection's session timezone instead
+    of UTC — a silent off-by-some-hours bug, not a crash, which is why
+    it's worth being explicit rather than relying on nobody ever setting
+    a non-UTC session timezone."""
     if scope == "month":
         y = year or now.year
         m = month or now.month
         m = min(max(m, 1), 12)
-        start = datetime(y, m, 1)
+        start = datetime(y, m, 1, tzinfo=timezone.utc)
         last_day = calendar.monthrange(y, m)[1]
-        end = datetime(y, m, last_day, 23, 59, 59)
+        end = datetime(y, m, last_day, 23, 59, 59, tzinfo=timezone.utc)
         period_label = f"{_MONTH_RU_NOMINATIVE[m]} {y}"
         range_label = f"01.{m:02d} — {last_day:02d}.{m:02d}"
         return start, end, y, m, period_label, range_label
@@ -785,8 +954,8 @@ def _resolve_wrapped_range(scope: str, year: Optional[int], month: Optional[int]
         return None, now, now.year, None, "за всё время", None
     # "year" (default)
     y = year or now.year
-    start = datetime(y, 1, 1)
-    end = datetime(y, 12, 31, 23, 59, 59)
+    start = datetime(y, 1, 1, tzinfo=timezone.utc)
+    end = datetime(y, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
     return start, end, y, None, str(y), "01.01 — 31.12"
 
 
@@ -830,7 +999,7 @@ def get_wrapped_summary(
     if scope == "month" and month is not None and not (1 <= month <= 12):
         raise HTTPException(status_code=400, detail="month must be 1-12")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     start, end, anchor_year, anchor_month, period_label, fixed_range_label = _resolve_wrapped_range(
         scope, year, month, now
     )
@@ -1262,7 +1431,7 @@ async def compute_achievements_for_user(db: Session, user: models.User) -> list[
                 run = 1
 
     member_days = (
-        (datetime.utcnow() - user.created_at).days
+        (datetime.now(timezone.utc) - user.created_at).days
         if user.created_at else 0
     )
 
@@ -1339,7 +1508,7 @@ async def compute_achievements_for_user(db: Session, user: models.User) -> list[
     watched_titles = {_normalize_title(e.title_en or e.title_ru) for e in movies_watched}
     watched_titles.discard("")
     try:
-        franchise_collections = await get_teamira_collections(current_user=user, db=db)
+        franchise_collections = await get_teamira_collections(current_user=user)
     except Exception:
         franchise_collections = []
 
@@ -1386,17 +1555,18 @@ async def compute_achievements_for_user(db: Session, user: models.User) -> list[
         category="devotion",
         icon_key="loyalty",
         title="one trip around the sun",
-        caption=f"{_MEMBER_DAYS_TARGET} days on teamira",
+        caption=f"{_MEMBER_DAYS_TARGET} days on tanè",
         unlocked=member_days >= _MEMBER_DAYS_TARGET,
         progress_current=min(member_days, _MEMBER_DAYS_TARGET),
         progress_target=_MEMBER_DAYS_TARGET,
         rarity=_rarity_for_target(_MEMBER_DAYS_TARGET),
     ))
 
-    # Level milestones — reuses compute_level_for_user's own well (watched
-    # count, reviews, rewatches, genre breadth, streak, invites) rather
-    # than re-tallying total_xp itself, so this can never drift out of
-    # sync with what the level ring on the profile header actually shows.
+    # Level milestones — reuses compute_level_for_user's own level (now
+    # backed by User.lifetime_sincerity_earned — see
+    # app/sincerity.py::compute_level) rather than re-deriving it here,
+    # so this can never drift out of sync with what the level ring on
+    # the Sincerity screen actually shows.
     current_level = compute_level_for_user(db, user_id).level
     for target in _LEVEL_MILESTONES:
         achievements.append(AchievementOut(
@@ -1436,6 +1606,8 @@ async def get_achievements(
         total_count=len(achievements),
         achievements=achievements,
         pinned_ids=_pinned_ids_list(current_user),
+        max_pinned=3 + current_user.bonus_pin_slots,
+        bonus_pin_slots=current_user.bonus_pin_slots,
     )
 
 
@@ -1445,15 +1617,18 @@ async def pin_achievements(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Sets this account's badge showcase — up to 3 unlocked achievement
-    ids, shown on the profile header and on the friend profile screen
-    (see routers/friends.py::get_friend_profile). Replaces the whole set
+    """Sets this account's badge showcase — up to 3 + bonus_pin_slots
+    unlocked achievement ids (see User.bonus_pin_slots and
+    app/routers/profile.py::buy_pin_slot for the paid extra slots),
+    shown on the profile header and on the friend profile screen (see
+    routers/friends.py::get_friend_profile). Replaces the whole set
     each call rather than adding/removing one at a time, same pattern as
     POST /profile/favorites/pick — the client always sends its full
     intended selection.
     """
-    if len(body.achievement_ids) > 3:
-        raise HTTPException(status_code=400, detail="Pin at most 3 badges")
+    max_pinned = 3 + current_user.bonus_pin_slots
+    if len(body.achievement_ids) > max_pinned:
+        raise HTTPException(status_code=400, detail=f"Pin at most {max_pinned} badges")
 
     achievements = await compute_achievements_for_user(db, current_user)
     unlocked_ids = {a.id for a in achievements if a.unlocked}
@@ -1470,4 +1645,39 @@ async def pin_achievements(
         total_count=len(achievements),
         achievements=achievements,
         pinned_ids=body.achievement_ids,
+        max_pinned=max_pinned,
+        bonus_pin_slots=current_user.bonus_pin_slots,
+    )
+
+
+@router.post("/achievements/buy-pin-slot", response_model=AchievementsOut)
+async def buy_pin_slot(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """One more permanent badge-showcase slot for
+    sincerity.PIN_SLOT_COST — see app/sincerity.py::spend_pin_slot and
+    User.bonus_pin_slots. The only sincerity spend with no per-item
+    target (no entry, no friend, nothing to name in the confirmation
+    beyond the cost itself), so unlike settle_debt or reveal_rating this
+    takes no body and no id — just "one more slot, please".
+    """
+    if current_user.bonus_pin_slots >= sincerity.MAX_BONUS_PIN_SLOTS:
+        raise HTTPException(status_code=400, detail="Already at the maximum number of slots")
+    if current_user.sincerity_balance < sincerity.PIN_SLOT_COST:
+        raise HTTPException(status_code=400, detail="Not enough sincerity points")
+
+    sincerity.spend_pin_slot(db, current_user)
+    current_user.bonus_pin_slots += 1
+    db.commit()
+
+    achievements = await compute_achievements_for_user(db, current_user)
+    unlocked_count = sum(1 for a in achievements if a.unlocked)
+    return AchievementsOut(
+        unlocked_count=unlocked_count,
+        total_count=len(achievements),
+        achievements=achievements,
+        pinned_ids=_pinned_ids_list(current_user),
+        max_pinned=3 + current_user.bonus_pin_slots,
+        bonus_pin_slots=current_user.bonus_pin_slots,
     )

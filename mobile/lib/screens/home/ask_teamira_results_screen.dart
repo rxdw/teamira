@@ -6,13 +6,15 @@ import '../../services/api_client.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../theme/notebook_paper.dart';
 import '../../widgets/match_ring.dart';
 import '../../widgets/poster_tile.dart';
-import '../../widgets/themed_loading_indicator.dart';
+import '../../widgets/tane_thinking.dart';
 import '../../widgets/themed_pull_to_refresh.dart';
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../../theme/clay_kit.dart';
 
 /// The screen Ask Teamira opens into. Reads a query typed on Home (see
 /// _AskTeamiraCard in home_screen.dart) and fetches the ranked shortlist
@@ -28,7 +30,17 @@ import '../../services/locale_service.dart';
 /// faster than read a title) and just more pleasant to scroll through.
 class AskTeamiraResultsScreen extends StatefulWidget {
   final String query;
-  const AskTeamiraResultsScreen({super.key, required this.query});
+  /// Tonight's time budget, from the chips above the Ask field. Optional:
+  /// when null the backend still scans the query itself for a spoken
+  /// budget ("есть часа полтора"), so someone who typed it instead of
+  /// tapping gets the same result — see AiService.ask.
+  final int? minutesAvailable;
+
+  const AskTeamiraResultsScreen({
+    super.key,
+    required this.query,
+    this.minutesAvailable,
+  });
 
   @override
   State<AskTeamiraResultsScreen> createState() => _AskTeamiraResultsScreenState();
@@ -37,15 +49,43 @@ class AskTeamiraResultsScreen extends StatefulWidget {
 class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
   late Future<List<AiMatch>> _future;
 
+  /// Held outside the Future so the header can show the budget banner
+  /// while the list itself is still whatever the FutureBuilder says.
+  /// Assigned inside _load, which is the only place it changes.
+  AiTimeBudget? _budget;
+  bool _budgetRelaxed = false;
+
   @override
   void initState() {
     super.initState();
     _future = _load();
   }
 
+  /// True from the moment the answer is in until the results replace the
+  /// loading state — tells [TaneThinking] to play its ending.
+  bool _finale = false;
+
   Future<List<AiMatch>> _load() async {
+    // Plain assignment, no setState: the first load runs from initState,
+    // where setState isn't allowed, and a retry's own setState picks this
+    // up. How long the loading state stays up is paceTaneThinking's job
+    // (see TaneThinking.minimumVisible).
+    _finale = false;
     final app = context.read<AppState>();
-    final response = await app.ai.ask(widget.query);
+    final response = await paceTaneThinking(
+      work: () => app.ai.ask(
+        widget.query,
+        minutesAvailable: widget.minutesAvailable,
+      ),
+      isMounted: () => mounted,
+      onFinale: () => setState(() => _finale = true),
+    );
+    if (mounted) {
+      setState(() {
+        _budget = response.timeBudget;
+        _budgetRelaxed = response.timeBudgetRelaxed;
+      });
+    }
     return response.results;
   }
 
@@ -72,13 +112,9 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
               padding: const EdgeInsets.fromLTRB(22, 12, 22, 4),
               child: Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: SeenlyPalette.paper,
-                      shape: BoxShape.circle,
-                    ),
+                  WobblyCircle(
+                    size: 32,
+                    color: SeenlyPalette.paper,
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       icon: Icon(Icons.arrow_back, size: 16, color: SeenlyPalette.ink),
@@ -90,7 +126,7 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('teamira picked these'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                        Text('tanè picked these'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                         const SizedBox(height: 2),
                         Text(
                           '"${widget.query}"',
@@ -104,18 +140,36 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                 ],
               ),
             ),
+            if (_budget != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 10, 22, 0),
+                child: _TimeBudgetBanner(
+                  budget: _budget!,
+                  relaxed: _budgetRelaxed,
+                ),
+              ),
             const SizedBox(height: 10),
             Expanded(
               child: FutureBuilder<List<AiMatch>>(
                 future: _future,
                 builder: (context, snapshot) {
                   if (!snapshot.hasData && !snapshot.hasError) {
-                    return const Center(child: ThemedLoadingIndicator());
+                    return Center(
+                      // Nudged up a little: dead-centre reads as low on a
+                      // screen that has a header above and nothing below.
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 48),
+                        child: TaneThinking(
+                          hasTimeBudget: widget.minutesAvailable != null,
+                          finale: _finale,
+                        ),
+                      ),
+                    );
                   }
                   if (snapshot.hasError) {
                     final message = snapshot.error is ApiException
                         ? (snapshot.error as ApiException).message
-                        : "couldn't reach teamira's catalog just now".tr;
+                        : "couldn't reach tanè's catalog just now".tr;
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -156,7 +210,23 @@ class _AskTeamiraResultsScreenState extends State<AskTeamiraResultsScreen> {
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
                           sliver: SliverToBoxAdapter(
-                            child: _StaggerIn(index: 0, child: _HeroMatchCard(match: top)),
+                            child: _StaggerIn(
+                              index: 0,
+                              // The top pick settles into place from a
+                              // touch smaller, on top of the fade + rise
+                              // every card gets.
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween(
+                                  begin: MediaQuery.of(context).disableAnimations ? 1.0 : 0.96,
+                                  end: 1.0,
+                                ),
+                                duration: const Duration(milliseconds: 520),
+                                curve: Curves.easeOutCubic,
+                                builder: (context, scale, child) =>
+                                    Transform.scale(scale: scale, child: child),
+                                child: _HeroMatchCard(match: top),
+                              ),
+                            ),
                           ),
                         ),
                         if (rest.isNotEmpty)
@@ -272,12 +342,31 @@ String? _friendlyReasoning(String raw) {
     if (p.startsWith('similar to ')) {
       return LocaleService.appIsRussian ? 'похоже на «${p.substring(11)}»' : 'similar to "${p.substring(11)}"';
     }
+    if (p.startsWith('modes: ')) {
+      // Play modes a game actually supports, when the ask was about how
+      // it's played ("co-op game for two") — joined by ", " server-side.
+      return p.substring(7).split(', ').map(_playModeLabel).join(' · ');
+    }
     if (p == 'era matches') return 'подходящая эпоха'.tr;
     if (p == 'matches what you described') return 'совпадает с описанием'.tr;
     return p;
   }).toList();
   if (kept.isEmpty) return null;
   return kept.join(' · ');
+}
+
+String _playModeLabel(String mode) {
+  if (!LocaleService.appIsRussian) return mode;
+  switch (mode) {
+    case 'co-op':
+      return 'кооператив';
+    case 'split screen':
+      return 'сплит-скрин';
+    case 'multiplayer':
+      return 'мультиплеер';
+    default:
+      return mode;
+  }
 }
 
 /// Tries [backdropUrl] first (a wide still — what a hero banner actually
@@ -334,7 +423,7 @@ class _HeroMatchCardState extends State<_HeroMatchCard> {
     final fallbackColor = SeenlyPalette.mediaColor(item.mediaType);
 
     final card = Container(
-      decoration: BoxDecoration(
+      decoration: ClayBoxDecoration(
         borderRadius: BorderRadius.circular(22),
         boxShadow: SeenlyPalette.softShadow,
       ),
@@ -396,7 +485,7 @@ class _HeroMatchCardState extends State<_HeroMatchCard> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(3),
-                  child: MatchRing(match: match.match, size: 50),
+                  child: MatchRing(match: match.match, size: 50, animateIn: true),
                 ),
               ),
             ),
@@ -458,6 +547,9 @@ class _HeroMatchCardState extends State<_HeroMatchCard> {
                 ],
               ),
             ),
+            // Last, so it's on top of everything: the sparkles that fly out
+            // as the pick arrives (the other half of TaneThinking's finale).
+            const Positioned.fill(child: TaneArrivalBurst()),
           ],
         ),
       ),
@@ -522,7 +614,7 @@ class _GridMatchCardState extends State<_GridMatchCard> {
         Stack(
           children: [
             Container(
-              decoration: BoxDecoration(
+              decoration: ClayBoxDecoration(
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: SeenlyPalette.softShadow,
               ),
@@ -549,7 +641,7 @@ class _GridMatchCardState extends State<_GridMatchCard> {
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(2),
-                  child: MatchRing(match: match.match, size: 34),
+                  child: MatchRing(match: match.match, size: 34, animateIn: true),
                 ),
               ),
             ),
@@ -576,7 +668,8 @@ class _GridMatchCardState extends State<_GridMatchCard> {
               for (final g in item.genres.take(2))
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
+                  decoration: ClayBoxDecoration(
+                    boxShadow: SeenlyPalette.flatCardShadow,
                     color: SeenlyPalette.paper,
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -618,6 +711,66 @@ class _GridMatchCardState extends State<_GridMatchCard> {
         duration: const Duration(milliseconds: 140),
         curve: Curves.easeOutCubic,
         child: card,
+      ),
+    );
+  }
+}
+
+
+/// The "под 40 минут" line above the results.
+///
+/// Two jobs, and the second is the important one: when the budget was
+/// read out of the person's own sentence rather than tapped as a chip,
+/// this is the only way they can tell it was understood at all. And when
+/// nothing near the top actually fits, it says so — a shortlist of
+/// three-hour films handed to someone who said they had forty minutes is
+/// worse than an honest "ничего короткого не нашлось".
+class _TimeBudgetBanner extends StatelessWidget {
+  final AiTimeBudget budget;
+  final bool relaxed;
+
+  const _TimeBudgetBanner({required this.budget, this.relaxed = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = relaxed ? SeenlyPalette.mustard : SeenlyPalette.sage;
+    final shapeWord = budget.shape == 'episode'
+        ? 'хватит на серию-другую'.tr
+        : budget.shape == 'movie'
+            ? 'хватит на целый фильм'.tr
+            : 'серия или короткий фильм'.tr;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 11),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.11),
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.schedule_rounded, size: 14, color: color),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  budget.cameFromText
+                      ? '${'поняла: у тебя'.tr} ${budget.label}'
+                      : '${'у тебя'.tr} ${budget.label}',
+                  style: SeenlyText.serif(
+                      size: 13, italic: true, color: SeenlyPalette.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  relaxed
+                      ? 'ничего настолько короткого не нашлось — показываю лучшее, что есть'.tr
+                      : shapeWord,
+                  style: SeenlyText.mono(size: 10.5, color: color),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

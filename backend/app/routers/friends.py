@@ -1,18 +1,22 @@
 import random
-from datetime import datetime
-from typing import List
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app import models
+from app import models, push, similarity, sincerity
+from app.invite_copy import build_share_text
+from app.rate_limit import friend_search_limiter
+from app.usernames import normalize_username
 from app.database import get_db
-from app.deps import get_current_user
+from app.blocking import hidden_user_ids, is_blocked_between, visible_users_filter
+from app.deps import get_active_user, get_current_user
 from app.routers.partner import _member_ids, get_active_link
+from app.routers.referrals import create_referral_for_signup
 from app.routers.profile import (
-    _XP_PER_FRIEND_INVITED,
     compute_level_for_user,
     compute_achievements_for_user,
     _pinned_ids_list,
@@ -30,9 +34,18 @@ from app.schemas import (
     FriendCollectionsOut,
     TopFavoritePick,
     SuggestedFriendOut,
+    TasteMatchOut,
+    SharedTasteTitleOut,
 )
 
 router = APIRouter(prefix="/friends", tags=["friends"])
+
+# Bounded pool /suggested scores taste-match against before narrowing
+# back down to the caller's requested `limit` — wide enough that taste
+# ranking has real room to surface a good match instead of only ever
+# reordering the newest dozen accounts, capped so this stays a fixed-
+# cost query rather than a full-table scan as the user base grows.
+_SUGGESTION_POOL_CAP = 300
 
 # Same no-0/O/1/I alphabet as PartnerLink's own codes (see
 # routers/partner.py) — easy to read aloud or type on a cramped keyboard.
@@ -151,9 +164,42 @@ def _recent_visible_event(db: Session, other: models.User) -> models.ActivityEve
     return None
 
 
-def _friend_out(db: Session, r: models.FriendRequest, other: models.User) -> FriendOut:
+def _taste_match_schema(match: Optional[similarity.TasteMatch]) -> Optional[TasteMatchOut]:
+    """Pure conversion from app/similarity.py's dataclass to the wire
+    schema — split out from _taste_match_out below so a caller that has
+    already computed a TasteMatch (get_suggested_friends scores a whole
+    pool at once and shouldn't recompute each pair) can reuse it instead
+    of paying for a second lookup.
+    """
+    if match is None:
+        return None
+    return TasteMatchOut(
+        overall=match.overall,
+        headline=match.headline,
+        basis=match.basis,
+        confidence=match.confidence,
+        shared_titles=[
+            SharedTasteTitleOut(
+                media_id=t.media_id, source=t.source, media_type=t.media_type,
+                title_ru=t.title_ru, title_en=t.title_en, poster_url=t.poster_url,
+            )
+            for t in match.shared_titles
+        ],
+        shared_genres=match.shared_genres,
+    )
+
+
+def _taste_match_out(db: Session, viewer_id: str, other_id: str) -> Optional[TasteMatchOut]:
+    """Computes and converts a single pair's taste match in one call —
+    see _taste_match_schema for the conversion alone, used when the
+    TasteMatch has already been computed elsewhere."""
+    return _taste_match_schema(similarity.taste_match_between(db, viewer_id, other_id))
+
+
+def _friend_out(db: Session, r: models.FriendRequest, other: models.User, viewer_id: str) -> FriendOut:
     recent = _recent_visible_event(db, other)
     return FriendOut(
+        request_id=r.id,
         user_id=other.id,
         username=other.username,
         level=compute_level_for_user(db, other.id).level,
@@ -163,11 +209,27 @@ def _friend_out(db: Session, r: models.FriendRequest, other: models.User) -> Fri
         avatar_url=other.avatar_url,
         status_text=other.status_text,
         recent_activity=item_from_event(recent, other.display_name or other.username) if recent else None,
+        taste_match=_taste_match_out(db, viewer_id, other.id),
     )
+
+
+_FRIENDS_PAGE_SIZE = 60
 
 
 @router.get("", response_model=FriendsOut)
 def list_friends(
+    before: str | None = Query(
+        default=None, description="a FriendOut.request_id to page before, for older friends"
+    ),
+    limit: int = Query(default=_FRIENDS_PAGE_SIZE, ge=1, le=200),
+    full: bool = Query(
+        default=False,
+        description=(
+            "bypass pagination on the accepted-friends list and return all of "
+            "it — for pickers (co-view invites, etc) that need the complete "
+            "set, not the friends screen's own scrolling view."
+        ),
+    ),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -175,68 +237,167 @@ def list_friends(
     needs in one call: the accepted list (with each friend's live level —
     see profile.py::compute_level_for_user), who's waiting on *you* to
     answer, and who *you're* still waiting on.
+
+    The accepted list is cursor-paginated the same way GET /sincerity/me
+    is (see routers/sincerity.py) — `total_friends` is a plain count
+    that's accurate regardless of how much of the list has been paged
+    in, so a badge/count display never needs the whole list loaded.
+    Pending requests aren't paginated (see FriendsOut's own docstring).
     """
-    rows = (
+    pending_rows = (
         db.query(models.FriendRequest)
         .filter(
             or_(
                 models.FriendRequest.from_user_id == current_user.id,
                 models.FriendRequest.to_user_id == current_user.id,
             ),
-            models.FriendRequest.status != models.FriendRequestStatus.declined,
+            models.FriendRequest.status.notin_(
+                [models.FriendRequestStatus.accepted, models.FriendRequestStatus.declined]
+            ),
         )
         .order_by(models.FriendRequest.created_at.desc())
         .all()
     )
-
-    friends: List[FriendOut] = []
     incoming: List[FriendRequestOut] = []
     outgoing: List[FriendRequestOut] = []
-
-    for r in rows:
+    for r in pending_rows:
         other = r.to_user if r.from_user_id == current_user.id else r.from_user
         if other is None:
             continue
-        if r.status == models.FriendRequestStatus.accepted:
-            friends.append(_friend_out(db, r, other))
-        elif r.from_user_id == current_user.id:
-            outgoing.append(FriendRequestOut(
-                id=r.id, user_id=other.id, username=other.username, created_at=r.created_at,
-                display_name=other.display_name, avatar_preset=other.avatar_preset, avatar_url=other.avatar_url,
-            ))
-        else:
-            incoming.append(FriendRequestOut(
-                id=r.id, user_id=other.id, username=other.username, created_at=r.created_at,
-                display_name=other.display_name, avatar_preset=other.avatar_preset, avatar_url=other.avatar_url,
-            ))
+        out = FriendRequestOut(
+            id=r.id, user_id=other.id, username=other.username, created_at=r.created_at,
+            display_name=other.display_name, avatar_preset=other.avatar_preset, avatar_url=other.avatar_url,
+        )
+        (outgoing if r.from_user_id == current_user.id else incoming).append(out)
 
-    return FriendsOut(friends=friends, incoming_requests=incoming, outgoing_requests=outgoing)
+    accepted_q = db.query(models.FriendRequest).filter(
+        or_(
+            models.FriendRequest.from_user_id == current_user.id,
+            models.FriendRequest.to_user_id == current_user.id,
+        ),
+        models.FriendRequest.status == models.FriendRequestStatus.accepted,
+    )
+    total_friends = accepted_q.count()
+
+    order_key = func.coalesce(models.FriendRequest.responded_at, models.FriendRequest.created_at)
+
+    if full:
+        accepted_rows = accepted_q.order_by(order_key.desc(), models.FriendRequest.id.desc()).all()
+        has_more = False
+    else:
+        if before:
+            anchor = accepted_q.filter(models.FriendRequest.id == before).first()
+            if anchor is not None:
+                anchor_ts = anchor.responded_at or anchor.created_at
+                accepted_q = accepted_q.filter(
+                    or_(
+                        order_key < anchor_ts,
+                        and_(order_key == anchor_ts, models.FriendRequest.id < anchor.id),
+                    )
+                )
+        accepted_rows = (
+            accepted_q.order_by(order_key.desc(), models.FriendRequest.id.desc())
+            .limit(limit + 1)
+            .all()
+        )
+        has_more = len(accepted_rows) > limit
+        accepted_rows = accepted_rows[:limit]
+
+    friends: List[FriendOut] = []
+    for r in accepted_rows:
+        other = r.to_user if r.from_user_id == current_user.id else r.from_user
+        if other is None:
+            continue
+        friends.append(_friend_out(db, r, other, current_user.id))
+
+    return FriendsOut(
+        friends=friends,
+        has_more=has_more,
+        total_friends=total_friends,
+        incoming_requests=incoming,
+        outgoing_requests=outgoing,
+    )
+
+
+# Three characters, not one. The old `min_length=1` paired with a
+# `LIKE '%q%'` over every username turned this endpoint into a directory
+# dump: twenty-six requests, one per letter of the alphabet, returned
+# essentially the whole user table — ids, usernames, display names and
+# avatar URLs — to any account that could sign up. Raising the floor
+# doesn't fix that alone (three-letter prefixes are only ~17k
+# combinations), which is why the query shape, the opt-out and the rate
+# limit below all change together.
+_MIN_SEARCH_LENGTH = 3
+_MAX_SEARCH_RESULTS = 20
 
 
 @router.get("/search", response_model=List[FriendSearchResultOut])
 def search_users(
-    q: str = Query(..., min_length=1),
-    current_user: models.User = Depends(get_current_user),
+    q: str = Query(..., min_length=_MIN_SEARCH_LENGTH, max_length=64),
+    current_user: models.User = Depends(get_active_user),
     db: Session = Depends(get_db),
 ):
-    """Username search to start a friend request — a relevance-free
-    "starts with, then contains" shape, good enough for a username
-    lookup where the list is short.
+    """Username search to start a friend request.
+
+    Four things changed here, and they only work as a set:
+
+    1. **Prefix, not substring.** `username LIKE 'ann%'` instead of
+       `LIKE '%ann%'`. A substring match means every account whose name
+       *contains* any two letters comes back, which is what made walking
+       the namespace trivial. Prefix matching is also what people
+       actually expect from a handle lookup — you type the start of a
+       name you already know, you don't go fishing for fragments.
+    2. **A floor on the query length** (see _MIN_SEARCH_LENGTH above).
+    3. **An opt-out.** `users.discoverable` — "people can find me by my
+       username" in Settings. Anyone who turns it off stops appearing
+       here entirely, while existing friendships and a directly-shared
+       invite code keep working exactly as before. There was no way to
+       be un-findable at all before.
+    4. **A rate limit**, keyed on the caller's account rather than their
+       IP, since this endpoint is authenticated. See
+       rate_limit.friend_search_limiter — enumeration is a volume attack,
+       so the query shape alone was never going to be enough.
+
+    Blocked accounts, deleted accounts and suspended accounts never
+    appear, whatever the query — see app/blocking.py::hidden_user_ids.
     """
-    needle = q.strip().casefold()
-    if not needle:
+    friend_search_limiter.check(db, current_user.id)
+
+    needle = normalize_username(q)
+    if len(needle) < _MIN_SEARCH_LENGTH:
         return []
+
+    # Escaped so a name containing % or _ is searched for literally
+    # rather than acting as a wildcard — otherwise a single "%" query
+    # would still return the whole table, which would undo everything
+    # above in one character.
+    escaped = needle.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+    hidden = hidden_user_ids(db, current_user.id)
 
     matches = (
         db.query(models.User)
         .filter(
-            models.User.id != current_user.id,
-            func.lower(models.User.username).like(f"%{needle}%"),
+            *visible_users_filter(current_user.id),
+            models.User.discoverable.is_(True),
+            or_(
+                models.User.username_lower.like(f"{escaped}%", escape="\\"),
+                # Fallback for rows written before username_lower
+                # existed and not yet backfilled. Costs an extra
+                # sequential predicate on a small table; removable once
+                # the backfill in the accompanying migration has run
+                # everywhere.
+                and_(
+                    models.User.username_lower.is_(None),
+                    func.lower(models.User.username).like(f"{escaped}%", escape="\\"),
+                ),
+            ),
         )
         .order_by(models.User.username)
-        .limit(20)
+        .limit(_MAX_SEARCH_RESULTS * 2)
         .all()
     )
+    matches = [u for u in matches if u.id not in hidden][:_MAX_SEARCH_RESULTS]
 
     links = (
         db.query(models.FriendRequest)
@@ -281,18 +442,39 @@ def search_users(
 @router.post("/request", response_model=FriendRequestOut, status_code=201)
 def send_request(
     payload: FriendRequestCreate,
+    background_tasks: BackgroundTasks,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Matched on the normalized column (see app/usernames.py) rather than
+    # `func.lower(username)`, which is what this used before — the two
+    # disagree on anything Unicode does interesting things to, and
+    # registration checks the normalized form, so this has to as well or
+    # a name that can be registered still can't be friended.
+    needle = normalize_username(payload.username)
     target = (
         db.query(models.User)
-        .filter(func.lower(models.User.username) == payload.username.strip().casefold())
+        .filter(
+            or_(
+                models.User.username_lower == needle,
+                func.lower(models.User.username) == needle,
+            )
+        )
         .first()
     )
-    if not target:
-        raise HTTPException(status_code=404, detail="No one on teamira has that username")
+    if not target or target.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="No one on tanè has that username")
     if target.id == current_user.id:
         raise HTTPException(status_code=400, detail="That's your own username")
+    if is_blocked_between(db, current_user.id, target.id):
+        # Deliberately the same 404 as "no such username". Telling the
+        # sender "you're blocked" hands the blocked person a reliable way
+        # to confirm the block, which is exactly what a block is supposed
+        # not to do — and telling the *blocker's* side apart from a typo
+        # gains nobody anything.
+        raise HTTPException(status_code=404, detail="No one on tanè has that username")
+    if target.suspended_at is not None:
+        raise HTTPException(status_code=404, detail="No one on tanè has that username")
 
     existing = _any_link(db, current_user.id, target.id)
     if existing:
@@ -309,6 +491,11 @@ def send_request(
     db.add(request)
     db.commit()
     db.refresh(request)
+    background_tasks.add_task(
+        push.notify_friend_request,
+        user_id=target.id,
+        from_display_name=current_user.display_name or current_user.username,
+    )
     return FriendRequestOut(
         id=request.id, user_id=target.id, username=target.username, created_at=request.created_at,
         display_name=target.display_name, avatar_preset=target.avatar_preset, avatar_url=target.avatar_url,
@@ -332,10 +519,10 @@ def accept_request(
 ):
     request = _own_incoming_request(db, current_user.id, request_id)
     request.status = models.FriendRequestStatus.accepted
-    request.responded_at = datetime.utcnow()
+    request.responded_at = datetime.now(timezone.utc)
     db.commit()
     other = request.from_user
-    return _friend_out(db, request, other)
+    return _friend_out(db, request, other, current_user.id)
 
 
 @router.post("/requests/{request_id}/decline", status_code=204)
@@ -346,7 +533,7 @@ def decline_request(
 ):
     request = _own_incoming_request(db, current_user.id, request_id)
     request.status = models.FriendRequestStatus.declined
-    request.responded_at = datetime.utcnow()
+    request.responded_at = datetime.now(timezone.utc)
     db.commit()
 
 
@@ -421,6 +608,18 @@ async def get_friend_profile(
     """
     other = db.query(models.User).filter_by(id=user_id).first()
     if not other:
+        raise HTTPException(status_code=404, detail="No such account")
+    # A blocked, deleted or suspended account is a 404 from this screen,
+    # not a stripped-down profile. Anything else — an empty profile, a
+    # "this account is unavailable" card — is still a confirmation that
+    # the account exists and a way to detect a block from the other side.
+    # Someone looking at their own profile is always allowed through,
+    # including while their own deletion is pending.
+    if user_id != current_user.id and (
+        other.deleted_at is not None
+        or other.suspended_at is not None
+        or is_blocked_between(db, current_user.id, user_id)
+    ):
         raise HTTPException(status_code=404, detail="No such account")
 
     is_friend = _accepted_link(db, current_user.id, user_id) is not None
@@ -514,17 +713,25 @@ def get_suggested_friends(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """"People you may know" for the bottom of the friends screen —
-    anyone on teamira who isn't already a friend and has no pending
+    """"People you may know" for the bottom of the friends screen — and,
+    doing double duty, onboarding's "people like you" step right after
+    the favorites picker (see app/similarity.py's own docstring for why
+    a few picked favorites is already enough real data to rank against).
+    Anyone on teamira who isn't already a friend and has no pending
     request either way with this account. Each row carries a small
     preview of that person's most recent *public* activity (privacy
     left at "everyone" — a non-friend never sees a "friends"-only or
     "nobody" shelf, unlike the friends-list preview above), so tapping
     a card can show the same familiar preview before a request is even
-    sent. Ordered newest-account-first — there's no mutual-friends graph
-    to rank by yet, and "who just joined" is at least a reasonable,
-    honest default rather than something dressed up to look smarter
-    than it is.
+    sent.
+
+    Ranked by taste match (see similarity.compare) wherever there's
+    enough shelf data on both sides to compute one, highest first;
+    candidates similarity has nothing to say about yet (a brand new
+    account with an empty watchlist, say) fall back to newest-account-
+    first behind them — the same honest default this endpoint used
+    everywhere before taste matching existed, rather than a fabricated
+    0% burying them at the very end.
     """
     linked_rows = (
         db.query(models.FriendRequest)
@@ -541,16 +748,37 @@ def get_suggested_friends(
     for r in linked_rows:
         excluded_ids.add(r.to_user_id if r.from_user_id == current_user.id else r.from_user_id)
 
-    candidates = (
+    # A wider bounded pool than `limit` (capped, not a full-table scan)
+    # so taste ranking has more than just the newest handful of accounts
+    # to choose from — narrowed back down to `limit` only after scoring.
+    pool = (
         db.query(models.User)
         .filter(models.User.id.notin_(excluded_ids))
         .order_by(models.User.created_at.desc())
-        .limit(limit)
+        .limit(_SUGGESTION_POOL_CAP)
         .all()
     )
 
+    viewer_profile = similarity.get_taste_profile_cached(db, current_user.id)
+    scored: List[Tuple[models.User, Optional[similarity.TasteMatch]]] = []
+    for u in pool:
+        match = (
+            similarity.compare(viewer_profile, similarity.get_taste_profile_cached(db, u.id))
+            if viewer_profile.sample_size > 0
+            else None
+        )
+        scored.append((u, match))
+
+    with_match = sorted(
+        (pair for pair in scored if pair[1] is not None),
+        key=lambda pair: pair[1].overall,
+        reverse=True,
+    )
+    without_match = [pair for pair in scored if pair[1] is None]  # already newest-first
+    ordered = (with_match + without_match)[:limit]
+
     results: List[SuggestedFriendOut] = []
-    for u in candidates:
+    for u, match in ordered:
         recent_events = (
             db.query(models.ActivityEvent)
             .filter(models.ActivityEvent.user_id == u.id)
@@ -572,8 +800,37 @@ def get_suggested_friends(
             avatar_url=u.avatar_url,
             status_text=u.status_text,
             recent_activity=preview,
+            taste_match=_taste_match_schema(match),
         ))
     return results
+
+
+@router.get("/{user_id}/taste-match", response_model=TasteMatchOut)
+def get_taste_match(
+    user_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The detailed one-pair breakdown behind a compact taste_match
+    field elsewhere on this router — used when a friend-profile screen
+    (or a suggested-friend card, opened for more detail) wants the full
+    picture rather than the summary already inlined on the list. 404s
+    exactly like a missing user would anywhere else on this router;
+    returns null in the body (not a 404) when the pair simply has
+    nothing to compare yet — see similarity.compare's own docstring for
+    why that's not the same thing as a 0% match.
+    """
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="That's your own account")
+    target = db.query(models.User).filter_by(id=user_id).first()
+    if not target or target.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="No such user")
+    if is_blocked_between(db, current_user.id, user_id):
+        raise HTTPException(status_code=404, detail="No such user")
+    out = _taste_match_out(db, current_user.id, user_id)
+    if out is None:
+        raise HTTPException(status_code=404, detail="Not enough shelf data on one or both sides yet")
+    return out
 
 
 @router.get("/invite", response_model=InviteOut)
@@ -582,9 +839,10 @@ def get_invite(
     db: Session = Depends(get_db),
 ):
     """This account's own standing invite code — minted once, reused for
-    every share. `invited_count`/`xp_bonus` mirror exactly what
-    profile.py::compute_level_for_user counts, so the number shown here
-    never drifts from what actually lands on the level ring.
+    every share. `invited_count`/`sincerity_bonus` mirror exactly what
+    app/sincerity.py::earn_friend_invited pays out per invite, so the
+    number shown here never drifts from what actually landed in the
+    ledger.
     """
     if not current_user.invite_code:
         current_user.invite_code = _gen_invite_code(db)
@@ -600,27 +858,26 @@ def get_invite(
     # A real tappable link once Settings.public_web_base_url is set (see
     # routers/linking.py) — until then, fall back to the bare code the
     # registration screen already knows how to accept by hand.
-    if settings.public_web_base_url:
-        link = f"{settings.public_web_base_url.rstrip('/')}/i/{current_user.invite_code}"
-        share_text = f"join me on teamira — track what you watch, read, and play: {link}"
-    else:
-        share_text = (
-            f"join me on teamira — track what you watch, read, and play: "
-            f"code {current_user.invite_code}"
-        )
+    link = (
+        f"{settings.public_web_base_url.rstrip('/')}/i/{current_user.invite_code}"
+        if settings.public_web_base_url
+        else None
+    )
+    share_text = build_share_text(link=link, invite_code=current_user.invite_code)
 
     return InviteOut(
         code=current_user.invite_code,
         share_text=share_text,
         invited_count=invited_count,
-        xp_bonus=invited_count * _XP_PER_FRIEND_INVITED,
-        xp_per_friend=_XP_PER_FRIEND_INVITED,
+        sincerity_bonus=invited_count * sincerity.FRIEND_INVITED_AWARD,
+        sincerity_per_friend=sincerity.FRIEND_INVITED_AWARD,
     )
 
 
 @router.post("/invite/claim", status_code=204)
 def claim_invite(
     payload: InviteClaimRequest,
+    request: Request,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -657,4 +914,13 @@ def claim_invite(
     if not referrer or referrer.id == current_user.id:
         return
     current_user.referred_by_id = referrer.id
+    db.commit()
+    # See routers/referrals.py — same reward-program hook as
+    # routers/auth.py::register, for the "already had an account,
+    # tapped a friend's link afterward" path.
+    ip = request.client.host if request.client else None
+    create_referral_for_signup(db, referrer_id=referrer.id, referred_id=current_user.id, ip=ip)
+    # See app/sincerity.py::earn_friend_invited — same sincerity award
+    # routers/auth.py::register pays for a code entered at signup.
+    sincerity.earn_friend_invited(db, referrer, friend_name=current_user.username)
     db.commit()

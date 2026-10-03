@@ -7,6 +7,8 @@ import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
 import '../../widgets/wow_motion.dart' show Entrance;
+import 'forgot_password_screen.dart';
+import 'reset_password_screen.dart';
 import 'register_screen.dart';
 import '../../services/app_translations.dart';
 
@@ -22,6 +24,36 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   bool _loading = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Picked up once, on the build that follows a session ending
+    // server-side (revoked token, password changed elsewhere, account
+    // suspended). Without it the person lands on a login form with no
+    // idea why they're back here — which is exactly what happened before,
+    // every time the old seven-day token quietly expired.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final appState = context.read<AppState>();
+
+      // A reset link tapped while signed out lands the person here.
+      // Opened as a route rather than replacing this screen, so backing
+      // out returns to sign-in rather than to nothing.
+      final resetToken = appState.consumePendingPasswordResetToken();
+      if (resetToken != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ResetPasswordScreen(token: resetToken),
+          ),
+        );
+        return;
+      }
+
+      final notice = appState.consumeSessionEndedNotice();
+      if (notice != null) setState(() => _error = notice.tr);
+    });
+  }
 
   Future<void> _submit() async {
     if (_username.text.trim().isEmpty || _password.text.isEmpty) return;
@@ -57,7 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 10),
                 Entrance(
                   delay: const Duration(milliseconds: 60),
-                  child: Text('teamira'.tr,
+                  child: Text('tanè'.tr,
                       textAlign: TextAlign.center,
                       style: SeenlyText.serif(size: 30, weight: FontWeight.w600)),
                 ),
@@ -112,9 +144,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     onTap: _submit,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 4),
                 Entrance(
-                  delay: const Duration(milliseconds: 290),
+                  delay: const Duration(milliseconds: 280),
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
+                    ),
+                    child: Text('forgot your password?'.tr,
+                        style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted)),
+                  ),
+                ),
+                Entrance(
+                  delay: const Duration(milliseconds: 310),
                   child: TextButton(
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const RegisterScreen()),

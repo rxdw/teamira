@@ -8,6 +8,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'stamp.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// The Diary tab's centerpiece in the passport theme — the counterpart
 /// to `TicketJar`: a small closed passport sitting on the shelf instead
@@ -63,7 +64,7 @@ class _PassportBookState extends State<PassportBook> with SingleTickerProviderSt
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(20, 26, 20, 20),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(24),
           boxShadow: SeenlyPalette.softShadow,

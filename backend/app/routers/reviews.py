@@ -15,13 +15,13 @@ import logging
 from datetime import timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Query, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, Query, Request
 
 from app import cache
-from app.database import get_db
 from app.adapters.tmdb import TmdbAdapter
 from app.adapters.trakt import TraktAdapter
+from app.deps import get_current_user_id
+from app.rate_limit import client_key, reviews_limiter
 from app.schemas import TmdbReviewOut, TmdbReviewsOut
 
 logger = logging.getLogger("seenly.routers.reviews")
@@ -136,20 +136,35 @@ async def fetch_reviews(tmdb_id: str, segment: str) -> TmdbReviewsOut:
 
 @router.get("/reviews", response_model=TmdbReviewsOut)
 async def media_reviews(
+    request: Request,
     media_type: str = Query(...),
     tmdb_id: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
+    _user_id: str = Depends(get_current_user_id),
 ):
     """Empty (not an error) whenever there's nothing to show: no tmdb_id
     (games, books, or manga), or neither TMDB nor Trakt has written
     reviews for this title — both ordinary, same "hide the section"
-    convention as /media/watch-providers."""
+    convention as /media/watch-providers.
+
+    No `db: Session = Depends(get_db)` here — same reasoning as
+    routers/media.py::search_media: this endpoint's only DB use is the
+    cache read/write below, and the underlying fetch (fetch_reviews) is
+    a concurrent TMDB+Trakt round trip. This one's hit on every title
+    detail screen open, same traffic shape as search, so it gets the
+    same fix.
+
+    Requires a logged-in caller (get_current_user_id — DB-free, see its
+    own docstring) and an IP rate limit (reviews_limiter, `db=None` for
+    the same pool-exhaustion reason as above) — an uncached call here is
+    a real TMDB+Trakt round trip, and this was previously reachable by
+    anyone who knew this server's address."""
+    reviews_limiter.check(None, client_key(request))
     if not tmdb_id or media_type not in ("movie", "series", "anime"):
         return TmdbReviewsOut(reviews=[])
 
     segment = "movie" if media_type == "movie" else "tv"
     cache_key = f"reviews:{tmdb_id}:{segment}"
     payload_json = await cache.cached_dynamic(
-        db, cache_key, lambda: fetch_reviews(tmdb_id, segment), ttl=REVIEWS_TTL,
+        None, cache_key, lambda: fetch_reviews(tmdb_id, segment), ttl=REVIEWS_TTL,
     )
     return TmdbReviewsOut.model_validate_json(payload_json)

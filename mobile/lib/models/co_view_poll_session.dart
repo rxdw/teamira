@@ -1,3 +1,4 @@
+import '../utils/server_time.dart';
 import 'media_item.dart';
 
 /// Mirrors `CoViewPollSessionOut` in backend/app/schemas.py — one shared
@@ -57,7 +58,7 @@ class CoViewPollSession {
         status: json['status'] as String,
         poolSource: json['pool_source'] as String? ?? 'personal',
         roundNumber: json['round_number'] as int? ?? 1,
-        deadline: _parseUtc(json['deadline'] as String),
+        deadline: parseServerUtc(json['deadline'] as String),
         candidates: (json['candidates'] as List? ?? const [])
             .map((e) => MediaItem.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -70,14 +71,6 @@ class CoViewPollSession {
         winner: json['winner'] != null
             ? MediaItem.fromJson(json['winner'] as Map<String, dynamic>)
             : null,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }
-
-// The backend hands back a naive "2026-08-13T20:45:00"-style string for
-// `deadline` — it really means an instant in UTC (server-side
-// datetime.utcnow()), but has no 'Z'/offset to say so. Dart's own
-// DateTime.parse treats a timestamp with no timezone marker as already
-// local, which would show the wrong clock time to anyone not in UTC —
-// forcing the 'Z' here makes it parse (and then .toLocal()) correctly.
-DateTime _parseUtc(String s) => DateTime.parse(s.endsWith('Z') ? s : '${s}Z');

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,9 +10,10 @@ from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
 from app import cache
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app import models
 from app.deps import get_current_user
+from app.ru_overlay import RU_SUPPLEMENT_CACHE_SOURCE, overlay_ru, wants_ru
 from app.schemas import MediaItem, FeedReaction, Collection
 from app.adapters.igdb import IgdbAdapter
 from app.adapters.google_books import GoogleBooksAdapter
@@ -21,6 +22,18 @@ from app.adapters.tmdb import TmdbAdapter
 
 router = APIRouter(prefix="/feed", tags=["feed"])
 logger = logging.getLogger(__name__)
+
+# A "nothing happened yet" fallback for the max()/sort() calls below.
+# Was `datetime.min` — naive — which worked only by accident while
+# every DateTime column was naive too. Now that models.py's timestamp
+# columns are timezone-aware (see app/models.py and the migration that
+# backfills existing rows to UTC), `e.updated_at`/`e.created_at` come
+# back as aware datetimes, and mixing an aware one with a naive
+# `datetime.min` in the same max()/sort() raises
+# "can't compare offset-naive and offset-aware datetimes" the first
+# time a user's watch/diary history is actually empty. Aware from the
+# start avoids that.
+_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
 
 _games = IgdbAdapter()
 _books = GoogleBooksAdapter()
@@ -55,7 +68,7 @@ _FOR_YOU_TTL = timedelta(hours=6)
 # for any title whose original_language isn't itself English. Without
 # this bump, shelves would keep serving already-cached wrong rows
 # forever even after the adapter fix.
-_RU_SUPPLEMENT_CACHE_SOURCE = "tmdb-ru-supplement-v3"
+_RU_SUPPLEMENT_CACHE_SOURCE = RU_SUPPLEMENT_CACHE_SOURCE  # one row per title, shared with app/ru_overlay.py
 # How many shelf_ru_supplement lookups run at once while enriching a cold
 # Collections fetch — a real cap, not just politeness: a full shelf pass
 # is a few hundred titles, and firing them all at TMDB simultaneously is
@@ -66,7 +79,7 @@ _RU_SUPPLEMENT_CACHE_SOURCE = "tmdb-ru-supplement-v3"
 _RU_SUPPLEMENT_CONCURRENCY = 8
 
 
-async def _apply_ru_supplement(db: Session, items: List[MediaItem]) -> None:
+async def _apply_ru_supplement(db: Optional[Session], items: List[MediaItem]) -> None:
     """Overlays title.ru/description.ru/poster_url_ru onto every TMDB-
     sourced item in a freshly-built Collections shelf set, so a Russian-
     content device (see LocaleService.contentPrefersRussian on mobile)
@@ -146,7 +159,7 @@ async def _fetch_discover_pool() -> List[MediaItem]:
     return pool
 
 
-async def get_discover_pool(db: Session) -> List[MediaItem]:
+async def get_discover_pool(db: Optional[Session]) -> List[MediaItem]:
     """The whole-app pool GET /feed serves — every movie/series/anime,
     game, book, and manga we know about, cached once every 24h (see
     app/cache.py) rather than rebuilt per request. Exposed as its own
@@ -154,43 +167,68 @@ async def get_discover_pool(db: Session) -> List[MediaItem]:
     app" pool (e.g. co_view_vote's "catalog" pool source) can share this
     same cached fetch instead of re-hitting TMDB/IGDB/Open Library
     itself. Callers that want a fresh shuffle order do their own —
-    this returns whatever order came out of the cache."""
+    this returns whatever order came out of the cache.
+
+    `db` is Optional — GET /feed below passes None (see its own
+    docstring for why); co_view_vote.py passes its own real request
+    session, which is fine too, cache.cached_dynamic accepts either."""
     payload_json = await cache.cached_dynamic(db, "feed:discover", _fetch_discover_pool)
     return TypeAdapter(List[MediaItem]).validate_json(payload_json)
 
 
 @router.get("", response_model=List[MediaItem])
 async def get_feed(
+    lang: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Cached once every 24h (see app/cache.py) — the underlying TMDB pool
     is what's cached; the shuffle happens fresh on every request so it
-    doesn't look frozen in the same order all day for everyone."""
-    pool = list(await get_discover_pool(db))
+    doesn't look frozen in the same order all day for everyone.
+
+    No `db: Session = Depends(get_db)` here — same reasoning as
+    routers/media.py::search_media's own docstring: this endpoint's only
+    database use is the cache read/write inside get_discover_pool, and
+    that pool's underlying fetch fans out to TMDB/IGDB/Open Library/
+    Google Books. Holding a pooled connection for the whole request would
+    mean a burst of concurrent feed loads (e.g. several tabs/widgets
+    hitting GET /feed at once on app open) eats into the same limited
+    pool that fixed the onboarding poster-deck incident — see
+    app/database.py's own note. `db=None` below means each cache touch
+    opens and closes its own short-lived session instead."""
+    pool = list(await get_discover_pool(None))
     random.shuffle(pool)
+    if wants_ru(lang):
+        # The cached pool is English and shared; the Russian title/poster is
+        # laid over this response's own copy (see app/ru_overlay.py).
+        await overlay_ru(pool)
     return pool
 
 
 @router.get("/movies", response_model=List[MediaItem])
 async def get_movies_feed(
+    lang: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """A movies-only feed — same idea as GET /feed, but without games mixed
-    in, for a screen that just wants a "movies feed". Cached once every 24h."""
+    in, for a screen that just wants a "movies feed". Cached once every
+    24h. No `db: Session = Depends(get_db)` here, same reasoning as
+    get_feed just above — this endpoint's only DB use is the cache
+    read/write, and the underlying fetch is a TMDB round trip."""
 
     async def _fetch() -> List[MediaItem]:
         return await _tmdb.movies_pool()
 
-    payload_json = await cache.cached_dynamic(db, "feed:movies", _fetch)
-    return TypeAdapter(List[MediaItem]).validate_json(payload_json)
+    payload_json = await cache.cached_dynamic(None, "feed:movies", _fetch)
+    items = TypeAdapter(List[MediaItem]).validate_json(payload_json)
+    if wants_ru(lang):
+        await overlay_ru(items)
+    return items
 
 
 @router.get("/for-you", response_model=List[MediaItem])
 async def get_for_you_feed(
+    lang: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """A personal, content-based recommendation feed — movies/series only
     (games/books/manga have no trailer to show, and the whole point of this
@@ -220,25 +258,39 @@ async def get_for_you_feed(
     below. Falls back to a 6h TTL for users who haven't logged anything
     since their last fetch, so this never re-does the ranking/trailer work
     on every single Home load.
-    """
-    watch_entries = (
-        db.query(models.WatchlistEntry)
-        .filter(models.WatchlistEntry.user_id == current_user.id)
-        .all()
-    )
-    diary_entries = (
-        db.query(models.DiaryEntry)
-        .filter(models.DiaryEntry.user_id == current_user.id)
-        .all()
-    )
-    if not watch_entries and not diary_entries:
-        return []
 
-    last_activity = max(
-        [e.updated_at or e.created_at for e in watch_entries]
-        + [e.created_at for e in diary_entries]
-        + [datetime.min]
-    )
+    No `db: Session = Depends(get_db)` here — same reasoning as get_feed
+    above, and the same shape as get_teamira_collections: this function's
+    only real DB read (the user's own watchlist/diary, to build seeds
+    from) happens in a short-lived session before any of the slow part
+    starts, and _fetch() below — TMDB /discover per seed, plus a trailer
+    lookup per result — never touches `db` again, so cached_dynamic gets
+    called with `db=None` at the bottom, same as get_feed/get_movies_feed.
+    """
+    with SessionLocal() as db:
+        watch_entries = (
+            db.query(models.WatchlistEntry)
+            .filter(models.WatchlistEntry.user_id == current_user.id)
+            .all()
+        )
+        diary_entries = (
+            db.query(models.DiaryEntry)
+            .filter(models.DiaryEntry.user_id == current_user.id)
+            .all()
+        )
+        if not watch_entries and not diary_entries:
+            return []
+
+        # Detached from their session below, but only fields already
+        # loaded above are read from here on (see the loops inside
+        # _fetch()) — no further lazy-loaded attribute access happens
+        # after this `with` block closes.
+        last_activity = max(
+            [e.updated_at or e.created_at for e in watch_entries]
+            + [e.created_at for e in diary_entries]
+            + [_EPOCH]
+        )
+
     cache_key = f"feed:foryou:{current_user.id}:{last_activity.isoformat()}"
 
     async def _fetch() -> List[MediaItem]:
@@ -269,7 +321,7 @@ async def get_for_you_feed(
             ):
                 seeds.append((d.watched_at, d.media_id, d.media_type, d.genres or []))
 
-        seeds.sort(key=lambda s: s[0] or datetime.min, reverse=True)
+        seeds.sort(key=lambda s: s[0] or _EPOCH, reverse=True)
 
         pool: List[MediaItem] = []
         for _, media_id, media_type, genres in seeds[:_FOR_YOU_SEED_LIMIT]:
@@ -310,15 +362,17 @@ async def get_for_you_feed(
 
         return ranked
 
-    payload_json = await cache.cached_dynamic(db, cache_key, _fetch, ttl=_FOR_YOU_TTL)
-    return TypeAdapter(List[MediaItem]).validate_json(payload_json)
+    payload_json = await cache.cached_dynamic(None, cache_key, _fetch, ttl=_FOR_YOU_TTL)
+    items = TypeAdapter(List[MediaItem]).validate_json(payload_json)
+    if wants_ru(lang):
+        await overlay_ru(items)
+    return items
 
 
 @router.get("/collections", response_model=List[Collection])
 async def get_collections(
     lang: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Named shelves for the Collections tab — TMDB's own popular/top_rated/
     trending/discover shelves, plus IGDB-backed game shelves and Open
@@ -371,6 +425,12 @@ async def get_collections(
     a completely different cache (get_static_title / get_static_episodes)
     that's kept effectively forever, since that content doesn't change and
     re-fetching it buys nothing.
+
+    No `db: Session = Depends(get_db)` here — same reasoning as this
+    module's get_feed/get_movies_feed above: the ~19-shelf fan-out (plus,
+    on `lang="ru"`, a further per-title TMDB call via
+    _apply_ru_supplement) is exactly the shape that shouldn't hold a
+    pooled connection for its whole duration. `db=None` throughout below.
     """
     tmdb_language = "ru-RU" if lang == "ru" else None
 
@@ -413,11 +473,11 @@ async def get_collections(
         ]
         if tmdb_language:
             all_items = [item for c in collections_out for item in c.items]
-            await _apply_ru_supplement(db, all_items)
+            await _apply_ru_supplement(None, all_items)
         return collections_out
 
     cache_key = "feed:collections:ru" if tmdb_language else "feed:collections"
-    payload_json = await cache.cached_dynamic(db, cache_key, _fetch, ttl=cache.COLLECTIONS_TTL)
+    payload_json = await cache.cached_dynamic(None, cache_key, _fetch, ttl=cache.COLLECTIONS_TTL)
     collections = TypeAdapter(List[Collection]).validate_json(payload_json)
     for c in collections:
         random.shuffle(c.items)

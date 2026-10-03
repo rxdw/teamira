@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/small_pieces.dart';
+import '../legal/eula_screen.dart';
 import '../../widgets/wow_motion.dart' show Entrance;
 import '../../services/app_translations.dart';
 
@@ -139,6 +140,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     label: 'create my diary'.tr,
                     loading: _loading,
                     onTap: _submit,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Acceptance is recorded server-side at registration (see
+                // routers/auth.py::register), which App Store review
+                // guideline 1.2 asks for: an agreement where the person
+                // acknowledges there's no tolerance for objectionable
+                // content or abusive behaviour. Stated by the button
+                // rather than behind a checkbox — the tap *is* the
+                // agreement, and a checkbox between someone and their
+                // first diary entry is friction that changes nobody's
+                // mind.
+                Entrance(
+                  delay: const Duration(milliseconds: 240),
+                  child: Column(
+                    children: [
+                      Text('creating a diary means agreeing to the terms'.tr,
+                          textAlign: TextAlign.center,
+                          style: SeenlyText.mono(
+                              size: 9.5, color: SeenlyPalette.placeholder)),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const EulaScreen()),
+                        ),
+                        child: Text('read the terms'.tr,
+                            style: SeenlyText.mono(
+                                size: 11, color: SeenlyPalette.accent)),
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
+import '../analytics/analytics.dart';
 
 /// Lets someone skip the whole logging ritual — seat/venue picks,
 /// journey/coach/garden animations, the ticket tear — and just log an
@@ -11,34 +13,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// it doesn't quietly change behavior. Actually skipping the ritual for
 /// good is a deliberate choice made once, in Settings.
 class RitualPrefsService extends ChangeNotifier {
-  static const _skipKey = 'seenly_skip_ritual';
-  static const _bannerKey = 'seenly_ritual_banner_dismissed';
+  final _skipRitual = PersistedPref.boolean('seenly_skip_ritual');
+  final _bannerDismissed = PersistedPref.boolean('seenly_ritual_banner_dismissed');
 
-  bool _skipRitual = false;
-  bool _bannerDismissed = false;
-  bool get skipRitual => _skipRitual;
-  bool get bannerDismissed => _bannerDismissed;
+  bool get skipRitual => _skipRitual.value;
+  bool get bannerDismissed => _bannerDismissed.value;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _skipRitual = prefs.getBool(_skipKey) ?? false;
-    _bannerDismissed = prefs.getBool(_bannerKey) ?? false;
+    await _skipRitual.load();
+    await _bannerDismissed.load();
     notifyListeners();
   }
 
   Future<void> setSkipRitual(bool value) async {
-    if (_skipRitual == value) return;
-    _skipRitual = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_skipKey, value);
+    await _skipRitual.save(value, onChanged: notifyListeners);
+    Analytics.instance.track('setting_changed', {'setting': 'skip_ritual', 'value': value});
   }
 
   Future<void> dismissBanner() async {
-    if (_bannerDismissed) return;
-    _bannerDismissed = true;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_bannerKey, true);
+    await _bannerDismissed.save(true, onChanged: notifyListeners);
   }
 }

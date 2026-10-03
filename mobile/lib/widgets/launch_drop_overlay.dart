@@ -10,6 +10,7 @@ import '../theme/text_styles.dart';
 import 'light_bloom.dart' show flashOpacity;
 import '../services/app_translations.dart';
 import '../services/locale_service.dart';
+import '../theme/clay_kit.dart';
 
 /// Plays right after an evening is saved in the shuttle theme — the
 /// berth from [showShuttleBerth] has docked a sealed capsule, and
@@ -311,7 +312,7 @@ class _LaunchDropOverlayState extends State<_LaunchDropOverlay> with TickerProvi
                             width: 240,
                             margin: const EdgeInsets.only(top: 14),
                             padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-                            decoration: BoxDecoration(
+                            decoration: ClayBoxDecoration(
                               color: SeenlyPalette.paper,
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: SeenlyPalette.softShadow,

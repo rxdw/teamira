@@ -1,4 +1,5 @@
 import 'media_item.dart';
+import '../utils/server_time.dart';
 
 /// Mirrors `CoViewVoteSessionOut` in backend/app/schemas.py — one shared
 /// voting round, built from every current member's own "plan to watch"
@@ -63,6 +64,6 @@ class CoViewVoteSession {
         winner: json['winner'] != null
             ? MediaItem.fromJson(json['winner'] as Map<String, dynamic>)
             : null,
-        createdAt: DateTime.parse(json['created_at'] as String),
+        createdAt: parseServerUtc(json['created_at'] as String),
       );
 }

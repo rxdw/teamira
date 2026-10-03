@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
 
 /// Settings > co-viewing: whether a Watch Together match (one-phone or
 /// network mode) should also be dropped onto *your own* personal "watch
@@ -18,35 +19,24 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// decided on the server; for one-phone mode TogetherScreen reads it
 /// directly before adding a match to the local list.
 class CoViewPrefsService extends ChangeNotifier {
-  static const _addToOwnListKey = 'seenly_coview_add_matches_to_own_list';
-  static const _seenGuideKey = 'seenly_coview_seen_guide';
+  final _addMatchesToOwnList =
+      PersistedPref.boolean('seenly_coview_add_matches_to_own_list', defaultValue: true);
+  final _hasSeenGuide = PersistedPref.boolean('seenly_coview_seen_guide');
 
-  bool _addMatchesToOwnList = true;
-  bool get addMatchesToOwnList => _addMatchesToOwnList;
-
-  bool _hasSeenGuide = false;
-  bool get hasSeenGuide => _hasSeenGuide;
+  bool get addMatchesToOwnList => _addMatchesToOwnList.value;
+  bool get hasSeenGuide => _hasSeenGuide.value;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _addMatchesToOwnList = prefs.getBool(_addToOwnListKey) ?? true;
-    _hasSeenGuide = prefs.getBool(_seenGuideKey) ?? false;
+    await _addMatchesToOwnList.load();
+    await _hasSeenGuide.load();
     notifyListeners();
   }
 
   Future<void> markGuideSeen() async {
-    if (_hasSeenGuide) return;
-    _hasSeenGuide = true;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_seenGuideKey, true);
+    await _hasSeenGuide.save(true, onChanged: notifyListeners);
   }
 
   Future<void> setAddMatchesToOwnList(bool value) async {
-    if (_addMatchesToOwnList == value) return;
-    _addMatchesToOwnList = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_addToOwnListKey, value);
+    await _addMatchesToOwnList.save(value, onChanged: notifyListeners);
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'persisted_pref.dart';
+import '../analytics/analytics.dart';
 
 /// Settings > spoilers: whether a title's synopsis and whether written
 /// reviews get a soft blurred veil (see widgets/spoiler_veil.dart) until
@@ -15,35 +17,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Same device-only SharedPreferences pattern as [CoViewPrefsService].
 class SpoilerPrefsService extends ChangeNotifier {
-  static const _blurDescriptionsKey = 'seenly_spoiler_blur_descriptions';
-  static const _blurReviewsKey = 'seenly_spoiler_blur_reviews';
+  final _blurDescriptions = PersistedPref.boolean('seenly_spoiler_blur_descriptions');
+  final _blurReviews = PersistedPref.boolean('seenly_spoiler_blur_reviews', defaultValue: true);
 
-  bool _blurDescriptions = false;
-  bool get blurDescriptions => _blurDescriptions;
-
-  bool _blurReviews = true;
-  bool get blurReviews => _blurReviews;
+  bool get blurDescriptions => _blurDescriptions.value;
+  bool get blurReviews => _blurReviews.value;
 
   Future<void> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    _blurDescriptions = prefs.getBool(_blurDescriptionsKey) ?? false;
-    _blurReviews = prefs.getBool(_blurReviewsKey) ?? true;
+    await _blurDescriptions.load();
+    await _blurReviews.load();
     notifyListeners();
   }
 
   Future<void> setBlurDescriptions(bool value) async {
-    if (_blurDescriptions == value) return;
-    _blurDescriptions = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_blurDescriptionsKey, value);
+    await _blurDescriptions.save(value, onChanged: notifyListeners);
+    Analytics.instance.track('setting_changed', {'setting': 'blur_descriptions', 'value': value});
   }
 
   Future<void> setBlurReviews(bool value) async {
-    if (_blurReviews == value) return;
-    _blurReviews = value;
-    notifyListeners();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_blurReviewsKey, value);
+    await _blurReviews.save(value, onChanged: notifyListeners);
+    Analytics.instance.track('setting_changed', {'setting': 'blur_reviews', 'value': value});
   }
 }

@@ -17,27 +17,73 @@ single title's own detail, basically ever). Two tiers:
   Whichever request finds the cache missing/stale pays for the upstream
   calls; every other request in that window reads the cached JSON back out.
 
-Concurrency note: `cached_dynamic`'s per-key `asyncio.Lock` makes
-concurrent requests *within this process* share one fetch instead of each
-independently hitting the upstream API when the cache is stale — i.e. "the
-first request pays, the rest wait and then read the same result" holds within a
-single running API process. It does NOT coordinate across multiple
-replicas of the API (there's no cross-process lock here, e.g. via Postgres
-advisory locks) — if you ever scale `api` beyond one replica, two replicas
-could both refresh the same stale key at nearly the same moment. Fine for
-this project's current single-container docker-compose setup; worth
-revisiting with a DB-level lock if that changes.
+Concurrency note: `cached_dynamic` guards a stale key with two layers, an
+in-process one and a cross-process one. The in-process `asyncio.Lock` per
+key (`_lock_for`) is the cheap first gate — concurrent requests *within
+this one worker* share a single fetch instead of each independently
+hitting the upstream API, with no database round trip needed to get that
+far. Behind that, `_advisory_lock` takes a Postgres advisory lock keyed
+on the same cache key, so two *different* worker processes or replicas
+racing to refresh the same stale key also serialize instead of both
+paying for the upstream fetch at once — the loser just waits, then reads
+back whatever the winner already wrote. This used to stop at the
+in-process lock alone, with a comment here saying the cross-process case
+was "fine for now, worth revisiting with a DB-level lock" — this is that
+revisit, using the database this app already has rather than adding
+Redis or similar just for this.
+
+Connection-lifetime note: every function here takes `db: Optional[Session]`.
+Pass a real session (the usual, still-supported way — every call site
+outside media.py's search flow still does this) and it's used exactly as
+before: read, maybe an awaited upstream fetch, write, all on that one
+session, for as long as the caller holds it open. Pass `db=None` and
+each function opens and closes its *own* short-lived session (see
+`_session` below) for just the moment it's actually touching the
+database — never held across an awaited upstream call. That matters
+because `Depends(get_db)` (see database.py) checks out a pooled
+connection for a route's *entire* request lifetime, including whatever
+slow external I/O happens in between — database.py's own docstring
+already flagged this as the cause of one real pool-exhaustion incident
+(a burst of onboarding's concurrent /media/search calls). A route whose
+only DB use is through these cache functions can drop
+`db: Session = Depends(get_db)` from its signature entirely and pass
+`db=None` everywhere instead — see routers/media.py's search_media for
+the first example — so it never holds a pooled connection at all except
+for the handful of brief moments it's actually reading or writing a
+cache row.
 """
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from typing import Awaitable, Callable, Optional, TypeVar
 
 from pydantic import BaseModel, TypeAdapter
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app import models
+
+
+@contextmanager
+def _session(db: Optional[Session]):
+    """Yields `db` if given, unmanaged — the caller opened it and the
+    caller closes it, same as always. If `db` is None, opens a fresh,
+    short-lived session of its own for just the `with` block, closing it
+    on the way out. See this module's own docstring's "connection-
+    lifetime note" for why a function would ever be called with `db=None`
+    instead of just always requiring a real session."""
+    if db is not None:
+        yield db
+        return
+    from app.database import SessionLocal
+    own_db = SessionLocal()
+    try:
+        yield own_db
+    finally:
+        own_db.close()
+
 
 T = TypeVar("T")
 
@@ -67,6 +113,14 @@ COLLECTIONS_TTL = timedelta(hours=3)
 # manual cache-buster every time.
 TEAMIRA_TTL = timedelta(hours=24)
 
+# The one place this literal lives. routers/teamira.py's GET handler (via
+# cached_dynamic) and its admin write endpoints, plus the standalone
+# seed_teamira_picks.py CLI/startup path, all need the *same* key — used
+# to be hand-copied into two separate _invalidate_teamira_cache()
+# functions that could silently drift apart if the key ever changed in
+# only one of them. See invalidate_teamira_cache() below.
+TEAMIRA_CACHE_KEY = "feed:teamira:v7"
+
 
 # /media/search — deliberately much shorter than the other dynamic TTLs
 # above: a search query is arbitrary user input, so this isn't a "the
@@ -92,6 +146,55 @@ def _lock_for(cache_key: str) -> asyncio.Lock:
     return lock
 
 
+class _advisory_lock:
+    """Cross-process counterpart to `_lock_for` above — a Postgres
+    advisory lock keyed on `cache_key` (via `hashtext()`, Postgres's own
+    string→int4 hash), held on `db`'s own already-checked-out
+    connection rather than opening a second one from the pool. Two
+    worker processes (or replicas) both finding the same key stale at
+    the same moment now actually take turns instead of both independently
+    calling `fetch()`.
+
+    Polls `pg_try_advisory_lock` (non-blocking) on a short interval
+    rather than calling the blocking `pg_advisory_lock`, so waiting for
+    the lock doesn't tie up this coroutine's turn on the event loop for
+    however long the current holder's `fetch()` takes — same reasoning
+    as everywhere else in this codebase that prefers polling a fast
+    non-blocking check over one long blocking call inside `async def`.
+
+    A no-op on non-Postgres binds (e.g. sqlite in tests), which don't
+    have advisory locks at all — `_lock_for`'s in-process lock is the
+    only guard there, same as before this existed. That's an accepted
+    gap for tests, not for the real deployment target (see
+    database.py: this app always runs on Postgres outside tests).
+    """
+
+    def __init__(self, db: Session, cache_key: str):
+        self.db = db
+        self.cache_key = cache_key
+        self._is_postgres = db.get_bind().dialect.name == "postgresql"
+
+    async def __aenter__(self):
+        if not self._is_postgres:
+            return self
+        while True:
+            got = self.db.execute(
+                text("SELECT pg_try_advisory_lock(hashtext(:key)::bigint)"),
+                {"key": self.cache_key},
+            ).scalar()
+            if got:
+                return self
+            await asyncio.sleep(0.05)
+
+    async def __aexit__(self, exc_type, exc, tb):
+        if self._is_postgres:
+            self.db.execute(
+                text("SELECT pg_advisory_unlock(hashtext(:key)::bigint)"),
+                {"key": self.cache_key},
+            )
+        return False
+
+
 def _dump_json(value) -> str:
     # context={"raw": True} tells ImageFieldsModel's field_serializers
     # (schemas.py) to store poster_url/backdrop_url/etc. untouched rather
@@ -115,36 +218,40 @@ def _dump_json(value) -> str:
 
 # --- static: one title's detail, cached forever -----------------------------
 
-def get_static_title(db: Session, media_id: str, source: str) -> Optional[str]:
-    row = db.get(models.CachedTitleDetail, (media_id, source))
-    return row.payload_json if row else None
+def get_static_title(db: Optional[Session], media_id: str, source: str) -> Optional[str]:
+    with _session(db) as s:
+        row = s.get(models.CachedTitleDetail, (media_id, source))
+        return row.payload_json if row else None
 
 
-def set_static_title(db: Session, media_id: str, source: str, payload) -> None:
+def set_static_title(db: Optional[Session], media_id: str, source: str, payload) -> None:
     payload_json = _dump_json(payload)
-    row = db.get(models.CachedTitleDetail, (media_id, source))
-    if row is None:
-        db.add(models.CachedTitleDetail(media_id=media_id, source=source, payload_json=payload_json))
-    else:
-        row.payload_json = payload_json
-        row.cached_at = datetime.utcnow()
-    db.commit()
+    with _session(db) as s:
+        row = s.get(models.CachedTitleDetail, (media_id, source))
+        if row is None:
+            s.add(models.CachedTitleDetail(media_id=media_id, source=source, payload_json=payload_json))
+        else:
+            row.payload_json = payload_json
+            row.cached_at = datetime.now(timezone.utc)
+        s.commit()
 
 
-def get_static_episodes(db: Session, media_id: str, source: str) -> Optional[str]:
-    row = db.get(models.CachedEpisodes, (media_id, source))
-    return row.payload_json if row else None
+def get_static_episodes(db: Optional[Session], media_id: str, source: str) -> Optional[str]:
+    with _session(db) as s:
+        row = s.get(models.CachedEpisodes, (media_id, source))
+        return row.payload_json if row else None
 
 
-def set_static_episodes(db: Session, media_id: str, source: str, payload) -> None:
+def set_static_episodes(db: Optional[Session], media_id: str, source: str, payload) -> None:
     payload_json = _dump_json(payload)
-    row = db.get(models.CachedEpisodes, (media_id, source))
-    if row is None:
-        db.add(models.CachedEpisodes(media_id=media_id, source=source, payload_json=payload_json))
-    else:
-        row.payload_json = payload_json
-        row.cached_at = datetime.utcnow()
-    db.commit()
+    with _session(db) as s:
+        row = s.get(models.CachedEpisodes, (media_id, source))
+        if row is None:
+            s.add(models.CachedEpisodes(media_id=media_id, source=source, payload_json=payload_json))
+        else:
+            row.payload_json = payload_json
+            row.cached_at = datetime.now(timezone.utc)
+        s.commit()
 
 
 # --- static: one title's semantic embedding, cached forever -----------------
@@ -160,47 +267,51 @@ def set_static_episodes(db: Session, media_id: str, source: str, payload) -> Non
 # happens to surface that title as a candidate again.
 
 
-def get_embedding(db: Session, media_id: str, source: str) -> Optional[list[float]]:
-    row = db.get(models.CachedEmbedding, (media_id, source))
-    if row is None:
-        return None
-    return json.loads(row.payload_json)
+def get_embedding(db: Optional[Session], media_id: str, source: str) -> Optional[list[float]]:
+    with _session(db) as s:
+        row = s.get(models.CachedEmbedding, (media_id, source))
+        if row is None:
+            return None
+        return json.loads(row.payload_json)
 
 
-def set_embedding(db: Session, media_id: str, source: str, vector: list[float]) -> None:
+def set_embedding(db: Optional[Session], media_id: str, source: str, vector: list[float]) -> None:
     payload_json = json.dumps(vector)
-    row = db.get(models.CachedEmbedding, (media_id, source))
-    if row is None:
-        db.add(models.CachedEmbedding(media_id=media_id, source=source, payload_json=payload_json))
-    else:
-        row.payload_json = payload_json
-        row.cached_at = datetime.utcnow()
-    db.commit()
+    with _session(db) as s:
+        row = s.get(models.CachedEmbedding, (media_id, source))
+        if row is None:
+            s.add(models.CachedEmbedding(media_id=media_id, source=source, payload_json=payload_json))
+        else:
+            row.payload_json = payload_json
+            row.cached_at = datetime.now(timezone.utc)
+        s.commit()
 
 
 # --- dynamic: catalog-wide data, refreshed at most once a day ---------------
 
-def _get_dynamic_raw(db: Session, cache_key: str, ttl: timedelta) -> Optional[str]:
-    row = db.get(models.CachedFeedSnapshot, cache_key)
-    if row is None:
-        return None
-    if datetime.utcnow() - row.cached_at > ttl:
-        return None
-    return row.payload_json
+def _get_dynamic_raw(db: Optional[Session], cache_key: str, ttl: timedelta) -> Optional[str]:
+    with _session(db) as s:
+        row = s.get(models.CachedFeedSnapshot, cache_key)
+        if row is None:
+            return None
+        if datetime.now(timezone.utc) - row.cached_at > ttl:
+            return None
+        return row.payload_json
 
 
-def _set_dynamic_raw(db: Session, cache_key: str, payload_json: str) -> None:
-    row = db.get(models.CachedFeedSnapshot, cache_key)
-    if row is None:
-        db.add(models.CachedFeedSnapshot(cache_key=cache_key, payload_json=payload_json))
-    else:
-        row.payload_json = payload_json
-        row.cached_at = datetime.utcnow()
-    db.commit()
+def _set_dynamic_raw(db: Optional[Session], cache_key: str, payload_json: str) -> None:
+    with _session(db) as s:
+        row = s.get(models.CachedFeedSnapshot, cache_key)
+        if row is None:
+            s.add(models.CachedFeedSnapshot(cache_key=cache_key, payload_json=payload_json))
+        else:
+            row.payload_json = payload_json
+            row.cached_at = datetime.now(timezone.utc)
+        s.commit()
 
 
 async def cached_dynamic(
-    db: Session,
+    db: Optional[Session],
     cache_key: str,
     fetch: Callable[[], Awaitable[T]],
     ttl: timedelta = DYNAMIC_TTL,
@@ -208,19 +319,57 @@ async def cached_dynamic(
     """Returns cached JSON for `cache_key` if it's still fresh; otherwise
     awaits `fetch()` (which should return a Pydantic model or a list of
     them), caches the result, and returns that instead. Concurrent callers
-    for the same stale key share a single `fetch()` call — see the module
-    docstring for the single-process caveat."""
+    for the same stale key share a single `fetch()` call — within this
+    process via `_lock_for`, and across processes/replicas via
+    `_advisory_lock` — see the module docstring.
+
+    `db=None` (see the module docstring's "connection-lifetime note")
+    means every step here opens/closes its own short-lived session
+    instead of sharing one held by the caller for the whole request —
+    except the advisory-lock-and-fetch step, which still needs exactly
+    one session held for its own duration (advisory locks are
+    connection-scoped in Postgres) — just a dedicated one opened right
+    before it's needed and closed right after, not the caller's own
+    request-long session."""
     cached = _get_dynamic_raw(db, cache_key, ttl)
     if cached is not None:
         return cached
 
     async with _lock_for(cache_key):
-        # Another request may have refreshed this key while we were
-        # waiting for the lock — check again before paying for a fetch.
+        # Another request in this same process may have refreshed this
+        # key while we were waiting for the in-process lock — check
+        # again before paying for the (comparatively expensive)
+        # cross-process advisory lock below.
         cached = _get_dynamic_raw(db, cache_key, ttl)
         if cached is not None:
             return cached
-        result = await fetch()
-        payload_json = _dump_json(result)
-        _set_dynamic_raw(db, cache_key, payload_json)
-        return payload_json
+        with _session(db) as s:
+            async with _advisory_lock(s, cache_key):
+                # And another *process* may have refreshed it while we
+                # were waiting on the advisory lock — check once more
+                # before actually calling fetch().
+                cached = _get_dynamic_raw(s, cache_key, ttl)
+                if cached is not None:
+                    return cached
+                result = await fetch()
+                payload_json = _dump_json(result)
+                _set_dynamic_raw(s, cache_key, payload_json)
+                return payload_json
+
+
+def invalidate_teamira_cache(db: Session) -> None:
+    """Any write to the Teamira shelves — via the admin endpoints in
+    routers/teamira.py, or via seed_teamira_picks.py's own CLI/startup
+    seeding — makes the cached GET /feed/teamira snapshot stale. Clear it
+    immediately rather than waiting out TEAMIRA_TTL, so the change shows
+    up the next time someone opens the tab instead of up to a day later.
+
+    Single definition shared by both callers, keyed on TEAMIRA_CACHE_KEY
+    above — used to be two independent copies (one per caller) that both
+    hardcoded the same key string, which meant bumping the key in one
+    place and forgetting the other was one edit away.
+    """
+    row = db.get(models.CachedFeedSnapshot, TEAMIRA_CACHE_KEY)
+    if row is not None:
+        db.delete(row)
+        db.commit()

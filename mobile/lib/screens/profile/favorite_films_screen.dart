@@ -5,13 +5,17 @@ import '../../models/friend.dart';
 import '../../models/profile_stats.dart';
 import '../../models/watchlist_entry.dart';
 import '../../services/api_client.dart';
+import '../../services/locale_service.dart';
+import '../../services/premium_service.dart';
 import '../../state/app_state.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
+import '../../widgets/soft_limit_meter.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/user_avatar.dart';
 import '../../widgets/watched_preview_sheet.dart';
 import 'favorite_add_screen.dart';
+import '../premium/premium_screen.dart';
 import '../../services/app_translations.dart';
 
 /// Every favorite film on one account's profile — reached from the
@@ -217,6 +221,19 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
                 ],
               ),
             ),
+            if (widget.isOwn && !_loading && !_failed && !context.watch<PremiumService>().isPremium)
+              SoftLimitMeter(
+                used: _ownFavorites.length,
+                limit: PremiumService.freeFavoritesLimit,
+                label: LocaleService.appIsRussian
+                    ? '${_ownFavorites.length} из ${PremiumService.freeFavoritesLimit} избранных фильмов'
+                    : '${_ownFavorites.length} of ${PremiumService.freeFavoritesLimit} favorite films',
+                onTapUpgrade: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PremiumScreen(triggerSource: 'favorites_limit_soft'),
+                  ),
+                ),
+              ),
             if (widget.isOwn && !_loading && !_failed)
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
@@ -269,7 +286,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
       return _FavoritesList(
         entries: _ownFavorites,
         visible: true,
-        emptyLabel: "nothing pinned yet — tap add, or the heart on a film's page",
+        emptyLabel: "nothing pinned yet — tap add, or the heart on a film's page".tr,
         privateLabel: '',
         onTapEntry: (e) => showWatchedPreview(context, WatchedPreviewData.fromWatchlistEntry(e)),
         topKeys: _ownTopKeys,
@@ -285,8 +302,8 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
     return _FavoritesList(
       entries: data.collections.favorites,
       visible: data.collections.favoritesVisible,
-      emptyLabel: '$name hasn\'t pinned any favorite films yet',
-      privateLabel: '$name keeps their favorites private',
+      emptyLabel: '$name ${"hasn\'t pinned any favorite films yet".tr}',
+      privateLabel: '$name ${'keeps their favorites private'.tr}',
       onTapEntry: (e) => showWatchedPreview(
         context,
         WatchedPreviewData.fromFriendEntry(e, friendLabel: "$name's favorites"),

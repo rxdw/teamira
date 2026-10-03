@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../models/activity_item.dart';
 import '../../state/app_state.dart';
+import '../../utils/server_time.dart';
 import '../../theme/palette.dart';
 import '../../theme/text_styles.dart';
 import '../../widgets/activity_preview.dart';
@@ -52,20 +53,20 @@ class _FriendsActivityFeedScreenState extends State<FriendsActivityFeedScreen> {
   }
 
   String _relativeTime(String iso) {
-    final parsed = DateTime.tryParse(iso);
+    final parsed = tryParseServerUtc(iso);
     if (parsed == null) return '';
-    final diff = DateTime.now().difference(parsed);
+    final diff = DateTime.now().difference(parsed.toLocal());
     if (diff.inMinutes < 1) return 'just now'.tr;
     if (diff.inMinutes < 60) {
-      return '${ruCount(diff.inMinutes, one: 'минуту', few: 'минуты', many: 'минут', englishOne: 'minute', englishOther: 'minutes')} ${'ago'.tr}';
+      return '${nCount('nMinutes', diff.inMinutes)} ${'ago'.tr}';
     }
     if (diff.inHours < 24) {
-      return '${ruCount(diff.inHours, one: 'час', few: 'часа', many: 'часов', englishOne: 'hour', englishOther: 'hours')} ${'ago'.tr}';
+      return '${nCount('nHours', diff.inHours)} ${'ago'.tr}';
     }
     if (diff.inDays < 7) {
-      return '${ruCount(diff.inDays, one: 'день', few: 'дня', many: 'дней', englishOne: 'day', englishOther: 'days')} ${'ago'.tr}';
+      return '${nCount('nDays', diff.inDays)} ${'ago'.tr}';
     }
-    return '${ruCount((diff.inDays / 7).floor(), one: 'неделю', few: 'недели', many: 'недель', englishOne: 'week', englishOther: 'weeks')} ${'ago'.tr}';
+    return '${nCount('nWeeks', (diff.inDays / 7).floor())} ${'ago'.tr}';
   }
 
   void _openItem(ActivityItem item) {

@@ -3,12 +3,16 @@ import 'package:provider/provider.dart';
 
 import '../models/media_item.dart';
 import '../models/user_list.dart';
+import '../screens/together/together_screen.dart' show kTogetherListName;
+import '../services/premium_service.dart';
 import '../state/app_state.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'small_pieces.dart';
+import '../widgets/premium_upsell_sheet.dart';
 import '../widgets/themed_loading_indicator.dart';
 import '../services/app_translations.dart';
+import '../theme/clay_kit.dart';
 
 /// Opened from the title screen's "add to list" button. Shows every list
 /// the user has, checked if this title is already in it; tapping toggles
@@ -100,6 +104,27 @@ class _AddToListSheetState extends State<_AddToListSheet> {
     }
   }
 
+  /// Same free-lists cap as ListsScreen's own "+" button (see
+  /// PremiumService.canAddList, and its own doc comment on why
+  /// kTogetherListName doesn't count toward it) — checked here too
+  /// since this row is the other way to create a list. `_lists` is
+  /// already loaded by the time this sheet can be tapped, so no extra
+  /// fetch needed.
+  void _onTapNewList() {
+    final currentCount = _lists?.where((l) => l.name != kTogetherListName).length ?? 0;
+    if (!context.read<PremiumService>().canAddList(currentCount)) {
+      showPremiumUpsellSheet(
+        context,
+        triggerSource: 'lists_limit',
+        icon: Icons.playlist_add_outlined,
+        title: 'lists limit reached'.tr,
+        message: 'the free tier holds up to 5 lists — premium removes the limit'.tr,
+      );
+      return;
+    }
+    setState(() => _creatingNew = true);
+  }
+
   Future<void> _createAndAdd() async {
     final name = _newListController.text.trim();
     if (name.isEmpty) return;
@@ -133,7 +158,8 @@ class _AddToListSheetState extends State<_AddToListSheet> {
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
         constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-        decoration: BoxDecoration(
+        decoration: ClayBoxDecoration(
+          boxShadow: SeenlyPalette.flatCardShadow,
           color: SeenlyPalette.paper,
           borderRadius: BorderRadius.circular(18),
         ),
@@ -255,7 +281,7 @@ class _AddToListSheetState extends State<_AddToListSheet> {
                 )
               else
                 GestureDetector(
-                  onTap: () => setState(() => _creatingNew = true),
+                  onTap: _onTapNewList,
                   child: Row(
                     children: [
                       Icon(Icons.add, size: 16, color: SeenlyPalette.accent),

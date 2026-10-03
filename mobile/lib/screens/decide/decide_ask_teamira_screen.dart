@@ -8,6 +8,7 @@ import '../home/ask_teamira_results_screen.dart';
 import 'decide_filters_screen.dart';
 import '../../services/app_translations.dart';
 import '../../services/locale_service.dart';
+import '../../theme/clay_kit.dart';
 
 /// "Ask teamira" as one of the four decision methods — same free-text
 /// search as Home's own card ([AskTeamiraResultsScreen]), just opened
@@ -170,7 +171,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('ask teamira'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
+                    child: Text('ask tanè'.tr, style: SeenlyText.serif(size: 19, weight: FontWeight.w600)),
                   ),
                 ],
               ),
@@ -225,7 +226,7 @@ class _DecideAskTeamiraScreenState extends State<DecideAskTeamiraScreen> {
                       Text('or try one of these'.tr, style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
                       const SizedBox(height: 10),
                       Container(
-                        decoration: BoxDecoration(
+                        decoration: ClayBoxDecoration(
                           color: SeenlyPalette.paper,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: SeenlyPalette.border),
