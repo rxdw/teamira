@@ -1,9 +1,41 @@
 import '../models/episode.dart';
+import '../models/reading_progress.dart';
 import 'api_client.dart';
 
 class ProgressService {
   final ApiClient _client;
   ProgressService(this._client);
+
+  /// The current user's bookmark on one book/manga (GET /progress/reading) —
+  /// empty, never an error, for a title they haven't started.
+  Future<ReadingBookmark> reading({
+    required String mediaId,
+    required String source,
+  }) async {
+    final json = await _client.get('/progress/reading', query: {
+      'media_id': mediaId,
+      'source': source,
+    }) as Map<String, dynamic>;
+    return ReadingBookmark.fromJson(json);
+  }
+
+  /// Replaces the bookmark (PUT /progress/reading). The whole state goes up
+  /// every time, so a retry or a late duplicate lands on the same result; a
+  /// bookmark with nothing in it clears it server-side.
+  Future<ReadingBookmark> setReading({
+    required String mediaId,
+    required String source,
+    required ReadingBookmark bookmark,
+  }) async {
+    final json = await _client.put('/progress/reading', body: {
+      'media_id': mediaId,
+      'source': source,
+      'volume': bookmark.volume,
+      'chapter': bookmark.chapter,
+      'page': bookmark.page,
+    }) as Map<String, dynamic>;
+    return ReadingBookmark.fromJson(json);
+  }
 
   Future<SeriesProgress> series({
     required String mediaId,

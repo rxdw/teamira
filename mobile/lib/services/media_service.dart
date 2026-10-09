@@ -55,10 +55,15 @@ class MediaService {
   /// there. Returns null if the source doesn't support extended detail at
   /// all, or resolution failed — callers should fall back to whatever thin
   /// MediaItem they already had rather than treating this as fatal.
+  ///
+  /// `lang` is the content-language setting (same default as search()):
+  /// "ru" additionally gets Kinopoisk/IMDb ratings in `ratings`, "en"
+  /// never triggers a Kinopoisk lookup on the backend.
   Future<MediaDetail?> detail({
     required String mediaId,
     required String mediaType,
     required String source,
+    String? lang,
   }) async {
     const supported = {'tmdb', 'igdb', 'open_library', 'shikimori_manga'};
     if (!supported.contains(source)) return null;
@@ -67,6 +72,7 @@ class MediaService {
         'media_id': mediaId,
         'media_type': mediaType,
         'source': source,
+        'lang': lang ?? (LocaleService.contentPrefersRussian ? 'ru' : 'en'),
       }) as Map<String, dynamic>;
       Analytics.instance.track('title_detail_loaded', {
         'media_type': mediaType,
@@ -133,18 +139,26 @@ class MediaService {
     return WatchProvidersResult.fromJson(json);
   }
 
-  /// Written reviews for a movie/series, merged from TMDB and Trakt (see
-  /// backend/app/routers/reviews.py). Empty list just means neither
-  /// source has anything for this title, or there's no tmdb_id to look
-  /// up at all (a game/book/manga).
+  /// Written reviews. Movies/series/anime: merged from TMDB and Trakt, plus
+  /// Kinopoisk when `lang` is "ru" (looked up by `tmdbId`). Games: Steam, in
+  /// the reader's language; manga: AniList (both looked up by `mediaId`, the
+  /// title's own id). See backend/app/routers/reviews.py. Empty list just
+  /// means no source has anything for this title, or there's no id to look
+  /// it up by (a book — books only get a Hardcover score, no review text).
   Future<TmdbReviewsResult> reviews({
     required String mediaType,
     String? tmdbId,
+    String? mediaId,
+    String? lang,
   }) async {
-    if (tmdbId == null) return const TmdbReviewsResult(reviews: []);
+    final byOwnId = mediaType == 'game' || mediaType == 'manga';
+    if (byOwnId ? mediaId == null : tmdbId == null) {
+      return const TmdbReviewsResult(reviews: []);
+    }
     final json = await _client.get('/media/reviews', query: {
       'media_type': mediaType,
-      'tmdb_id': tmdbId,
+      if (byOwnId) 'media_id': mediaId! else 'tmdb_id': tmdbId!,
+      'lang': lang ?? (LocaleService.contentPrefersRussian ? 'ru' : 'en'),
     }) as Map<String, dynamic>;
     return TmdbReviewsResult.fromJson(json);
   }

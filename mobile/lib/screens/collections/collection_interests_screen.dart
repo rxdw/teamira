@@ -77,14 +77,15 @@ class _CollectionInterestsScreenState extends State<CollectionInterestsScreen> {
               ),
             ),
           Text(
-            widget.isFirstRun ? 'what should we gather for you?' : 'your interests',
+            (widget.isFirstRun ? 'what should we gather for you?' : 'your interests').tr,
             style: SeenlyText.screenTitle,
           ),
           const SizedBox(height: 8),
           Text(
-            widget.isFirstRun
-                ? 'pick a few things you\'re into — collections will lead with those. you can always change your mind later.'
-                : (widget.subtitle ?? 'change what collections leads with, any time.'),
+            (widget.isFirstRun
+                    ? 'pick a few things you\'re into — collections will lead with those. you can always change your mind later.'
+                    : (widget.subtitle ?? 'change what collections leads with, any time.'))
+                .tr,
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
           ),
           const SizedBox(height: 26),

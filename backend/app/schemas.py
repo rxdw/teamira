@@ -109,6 +109,167 @@ class CastMember(ImageFieldsModel):
     photo_url: Optional[str] = None
 
 
+# ---------------------------------------------------------------------------
+# "Title extras" — the richer, per-type layer of the title screen for
+# games, books, manga and anime (screenshots, authors, characters, languages,
+# where to play/read/buy, related works ...). Everything lives in ONE nested
+# object on MediaItem (`extras`) instead of ~30 new top-level fields: the
+# card shape the rest of the app already relies on stays untouched, and a
+# client that doesn't know about extras simply ignores the key. Every field
+# is optional/empty by default — "unknown", never a fabricated value — and a
+# whole `extras` is None for titles no source had anything extra for.
+# Images here are full URLs from the source's own CDN (same as IGDB covers
+# and Shikimori posters already are), so they pass through untouched.
+# ---------------------------------------------------------------------------
+
+class TitleTag(BaseModel):
+    """A descriptive tag. `rank` is the community's 0-100 agreement with the
+    tag (AniList); None for tags without a weight (IGDB themes)."""
+    name: str
+    rank: Optional[int] = None
+
+
+class GameLanguage(BaseModel):
+    """One language a game supports and in which ways. Which flags are known
+    depends on the source (IGDB knows all three; Steam only 'audio')."""
+    name: str
+    interface: bool = False
+    audio: bool = False
+    subtitles: bool = False
+
+
+class TimeToBeat(BaseModel):
+    """Hours to finish a game (IGDB game_time_to_beats), each optional."""
+    hastily: Optional[float] = None     # main story, rushed
+    normally: Optional[float] = None    # main story + some extras
+    completely: Optional[float] = None  # 100%
+    votes: Optional[int] = None
+
+
+class TitleLink(BaseModel):
+    """Where to play / read / buy / learn more. `kind` picks the icon and
+    grouping on the client: official | steam | gog | epic | playstation |
+    xbox | nintendo | itch | store | read | preview | buy | wiki | other."""
+    kind: str
+    label: str
+    url: str
+
+
+class TitleCreator(BaseModel):
+    """A person behind the work — author/artist of a book or manga, studio
+    staff of an anime. Not a TMDB person, so never tappable to a person
+    screen (CastMember.person_id is TMDB-only)."""
+    name: str
+    name_ru: Optional[str] = None     # Shikimori keeps Cyrillic names; the client picks per language
+    role: Optional[str] = None
+    photo_url: Optional[str] = None
+    bio: Optional[str] = None
+    born: Optional[str] = None
+
+
+class TitleCharacter(BaseModel):
+    name: str
+    name_ru: Optional[str] = None
+    role: Optional[str] = None        # "Main" | "Supporting" (localised client-side)
+    photo_url: Optional[str] = None
+
+
+class RelatedTitle(BaseModel):
+    """Another work connected to this one: a sequel, an adaptation, a DLC,
+    a game from the same series. When `id`+`source` are set the client can
+    open its card directly; otherwise it searches by `title` + `media_type`
+    (e.g. a manga's anime adaptation, whose TMDB id isn't known here)."""
+    relation: str                     # "Adaptation" | "Sequel" | "DLC" | ... (English key)
+    title: str
+    title_ru: Optional[str] = None
+    media_type: str
+    year: Optional[int] = None
+    poster_url: Optional[str] = None
+    id: Optional[str] = None
+    source: Optional[str] = None
+
+
+class ReadingLog(BaseModel):
+    """Open Library readers: how many want to read / are reading / read."""
+    want: Optional[int] = None
+    reading: Optional[int] = None
+    read: Optional[int] = None
+
+
+class SpecRow(BaseModel):
+    """One line of a system-requirements list: "Memory" / "8 GB RAM". `label`
+    is empty for a line Steam wrote without one."""
+    label: str = ""
+    value: str
+
+
+class SystemRequirements(BaseModel):
+    """PC requirements as Steam lists them (minimum and, when the studio gave
+    one, recommended). Labels are canonical English where recognised
+    ("OS", "Processor", "Memory", "Graphics", "Storage" ...) so the client
+    can translate them; values are the studio's own text."""
+    minimum: List[SpecRow] = Field(default_factory=list)
+    recommended: List[SpecRow] = Field(default_factory=list)
+
+
+class TitleExtras(BaseModel):
+    # False when a source we depend on for this title's extras couldn't be
+    # asked (Shikimori throttled ...). GET /media/detail then doesn't treat
+    # the cached copy as final and rebuilds it on the next open, so a bad
+    # minute is retried instead of remembered forever. An *empty* extras with
+    # complete=True means "asked, nothing to show" — also how a row cached
+    # before extras existed (extras=None) is told apart and refreshed once.
+    complete: bool = True
+
+    # --- shared ---------------------------------------------------------
+    screenshots: List[str] = Field(default_factory=list)
+    tags: List[TitleTag] = Field(default_factory=list)
+    links: List[TitleLink] = Field(default_factory=list)
+    related: List[RelatedTitle] = Field(default_factory=list)
+    alt_titles: List[str] = Field(default_factory=list)
+    original_language: Optional[str] = None   # "ru", "en", "ja" ...
+    popularity: Optional[int] = None          # people who track/list it
+    favourites: Optional[int] = None
+
+    # --- games ----------------------------------------------------------
+    storyline: Optional[str] = None
+    perspectives: List[str] = Field(default_factory=list)
+    languages: List[GameLanguage] = Field(default_factory=list)
+    time_to_beat: Optional[TimeToBeat] = None
+    price: Optional[str] = None               # formatted by the store, e.g. "1 299 ₽"
+    price_discount_pct: Optional[int] = None
+    free_to_play: Optional[bool] = None
+    metacritic: Optional[int] = None
+    achievements: Optional[int] = None
+    steam_features: List[str] = Field(default_factory=list)  # "Controller support", ...
+    requirements: Optional[SystemRequirements] = None
+    pc_platforms: List[str] = Field(default_factory=list)    # "windows" | "mac" | "linux"
+    steam_deck: Optional[str] = None                         # "verified" | "playable" | "unsupported"
+    critic_score: Optional[int] = None        # IGDB critics 0-100
+    critic_votes: Optional[int] = None
+
+    # --- books ----------------------------------------------------------
+    pages: Optional[int] = None
+    published_date: Optional[str] = None
+    subtitle: Optional[str] = None
+    book_language: Optional[str] = None
+    creators: List[TitleCreator] = Field(default_factory=list)  # also manga/anime staff
+    first_sentence: Optional[str] = None
+    reading_log: Optional[ReadingLog] = None
+
+    # --- manga / anime --------------------------------------------------
+    characters: List[TitleCharacter] = Field(default_factory=list)
+    studios: List[str] = Field(default_factory=list)
+    source_material: Optional[str] = None     # "Manga" | "Light novel" | "Original" ...
+    episodes: Optional[int] = None
+    episodes_aired: Optional[int] = None
+    episode_minutes: Optional[int] = None
+    next_episode_at: Optional[str] = None     # ISO datetime
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+
 class MediaItem(ImageFieldsModel):
     id: str
     media_type: str  # "movie" | "series" | "anime" | "game" | "book" | "manga"
@@ -201,6 +362,11 @@ class MediaItem(ImageFieldsModel):
     volumes: Optional[int] = None
     chapters: Optional[int] = None
 
+    # The richer per-type layer (screenshots, authors, characters, languages,
+    # links, related works ...) — see TitleExtras above. GET /media/detail
+    # only; None on every search/feed/collections card.
+    extras: Optional[TitleExtras] = None
+
 
 class RatingsOut(BaseModel):
     """From GET /media/detail's `ratings` field — the community/critic
@@ -214,6 +380,29 @@ class RatingsOut(BaseModel):
     # app/routers/media.py::_apply_review_count. Unrelated to tmdb_votes
     # above (that's star-rating voters, this is written reviews).
     reviews_count: Optional[int] = None
+    # Kinopoisk + IMDb, via ПоискКино (see app/adapters/poiskkino.py).
+    # Filled in per request and only for Russian-language callers
+    # (GET /media/detail?lang=ru) — never part of the cached detail, so
+    # a rating that moved isn't frozen in. Null = unknown, not zero.
+    kp_rating: Optional[float] = None
+    kp_votes: Optional[int] = None
+    imdb_rating: Optional[float] = None
+    imdb_votes: Optional[int] = None
+    # Books only (GET /media/detail for a Google Books title): Hardcover's
+    # community rating on its own 0-5 scale, how many people rated, and the
+    # book's page there (where its reviews live — their text is not ours to
+    # show, see app/adapters/hardcover.py). Same "per request, never in the
+    # forever cache" rule as the Kinopoisk fields above.
+    hc_rating: Optional[float] = None
+    hc_votes: Optional[int] = None
+    hc_url: Optional[str] = None
+    # Games only (GET /media/detail for an IGDB game that has a Steam page):
+    # share of positive Steam reviews (0-100) over all languages, and how
+    # many reviews that is. Same "per request, never in the forever cache".
+    steam_pct: Optional[int] = None
+    steam_votes: Optional[int] = None
+    # Manga only: AniList's community mean score on a 0-10 scale.
+    al_rating: Optional[float] = None
 
 
 class TitleTrailer(BaseModel):
@@ -541,6 +730,29 @@ class WatchedEpisodeOut(BaseModel):
 
 class SeriesProgressOut(BaseModel):
     watched: List[WatchedEpisodeOut] = Field(default_factory=list)
+
+
+# Counters above this are a typo or abuse, not a reader (the longest manga
+# runs to a few thousand chapters).
+READING_COUNTER_MAX = 100000
+
+
+class ReadingProgressIn(BaseModel):
+    """PUT /progress/reading. A counter left out (or null) means "not
+    tracking that one"; all three empty/zero clears the bookmark."""
+    media_id: str
+    source: str
+    volume: Optional[int] = Field(default=None, ge=0, le=READING_COUNTER_MAX)
+    chapter: Optional[int] = Field(default=None, ge=0, le=READING_COUNTER_MAX)
+    page: Optional[int] = Field(default=None, ge=0, le=READING_COUNTER_MAX)
+
+
+class ReadingProgressOut(BaseModel):
+    """Everything null when the user has no bookmark on this title."""
+    volume: Optional[int] = None
+    chapter: Optional[int] = None
+    page: Optional[int] = None
+    updated_at: Optional[str] = None
 
 
 class EpisodeRatingRequest(BaseModel):
@@ -2087,17 +2299,28 @@ class WatchProvidersOut(BaseModel):
 
 
 class TmdbReviewOut(BaseModel):
-    """One written review from GET /media/reviews. Two sources feed this
-    now — TMDB's own /reviews and Trakt's /comments (see
-    app/routers/reviews.py for why: TMDB alone is often nearly empty).
+    """One written review from GET /media/reviews. Up to three sources
+    feed this — TMDB's own /reviews, Trakt's /comments (see
+    app/routers/reviews.py for why: TMDB alone is often nearly empty),
+    and, for Russian-language callers only, Kinopoisk via ПоискКино.
     IMDB still isn't an option — no public API at all for review text."""
     author: str
     avatar_url: Optional[str] = None
     rating: Optional[float] = None  # the reviewer's own 0-10 score, when they left one
     content: str
     created_at: Optional[datetime] = None
-    url: str  # the review's page on themoviedb.org or trakt.tv, for "read more" / full context
-    source: str = "tmdb"  # "tmdb" | "trakt"
+    url: str  # the review's page on themoviedb.org, trakt.tv, kinopoisk.ru, steam or anilist.co, for "read more" / full context
+    source: str = "tmdb"  # "tmdb" | "trakt" | "kinopoisk" | "steam" | "anilist"
+    # Kinopoisk, Steam and AniList reviews (null for TMDB/Trakt): a headline
+    # where the source has one (Kinopoisk's title, AniList's summary line), a
+    # tone ("positive" | "negative" | "neutral" — Kinopoisk reviewers pick
+    # one, Steam's is recommend / don't recommend, AniList's is derived from
+    # the reviewer's score), and how many people found it useful.
+    title: Optional[str] = None
+    tone: Optional[str] = None
+    likes: Optional[int] = None
+    # Steam only: hours the reviewer had played when they wrote it.
+    playtime_hours: Optional[float] = None
 
     # Deliberately NOT on the shared ImageFieldsModel mixin — avatar_url
     # is also a field name UserOut/ActivityItem use for a user's own

@@ -78,7 +78,7 @@ class _PassportBookState extends State<PassportBook> with SingleTickerProviderSt
             const SizedBox(height: 18),
             Text(
               widget.entries.isEmpty
-                  ? 'a blank passport, waiting'
+                  ? 'a blank passport, waiting'.tr
                   : '${widget.entries.length} ${widget.entries.length == 1 ? 'evening' : 'evenings'}, stamped',
               style: SeenlyText.serif(italic: true, size: 19),
             ),
@@ -89,7 +89,7 @@ class _PassportBookState extends State<PassportBook> with SingleTickerProviderSt
                 Icon(Icons.touch_app, size: 12, color: SeenlyPalette.inkFaint),
                 const SizedBox(width: 5),
                 Text(
-                  widget.entries.isEmpty ? 'log one to see it land' : 'give it a flip to see them all',
+                  widget.entries.isEmpty ? 'log one to see it land'.tr : 'give it a flip to see them all'.tr,
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                 ),
               ],

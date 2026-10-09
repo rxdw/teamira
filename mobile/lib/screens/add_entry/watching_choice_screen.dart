@@ -222,10 +222,10 @@ class WatchingChoiceScreen extends StatelessWidget {
   }
 
   String _watchingNowSubtitle(LogTheme theme) => switch (theme) {
-        LogTheme.coach => 'a route, chosen and boarded now',
-        LogTheme.ticket => 'a cinema, flown to and playing now',
-        LogTheme.garden => 'a garden, walked right now',
-        LogTheme.shuttle => 'a launch site, cleared and lifting off now',
+        LogTheme.coach => 'a route, chosen and boarded now'.tr,
+        LogTheme.ticket => 'a cinema, flown to and playing now'.tr,
+        LogTheme.garden => 'a garden, walked right now'.tr,
+        LogTheme.shuttle => 'a launch site, cleared and lifting off now'.tr,
       };
 
   IconData _watchingNowIcon(LogTheme theme) => switch (theme) {

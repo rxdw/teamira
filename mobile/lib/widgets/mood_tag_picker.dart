@@ -51,7 +51,7 @@ List<String> vibePresetTags(int rating) =>
 /// The headline for the vibe step for a given rating — see
 /// [isLowRatingForVibe].
 String vibePromptTitle(int rating) =>
-    isLowRatingForVibe(rating) ? "what fell short?" : 'why did you love this?';
+    isLowRatingForVibe(rating) ? "what fell short?".tr : 'why did you love this?'.tr;
 
 /// Lets the person pick from a preset list of "why did you love this" (or,
 /// for a rough rating, "what fell short") tags and add their own free-text

@@ -310,6 +310,15 @@ def _set_dynamic_raw(db: Optional[Session], cache_key: str, payload_json: str) -
         s.commit()
 
 
+def get_dynamic_stale(db: Optional[Session], cache_key: str) -> Optional[str]:
+    """The cached JSON for `cache_key` whatever its age, or None if it was
+    never stored. Rows aren't deleted when they pass their TTL — they're
+    just ignored by cached_dynamic — so this is the "last known good"
+    copy, for callers that would rather show slightly old data than
+    nothing when a refresh fails (see app/kinopoisk.py)."""
+    return _get_dynamic_raw(db, cache_key, timedelta(days=36500))
+
+
 async def cached_dynamic(
     db: Optional[Session],
     cache_key: str,

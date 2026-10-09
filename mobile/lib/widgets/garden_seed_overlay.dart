@@ -164,7 +164,7 @@ class _GardenPlantOverlayState extends State<_GardenPlantOverlay> with TickerPro
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: Text(
-                    _selected == null ? 'choose a spot for tonight' : 'tucking it into the bed…',
+                    _selected == null ? 'choose a spot for tonight'.tr : 'tucking it into the bed…'.tr,
                     key: ValueKey(_selected == null),
                     style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.paper.withOpacity(0.72)),
                   ),

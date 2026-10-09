@@ -46,6 +46,7 @@ class SpendConfirmSheet extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => SpendConfirmSheet(
         title: title,
         body: body,

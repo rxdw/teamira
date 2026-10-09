@@ -81,7 +81,7 @@ class _HeroStackCarouselState extends State<HeroStackCarousel> {
         Padding(
           padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
           child: SectionHeader(
-            title: widget.overline,
+            title: widget.overline.tr,
             centerTitle: true,
           ),
         ),

@@ -38,6 +38,7 @@ Future<void> showHomeWidgetHintSheet(BuildContext context) {
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) => SafeArea(
       child: SingleChildScrollView(
         child: _HomeWidgetHintSheet(

@@ -18,6 +18,7 @@ import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import 'co_view_vote_screen.dart' show NarrowDownPrompt, PoolSetupHero, PoolSetupLayout;
 import '../../services/app_translations.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 const _tickInterval = Duration(seconds: 1);
 
@@ -71,7 +72,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = "couldn't start a vote just now — try again";
+        _errorMessage = "couldn't start a vote just now — try again".tr;
         _phase = _Phase.error;
       });
     }
@@ -96,7 +97,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = "couldn't start a vote just now — try again";
+        _errorMessage = "couldn't start a vote just now — try again".tr;
         _phase = _Phase.error;
       });
     }
@@ -330,7 +331,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _errorMessage ?? 'something went wrong',
+                    _errorMessage ?? 'something went wrong'.tr,
                     textAlign: TextAlign.center,
                     style: SeenlyText.serif(italic: true, size: 15, color: SeenlyPalette.inkMuted),
                   ),
@@ -356,12 +357,12 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
                   duration: const Duration(milliseconds: 220),
                   child: Text(
                     session.isCompany
-                        ? '${session.votedCount} of ${session.memberCount} in the circle have voted'
+                        ? LocaleService.pick('проголосовали ${session.votedCount} из ${session.memberCount} в круге', '${session.votedCount} of ${session.memberCount} in the circle have voted')
                         : session.votedCount >= 2
-                            ? 'everyone has voted'
+                            ? 'everyone has voted'.tr
                             : session.hasVoted
-                                ? 'waiting on the others'
-                                : "you haven't voted yet",
+                                ? 'waiting on the others'.tr
+                                : "you haven't voted yet".tr,
                     key: ValueKey('${session.votedCount}-${session.hasVoted}'),
                     style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                   ),
@@ -380,7 +381,7 @@ class _CoViewPollScreenState extends State<CoViewPollScreen> {
             const SizedBox(height: 14),
             Entrance(
               delay: const Duration(milliseconds: 60),
-              child: Text(winner != null ? "it's decided" : 'round closed', style: SeenlyText.screenTitle),
+              child: Text(winner != null ? "it's decided".tr : 'round closed'.tr, style: SeenlyText.screenTitle),
             ),
             const SizedBox(height: 8),
             if (winner != null) ...[

@@ -302,6 +302,7 @@ Future<void> showReadingPinSheet(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _PinSheet(room: room, at: at, progress: progress, placeText: placeText, quote: quote),
   );

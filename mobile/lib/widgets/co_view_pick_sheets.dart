@@ -32,6 +32,7 @@ Future<MediaItem?> showCoViewRandomPickSheet(BuildContext context) async {
     context: context,
     backgroundColor: SeenlyPalette.paper,
     isScrollControlled: true,
+    useSafeArea: true,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => const _RandomPickSheet(),
   );
@@ -194,6 +195,7 @@ Future<MediaItem?> showCoViewReelPickSheet(BuildContext context) async {
     context: context,
     backgroundColor: SeenlyPalette.paper,
     isScrollControlled: true,
+    useSafeArea: true,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => const _ReelPickSheet(),
   );

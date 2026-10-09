@@ -43,6 +43,13 @@ class LocaleService extends ChangeNotifier {
   /// even though today they're the same single toggle.
   static bool get appIsRussian => contentPrefersRussian;
 
+  /// The sentence for the current language, for copy that splices names or
+  /// numbers into the middle of a phrase. `.tr` can't help there: it looks the
+  /// finished string up whole, and a string with a username in it never
+  /// matches anything. Write both versions out instead (word order and
+  /// plural forms differ between the two languages anyway).
+  static String pick(String ru, String en) => appIsRussian ? ru : en;
+
   Future<void> load() async {
     await _preferRussian.load();
     contentPrefersRussian = _preferRussian.value;

@@ -121,15 +121,15 @@ class _ReviewComposerScreenState extends State<_ReviewComposerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.readOnly ? 'the review' : 'your review',
+                  widget.readOnly ? 'the review'.tr : 'your review',
                   style: SeenlyText.serif(
                       size: 20, weight: FontWeight.w600, italic: true, color: SeenlyPalette.accent),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   widget.readOnly
-                      ? 'every word of it'
-                      : 'as long as you want — nobody\'s reading over your shoulder',
+                      ? 'every word of it'.tr
+                      : 'as long as you want — nobody\'s reading over your shoulder'.tr,
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                 ),
                 const SizedBox(height: 18),

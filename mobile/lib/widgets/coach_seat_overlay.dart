@@ -214,7 +214,7 @@ class _CoachSeatOverlayState extends State<_CoachSeatOverlay> with TickerProvide
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: Text(
-                            _selected == null ? "tonight's ride" : "cozy — that one's yours",
+                            _selected == null ? "tonight's ride".tr : "cozy — that one's yours".tr,
                             key: ValueKey(_selected == null),
                             style: SeenlyText.mono(
                                 size: 10, color: SeenlyPalette.paper.withOpacity(0.68)),

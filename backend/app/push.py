@@ -42,6 +42,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app import models
+from app.bi import Bi, normalize_lang, pick, years_en
 from app.config import settings
 from app.database import SessionLocal
 
@@ -150,8 +151,19 @@ class PushService:
         )
         if not tokens:
             return 0
-        sent = self._send(db, [t.token for t in tokens], title, body, data)
-        db.add(models.PushLog(user_id=user.id, category=category.value, title=title, body=body))
+        # Word it for each device. A person usually has one language across
+        # devices, but a token that hasn't reported one (an old install) is
+        # Russian — what every push used to be — so group by language rather
+        # than assume the first token speaks for the rest.
+        by_lang: dict[str, list[str]] = {}
+        for t in tokens:
+            by_lang.setdefault(normalize_lang(t.locale), []).append(t.token)
+        sent = 0
+        for lang, group in by_lang.items():
+            sent += self._send(db, group, pick(title, lang), pick(body, lang), data)
+        # The log keeps the Russian text (a Bi *is* that str): it is only
+        # read back for "did we already send this today" checks.
+        db.add(models.PushLog(user_id=user.id, category=category.value, title=str(title), body=str(body)))
         db.commit()
         return sent
 
@@ -236,8 +248,9 @@ def notify_match(user_ids: list[str], title_name: str, media_id: str, source: st
         users = db.query(models.User).filter(models.User.id.in_(user_ids)).all()
         push_service.send_to_users(
             db, users, PushCategory.MATCHES,
-            title="Совпадение! 🎉",
-            body=f"Вы оба выбрали «{title_name}» — можно смотреть сегодня",
+            title=Bi("Совпадение! 🎉", "It's a match! 🎉"),
+            body=Bi(f"Вы оба выбрали «{title_name}» — можно смотреть сегодня",
+                    f"You both picked “{title_name}” — you can watch it tonight"),
             data={
                 "type": "match", "media_id": media_id, "source": source, "media_type": media_type,
                 "title": title_name,
@@ -264,8 +277,9 @@ def notify_friend_request(user_id: str, from_display_name: str) -> None:
             return
         push_service.send_to_user(
             db, user, PushCategory.FRIEND_REQUESTS,
-            title="Новая заявка в друзья",
-            body=f"{from_display_name} хочет добавить вас в друзья",
+            title=Bi("Новая заявка в друзья", "New friend request"),
+            body=Bi(f"{from_display_name} хочет добавить вас в друзья",
+                    f"{from_display_name} wants to add you as a friend"),
             data={"type": "friend_request"},
         )
     finally:
@@ -288,8 +302,9 @@ def notify_partner_invite(user_id: str, from_display_name: str) -> None:
             return
         push_service.send_to_user(
             db, user, PushCategory.PARTNER_ACTIVITY,
-            title="Приглашение к совместному просмотру",
-            body=f"{from_display_name} зовёт вас в свой круг на Teamira",
+            title=Bi("Приглашение к совместному просмотру", "Invitation to watch together"),
+            body=Bi(f"{from_display_name} зовёт вас в свой круг на Teamira",
+                    f"{from_display_name} is inviting you into their circle on Teamira"),
             data={"type": "partner_invite"},
         )
     finally:
@@ -311,8 +326,9 @@ def notify_partner_linked(user_ids: list[str], other_display_names: dict[str, st
                 continue
             push_service.send_to_user(
                 db, user, PushCategory.PARTNER_ACTIVITY,
-                title="Теперь вы вместе на Teamira 💛",
-                body=f"Вы и {other_name} связали аккаунты — общий дневник уже ждёт",
+                title=Bi("Теперь вы вместе на Teamira 💛", "You're together on Teamira 💛"),
+                body=Bi(f"Вы и {other_name} связали аккаунты — общий дневник уже ждёт",
+                        f"You and {other_name} are linked — your shared diary is waiting"),
                 data={"type": "partner_linked"},
             )
     finally:
@@ -345,14 +361,17 @@ def notify_friend_activity(
         # like from the half-heart rendering) — 8+ is a genuine "loved
         # it," worth leading the push with, not just "logged something."
         if rating is not None and rating >= 8:
-            body = f"{actor_display_name} оценил(а) «{title_name}» на {rating}/10 — стоит взглянуть?"
+            body = Bi(f"{actor_display_name} оценил(а) «{title_name}» на {rating}/10 — стоит взглянуть?",
+                      f"{actor_display_name} rated “{title_name}” {rating}/10 — worth a look?")
         elif rating is not None:
-            body = f"{actor_display_name} посмотрел(а) «{title_name}»"
+            body = Bi(f"{actor_display_name} посмотрел(а) «{title_name}»",
+                      f"{actor_display_name} watched “{title_name}”")
         else:
-            body = f"{actor_display_name} добавил(а) «{title_name}» в дневник"
+            body = Bi(f"{actor_display_name} добавил(а) «{title_name}» в дневник",
+                      f"{actor_display_name} added “{title_name}” to their diary")
         push_service.send_to_users(
             db, users, PushCategory.FRIEND_ACTIVITY,
-            title=f"{actor_display_name} смотрит",
+            title=Bi(f"{actor_display_name} смотрит", f"{actor_display_name} is watching"),
             body=body,
             data={
                 "type": "friend_activity", "media_id": media_id, "source": source, "media_type": media_type,
@@ -376,8 +395,9 @@ def notify_level_up(user_id: str, new_level: int) -> None:
             return
         push_service.send_to_user(
             db, user, PushCategory.LEVEL_UPS,
-            title=f"Уровень {new_level}! 🎬",
-            body="Ваш киновкус растёт — загляните в профиль, что нового открылось",
+            title=Bi(f"Уровень {new_level}! 🎬", f"Level {new_level}! 🎬"),
+            body=Bi("Ваш киновкус растёт — загляните в профиль, что нового открылось",
+                    "Your movie taste is growing — peek at your profile to see what's new"),
             data={"type": "level_up", "level": new_level},
         )
     finally:
@@ -399,8 +419,9 @@ def notify_nudge(user_id: str, actor_name: str, title: str) -> None:
             return
         push_service.send_to_user(
             db, user, PushCategory.FRIEND_ACTIVITY,
-            title=f"{actor_name} напоминает 👋",
-            body=f"«{title}» всё ещё в общих планах — может, пора?",
+            title=Bi(f"{actor_name} напоминает 👋", f"{actor_name} nudges you 👋"),
+            body=Bi(f"«{title}» всё ещё в общих планах — может, пора?",
+                    f"“{title}” is still in your shared plans — maybe it's time?"),
             data={"type": "coview_nudge", "title": title},
         )
     finally:
@@ -423,11 +444,13 @@ def notify_recommendation_resolved(
         if user is None:
             return
         if hit:
-            title_text = "Ставка сыграла 🎯"
-            body = f"{friend_display_name} оценил(а) «{title}» почти как ты и говорил(а) — +{amount} очков искренности"
+            title_text = Bi("Ставка сыграла 🎯", "Your bet paid off 🎯")
+            body = Bi(f"{friend_display_name} оценил(а) «{title}» почти как ты и говорил(а) — +{amount} очков искренности",
+                      f"{friend_display_name} rated “{title}” almost exactly as you said — +{amount} sincerity points")
         else:
-            title_text = "Не в этот раз"
-            body = f"{friend_display_name} оценил(а) «{title}» иначе — ставка сгорела"
+            title_text = Bi("Не в этот раз", "Not this time")
+            body = Bi(f"{friend_display_name} оценил(а) «{title}» иначе — ставка сгорела",
+                      f"{friend_display_name} rated “{title}” differently — the bet is gone")
         push_service.send_to_user(
             db, user, PushCategory.FRIEND_ACTIVITY,
             title=title_text,
@@ -461,8 +484,9 @@ def notify_album_note(user_id: str, from_name: str, title_name: str) -> None:
     note is first created (not on every edit)."""
     _send_album_push(
         user_id,
-        title="Вам оставили записку ✉️",
-        body=f"{from_name} написал(а) вам к «{title_name}» — она откроется после просмотра",
+        title=Bi("Вам оставили записку ✉️", "You've got a note ✉️"),
+        body=Bi(f"{from_name} написал(а) вам к «{title_name}» — она откроется после просмотра",
+                f"{from_name} left you a note on “{title_name}” — it opens after you watch"),
         data={"type": "pair_album_note"},
     )
 
@@ -472,8 +496,9 @@ def notify_album_reveal(user_id: str, from_name: str, title_name: str) -> None:
     for the other side."""
     _send_album_push(
         user_id,
-        title="Записка открылась 💌",
-        body=f"«{title_name}» просмотрен — посмотрите, что написал(а) {from_name}",
+        title=Bi("Записка открылась 💌", "The note is open 💌"),
+        body=Bi(f"«{title_name}» просмотрен — посмотрите, что написал(а) {from_name}",
+                f"“{title_name}” is watched — see what {from_name} wrote"),
         data={"type": "pair_album_reveal"},
     )
 
@@ -481,8 +506,9 @@ def notify_album_reveal(user_id: str, from_name: str, title_name: str) -> None:
 def notify_capsule_created(user_id: str, from_name: str, opens_label: str) -> None:
     _send_album_push(
         user_id,
-        title="Капсула для двоих 🕰️",
-        body=f"{from_name} запечатал(а) капсулу — она откроется {opens_label}. Напишите своё письмо",
+        title=Bi("Капсула для двоих 🕰️", "A capsule for two 🕰️"),
+        body=Bi(f"{from_name} запечатал(а) капсулу — она откроется {opens_label}. Напишите своё письмо",
+                f"{from_name} sealed a capsule — it opens {opens_label}. Write your letter"),
         data={"type": "pair_album_capsule"},
     )
 
@@ -490,8 +516,9 @@ def notify_capsule_created(user_id: str, from_name: str, opens_label: str) -> No
 def notify_capsule_letter(user_id: str, from_name: str) -> None:
     _send_album_push(
         user_id,
-        title="В капсулу добавили письмо 🕰️",
-        body=f"{from_name} запечатал(а) своё письмо — теперь в капсуле два",
+        title=Bi("В капсулу добавили письмо 🕰️", "A letter was added to the capsule 🕰️"),
+        body=Bi(f"{from_name} запечатал(а) своё письмо — теперь в капсуле два",
+                f"{from_name} sealed their letter — now there are two in the capsule"),
         data={"type": "pair_album_capsule"},
     )
 
@@ -509,13 +536,14 @@ def notify_room_invite(user_id: str, from_name: str, title_name: str, activity: 
         if user is None or getattr(user, "deleted_at", None) is not None:
             return
         headline = {
-            "read": f"{from_name} зовёт читать вместе 📖",
-            "play": f"{from_name} зовёт играть вместе 🎮",
-        }.get(activity, f"{from_name} зовёт смотреть вместе 🍿")
+            "read": Bi(f"{from_name} зовёт читать вместе 📖", f"{from_name} invites you to read together 📖"),
+            "play": Bi(f"{from_name} зовёт играть вместе 🎮", f"{from_name} invites you to play together 🎮"),
+        }.get(activity, Bi(f"{from_name} зовёт смотреть вместе 🍿", f"{from_name} invites you to watch together 🍿"))
         push_service.send_to_user(
             db, user, PushCategory.CO_VIEW_ROOMS,
             title=headline,
-            body=f"«{title_name}» — комната уже открыта, заходите",
+            body=Bi(f"«{title_name}» — комната уже открыта, заходите",
+                    f"“{title_name}” — the room is already open, come in"),
             data={"type": "co_view_room"},
         )
     finally:
@@ -531,8 +559,9 @@ def notify_review_invite(user_id: str, from_name: str, title_name: str) -> None:
             return
         push_service.send_to_user(
             db, user, PushCategory.PARTNER_ACTIVITY,
-            title="Оценим вместе? 💬",
-            body=f"{from_name} записал(а) «{title_name}» — добавьте и свою оценку",
+            title=Bi("Оценим вместе? 💬", "Review it together? 💬"),
+            body=Bi(f"{from_name} записал(а) «{title_name}» — добавьте и свою оценку",
+                    f"{from_name} logged “{title_name}” — add your rating too"),
             data={"type": "circle_review"},
         )
     finally:
@@ -548,8 +577,9 @@ def notify_review_ready(user_id: str, title_name: str) -> None:
             return
         push_service.send_to_user(
             db, user, PushCategory.PARTNER_ACTIVITY,
-            title="Рецензия открылась ✨",
-            body=f"«{title_name}» — посмотрите, как вы оценили вечер",
+            title=Bi("Рецензия открылась ✨", "The review is open ✨"),
+            body=Bi(f"«{title_name}» — посмотрите, как вы оценили вечер",
+                    f"“{title_name}” — see how you rated the evening"),
             data={"type": "circle_review"},
         )
     finally:
@@ -566,10 +596,11 @@ def notify_room_guest_invite(user_id: str, from_name: str, title_name: str, acti
         push_service.send_to_user(
             db, user, PushCategory.CO_VIEW_ROOMS,
             title={
-                "read": f"{from_name} зовёт вас читать 📖",
-                "play": f"{from_name} зовёт вас играть 🎮",
-            }.get(activity, f"{from_name} зовёт вас смотреть 🍿"),
-            body=f"«{title_name}» — комната открыта, заходите",
+                "read": Bi(f"{from_name} зовёт вас читать 📖", f"{from_name} invites you to read 📖"),
+                "play": Bi(f"{from_name} зовёт вас играть 🎮", f"{from_name} invites you to play 🎮"),
+            }.get(activity, Bi(f"{from_name} зовёт вас смотреть 🍿", f"{from_name} invites you to watch 🍿")),
+            body=Bi(f"«{title_name}» — комната открыта, заходите",
+                    f"“{title_name}” — the room is open, come in"),
             data={"type": "co_view_room_guest"},
         )
     finally:

@@ -427,7 +427,7 @@ class _BoardingDropOverlayState extends State<_BoardingDropOverlay> with TickerP
                                 size: 13, color: SeenlyPalette.paper.withOpacity(0.75)),
                             const SizedBox(width: 6),
                             Text(
-                              _foggy ? 'wipe the window to see' : 'tear it at the gate — or just tap',
+                              _foggy ? 'wipe the window to see'.tr : 'tear it at the gate — or just tap'.tr,
                               style: SeenlyText.mono(size: 10, color: SeenlyPalette.paper.withOpacity(0.75)),
                             ),
                           ],

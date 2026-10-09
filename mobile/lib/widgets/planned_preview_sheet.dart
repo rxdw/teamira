@@ -133,7 +133,7 @@ Future<void> showPlannedPreview(
 }) {
   return showGeneralDialog(
     context: context,
-    barrierLabel: 'plan to watch preview',
+    barrierLabel: 'plan to watch preview'.tr,
     barrierDismissible: true,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 240),
@@ -391,7 +391,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
-                        widget.placeholderText,
+                        widget.placeholderText.tr,
                         textAlign: TextAlign.center,
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
@@ -414,7 +414,7 @@ class _PlannedPreviewCardState extends State<PlannedPreviewCard> {
                                 child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                               )
                             : Icon(Icons.check_circle_outline, size: 16, color: SeenlyPalette.accentOnAccent),
-                        label: Text(widget.actionLabel,
+                        label: Text(widget.actionLabel.tr,
                             style: SeenlyText.serif(size: 13, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: SeenlyPalette.accent,

@@ -198,7 +198,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         'Plex Settings → Webhooks → Add Webhook',
                         'paste the URL below',
                       ],
-                      child: _CopyRow(value: _token!.plexWebhookUrl, onCopy: () => _copy(_token!.plexWebhookUrl, 'Plex webhook URL')),
+                      child: _CopyRow(value: _token!.plexWebhookUrl, onCopy: () => _copy(_token!.plexWebhookUrl, 'Plex webhook URL'.tr)),
                     ),
                     const SizedBox(height: 10),
                     _IntegrationCard(
@@ -208,7 +208,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         'add this as a webhook destination',
                         'enable "Playback Stop" and "Item Marked Played"',
                       ],
-                      child: _CopyRow(value: _token!.jellyfinWebhookUrl, onCopy: () => _copy(_token!.jellyfinWebhookUrl, 'Jellyfin webhook URL')),
+                      child: _CopyRow(value: _token!.jellyfinWebhookUrl, onCopy: () => _copy(_token!.jellyfinWebhookUrl, 'Jellyfin webhook URL'.tr)),
                     ),
                     const SizedBox(height: 22),
                     Text('kodi'.tr, style: SeenlyText.metaLabel),
@@ -224,7 +224,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         children: [
                           Text('server'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
-                          _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL')),
+                          _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL'.tr)),
                           const SizedBox(height: 10),
                           Text('token'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
@@ -248,7 +248,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         children: [
                           Text('server'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
-                          _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL')),
+                          _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL'.tr)),
                           const SizedBox(height: 10),
                           Text('token'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
@@ -271,7 +271,7 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
                         children: [
                           Text('server'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
-                          _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL')),
+                          _CopyRow(value: _serverUrl(_token!), onCopy: () => _copy(_serverUrl(_token!), 'server URL'.tr)),
                           const SizedBox(height: 10),
                           Text('token'.tr, style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder)),
                           const SizedBox(height: 4),
@@ -332,9 +332,9 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
 /// minutes before they hit the technical steps in the cards below.
 class _HowItWorksStrip extends StatelessWidget {
   static const _steps = [
-    ('1', 'pick what you use', 'a media server, Kodi, or just a normal browser — see below'),
-    ('2', 'paste one link (and maybe a code)', "it's already filled in for you — just copy and paste"),
-    ('3', 'watch things like normal', "finishing something logs it here automatically from then on"),
+    ('1', 'pick what you use'.tr, 'a media server, Kodi, or just a normal browser — see below'.tr),
+    ('2', 'paste one link (and maybe a code)'.tr, "it's already filled in for you — just copy and paste".tr),
+    ('3', 'watch things like normal'.tr, "finishing something logs it here automatically from then on".tr),
   ];
 
   @override
@@ -494,7 +494,7 @@ class _EventRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.rawTitle ?? '(no title)',
+                Text(event.rawTitle ?? '(no title)'.tr,
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: SeenlyText.serif(size: 12)),
                 Text(
                   event.logged ? '${event.integration} · logged' : '${event.integration} · ${event.detail ?? "ignored"}',

@@ -9,6 +9,7 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import '../services/app_translations.dart';
 import '../theme/clay_kit.dart';
+import '../services/locale_service.dart';
 
 /// Home's "today's pick" card — a nudge toward one franchise shelf (see
 /// backend/app/curated_franchises.py) picked fresh for today, with a thin
@@ -172,11 +173,11 @@ class _TodayPickCardState extends State<TodayPickCard> {
 
     final String headline;
     if (pick.watchedCount >= pick.totalCount && pick.totalCount > 0) {
-      headline = 'you finished ${collection.displayTitle} — nice binge';
+      headline = LocaleService.pick('вы досмотрели ${collection.displayTitle} — красивый марафон', 'you finished ${collection.displayTitle} — nice binge');
     } else if (accepted) {
-      headline = 'keep going with ${collection.displayTitle}';
+      headline = LocaleService.pick('продолжайте: ${collection.displayTitle}', 'keep going with ${collection.displayTitle}');
     } else {
-      headline = '${pick.totalCount} evenings of ${collection.displayTitle} — ready to start?';
+      headline = LocaleService.pick('${pick.totalCount} ${nOnly('nEvenings', pick.totalCount)}: ${collection.displayTitle} — начнём?', '${pick.totalCount} evenings of ${collection.displayTitle} — ready to start?');
     }
 
     final card = Container(

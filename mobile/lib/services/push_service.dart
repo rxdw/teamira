@@ -74,11 +74,15 @@ class PushService {
     required String token,
     required String platform,
     String? timezone,
+    // "ru" / "en" — the language the app shows, so the server words pushes to
+    // match it (backend/app/bi.py). Old servers ignore the field.
+    String? locale,
   }) async {
     await _client.post('/push/tokens', body: {
       'token': token,
       'platform': platform,
       if (timezone != null) 'timezone': timezone,
+      if (locale != null) 'locale': locale,
     });
   }
 

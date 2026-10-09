@@ -146,6 +146,25 @@ class Settings(BaseSettings):
     # read-only calls. Empty means reviews just fall back to TMDB-only.
     trakt_client_id: str = ""
 
+    # Kinopoisk ratings + written reviews for Russian-language users (see
+    # app/adapters/poiskkino.py, app/kinopoisk.py). Token comes from the
+    # @poiskkinodev_bot Telegram bot; the free tier is 200 requests/day.
+    # Empty means the Kinopoisk bits simply never show — nothing breaks.
+    # The budget is how many requests this process allows itself per UTC
+    # day (kept under the tier's limit on purpose); each worker counts
+    # separately, so with N workers set it to roughly limit/N.
+    poiskkino_api_key: str = ""
+    poiskkino_daily_budget: int = 180
+
+    # Hardcover (hardcover.app) — community rating shown on a book's title
+    # screen (see app/adapters/hardcover.py for why only the aggregate, not
+    # review text). Personal access token from hardcover.app/account/api;
+    # give it only the read scopes it needs. Free tier: 60 requests/minute,
+    # 5,000/day — the budget is kept under that. Empty means books simply
+    # show no Hardcover rating.
+    hardcover_api_token: str = ""
+    hardcover_daily_budget: int = 4000
+
     # "Your sources" (app/adapters/youtube.py, app/routers/sources.py) —
     # link-based import of public YouTube playlists/channels/videos.
     # Read-only, app-level key from console.cloud.google.com (enable

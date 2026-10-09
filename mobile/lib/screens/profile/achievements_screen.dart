@@ -185,7 +185,7 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     final confirmed = await SpendConfirmSheet.show(
       context,
       title: 'ещё слот в витрине?'.tr,
-      body: 'разово и навсегда — сможешь показывать ${_maxPinned + 1} наград вместо $_maxPinned.'.tr,
+      body: '${'разово и навсегда — сможешь показывать'.tr} ${_maxPinned + 1} ${'наград вместо'.tr} $_maxPinned.',
       cost: _pinSlotCost,
       confirmLabel: 'купить'.tr,
     );

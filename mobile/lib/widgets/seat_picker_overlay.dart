@@ -297,9 +297,9 @@ class _SeatPickerOverlayState extends State<_SeatPickerOverlay>
                             duration: const Duration(milliseconds: 200),
                             child: Text(
                               _selected != null
-                                  ? "cozy — that one's yours"
+                                  ? "cozy — that one's yours".tr
                                   : searching
-                                      ? 'somewhere in here…'
+                                      ? 'somewhere in here…'.tr
                                       : "tonight's ${widget.mediaType}",
                               key: ValueKey(_selected != null ? 2 : (searching ? 1 : 0)),
                               style: SeenlyText.mono(

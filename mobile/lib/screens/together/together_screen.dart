@@ -22,6 +22,7 @@ import '../../widgets/together_motion.dart';
 import '../../widgets/wow_motion.dart' show Entrance, Breathe;
 import '../lists/list_detail_screen.dart';
 import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// Every match — from any session, any device this account has logged in
 /// on — lands in the one list with this name. Looked up by name each time
@@ -129,7 +130,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
   static const _filters = [
     ('all', 'all'),
     ('movie', 'movies'),
-    ('series', 'series & anime'),
+    ('series', 'series & anime'.tr),
     ('game', 'games'),
   ];
 
@@ -240,7 +241,7 @@ class _TogetherScreenState extends State<TogetherScreen> {
     final id = existing?.id ??
         (await app.lists.create(
           name: kTogetherListName,
-          description: 'titles you both said yes to',
+          description: 'titles you both said yes to'.tr,
         ))
             .id;
     _listId = id;
@@ -749,10 +750,10 @@ class _SetupView extends StatelessWidget {
           SoftSwap(
             child: Text(
               isNetwork
-                  ? 'each on your own phone — whatever you both say yes to '
-                      'gets tucked into your "watch together" list, ready for movie night.'
-                  : 'pass the phone, or just lean in — whatever you both say yes to '
-                      'gets tucked into your "watch together" list, ready for movie night.',
+                  ? ('each on your own phone — whatever you both say yes to '
+                      'gets tucked into your "watch together" list, ready for movie night.').tr
+                  : ('pass the phone, or just lean in — whatever you both say yes to '
+                      'gets tucked into your "watch together" list, ready for movie night.').tr,
               key: ValueKey<bool>(isNetwork),
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
             ),
@@ -1372,8 +1373,8 @@ class _RecapView extends StatelessWidget {
           riseBy: 12,
           child: Text(
             hasMatches
-                ? 'tucked into your "watch together" list — pick tonight\'s from there.'
-                : 'happens sometimes — try a different mood, or shuffle again.',
+                ? 'tucked into your "watch together" list — pick tonight\'s from there.'.tr
+                : 'happens sometimes — try a different mood, or shuffle again.'.tr,
             style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkFaint),
           ),
         ),
@@ -1436,10 +1437,13 @@ class _NetRecapView extends StatelessWidget {
         : "you're through the deck".tr;
     final status = partnerDone
         ? (hasMatches
-            ? 'tucked into your "watch together" list — pick tonight\'s from there.'
-            : 'no matches this round — try again with a different mood.')
-        : '${partnerUsername ?? 'they'} is still swiping ($partnerSwiped of $deckSize) — '
-            'this updates as soon as they catch up.';
+            ? 'tucked into your "watch together" list — pick tonight\'s from there.'.tr
+            : 'no matches this round — try again with a different mood.'.tr)
+        : LocaleService.pick(
+            '${partnerUsername ?? 'партнёр'} ещё листает ($partnerSwiped из $deckSize) — '
+                'обновится, как только догонит.',
+            '${partnerUsername ?? 'they'} is still swiping ($partnerSwiped of $deckSize) — '
+                'this updates as soon as they catch up.');
     return ListView(
       padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
       children: [

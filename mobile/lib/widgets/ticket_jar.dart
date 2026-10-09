@@ -108,7 +108,7 @@ class _TicketJarState extends State<TicketJar> with SingleTickerProviderStateMix
                 Icon(Icons.touch_app, size: 12, color: SeenlyPalette.inkFaint),
                 const SizedBox(width: 5),
                 Text(
-                  isEmpty ? 'log one to light the first bulb' : "tap for tonight's full programme",
+                  isEmpty ? 'log one to light the first bulb'.tr : "tap for tonight's full programme".tr,
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                 ),
               ],

@@ -14,6 +14,8 @@ import '../home/home_screen.dart';
 import '../partner/co_view_hub_screen.dart';
 import '../partner/room/room_guest_banner.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/app_translations.dart';
+import '../../services/locale_service.dart';
 
 /// Wraps the Home tab in a "вы / вместе" switch.
 ///
@@ -208,7 +210,7 @@ class _ModeSwitch extends StatelessWidget {
           children: [
             Expanded(
               child: _Half(
-                label: 'вы',
+                label: 'вы'.tr,
                 icon: Icons.nights_stay_outlined,
                 active: mode == 0,
                 color: SeenlyPalette.accent,
@@ -220,8 +222,10 @@ class _ModeSwitch extends StatelessWidget {
                 // The partner's own name rather than a generic "вместе" —
                 // it's the difference between a mode toggle and a person.
                 label: partnerName == null || partnerName!.isEmpty
-                    ? 'вместе'
-                    : 'вы и ${partnerName!.toLowerCase()}',
+                    ? 'вместе'.tr
+                    : (LocaleService.appIsRussian
+                        ? 'вы и ${partnerName!.toLowerCase()}'
+                        : 'you and ${partnerName!.toLowerCase()}'),
                 icon: Icons.favorite_rounded,
                 active: mode == 1,
                 color: SeenlyPalette.pink,

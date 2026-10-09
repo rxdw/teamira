@@ -75,7 +75,7 @@ class _SpoilerVeilState extends State<SpoilerVeil> {
                     children: [
                       Icon(Icons.visibility_off_outlined, size: 16, color: SeenlyPalette.inkMuted),
                       const SizedBox(height: 5),
-                      Text(widget.label,
+                      Text(widget.label.tr,
                           style: SeenlyText.serif(size: 11.5, italic: true, color: SeenlyPalette.inkMuted)),
                       const SizedBox(height: 3),
                       Text('tap to reveal'.tr,

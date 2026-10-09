@@ -40,6 +40,9 @@ import '../../widgets/wow_motion.dart';
 import '../../widgets/premium_upsell_sheet.dart';
 import '../person/person_detail_screen.dart';
 import 'full_cast_screen.dart';
+import 'title_extras_sections.dart';
+import '../../widgets/reading_tracker.dart';
+import '../../models/title_extras.dart';
 import '../../services/app_translations.dart';
 import '../../theme/notebook_paper.dart';
 import '../../widgets/saved_celebration.dart';
@@ -239,6 +242,80 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
         posterUrl: widget.seedPosterUrl,
         source: widget.source,
       );
+
+  /// Opens a "connected works" tile. A game's DLC or a manga's sequel carries
+  /// its own id and opens directly; an anime adaptation of a manga lives in
+  /// the TMDB catalog under an id this screen doesn't have, so that one is
+  /// looked up by title (and year, when both sides know it) first.
+  Future<void> _openRelated(RelatedTitle r) async {
+    MediaItem? target;
+    if (r.canOpenDirectly) {
+      _pushTitle(
+        mediaId: r.id!,
+        source: r.source!,
+        mediaType: r.mediaType,
+        title: r.displayTitle,
+        posterUrl: r.posterUrl,
+      );
+      return;
+    }
+    try {
+      final hits = await context.read<AppState>().media.search(
+            r.title,
+            includeGames: false,
+            includeBooks: false,
+            includeManga: false,
+          );
+      final sameKind = hits.where((h) => h.mediaType == r.mediaType).toList();
+      if (r.year != null) {
+        for (final h in sameKind) {
+          if (h.year != null && (h.year! - r.year!).abs() <= 1) {
+            target = h;
+            break;
+          }
+        }
+      }
+      target ??= sameKind.isNotEmpty ? sameKind.first : null;
+    } catch (_) {
+      target = null;
+    }
+    if (!mounted) return;
+    if (target == null) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("couldn't find that title".tr)));
+      return;
+    }
+    _pushTitle(
+      mediaId: target.id,
+      source: target.source,
+      mediaType: target.mediaType,
+      title: target.title.display,
+      posterUrl: target.posterUrl,
+      seed: target,
+    );
+  }
+
+  void _pushTitle({
+    required String mediaId,
+    required String source,
+    required String mediaType,
+    required String title,
+    String? posterUrl,
+    MediaItem? seed,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TitleDetailScreen(
+          mediaId: mediaId,
+          source: source,
+          mediaType: mediaType,
+          seedTitle: title,
+          seedPosterUrl: posterUrl,
+          seedItem: seed,
+        ),
+      ),
+    );
+  }
 
   /// Pulls runtime/certification/status, ratings, and similar titles from
   /// GET /media/detail — for TMDB titles and IGDB games alike (games just
@@ -480,8 +557,14 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
 
     return Scaffold(
       backgroundColor: SeenlyPalette.background,
+      // Top inset on, like every other screen (RootShell and the pushed
+      // screens alike keep their content out from under the status bar).
+      // It used to be `top: false`, which let the poster banner run under
+      // the clock/wifi/battery strip and, worse, put the back / heart /
+      // share buttons (Positioned top: 12 below) right on top of it. Inside
+      // the SafeArea the banner, its spacer and those buttons all start
+      // below the status bar together, so nothing else needs an offset.
       body: SafeArea(
-        top: false,
         child: Column(
           children: [
             Expanded(
@@ -599,6 +682,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           GenreTagsFlow(genres: _item.genres),
                           const SizedBox(height: 18),
                         ],
+                        TitleExtrasBlock(item: _item, slot: TitleExtrasSlot.facts),
                         if (_ExtraFactsSection.hasContent(_item)) ...[
                           _ExtraFactsSection(item: _item),
                           const SizedBox(height: 18),
@@ -608,6 +692,20 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                             active: context.watch<SpoilerPrefsService>().blurDescriptions,
                             label: 'the synopsis might give things away'.tr,
                             child: Text(_item.description.display, style: SeenlyText.bodyText),
+                          ),
+                          const SizedBox(height: 20),
+                        ],
+                        TitleExtrasBlock(item: _item, slot: TitleExtrasSlot.story),
+                        if (ReadingTracker.appliesTo(_item)) ...[
+                          ScrollReveal(
+                            riseBy: 12,
+                            child: ReadingTracker(
+                              // Re-keyed per title so "similar" taps that swap the
+                              // item never inherit the previous book's bookmark.
+                              key: ValueKey('reading-${_item.id}'),
+                              item: _item,
+                              onLogged: _refreshHistory,
+                            ),
                           ),
                           const SizedBox(height: 20),
                         ],
@@ -624,6 +722,9 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           ),
                           const SizedBox(height: 20),
                         ],
+                        TitleExtrasBlock(item: _item, slot: TitleExtrasSlot.people),
+                        TitleExtrasBlock(item: _item, slot: TitleExtrasSlot.gallery),
+                        TitleExtrasBlock(item: _item, slot: TitleExtrasSlot.links),
                         ScrollReveal(
                           riseBy: 12,
                           child: _WhereToWatchSection(
@@ -640,11 +741,17 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                             riseBy: 12,
                             child: _RatingsRow(
                               ratings: _ratings!,
-                              onTapReviews: _item.externalIds.tmdb != null
+                              // Films/series are looked up by TMDB id; a
+                              // game (Steam) or manga (AniList) by its own
+                              // id. Books have no review text to open.
+                              onTapReviews: (_item.externalIds.tmdb != null ||
+                                      _item.mediaType == 'game' ||
+                                      _item.mediaType == 'manga')
                                   ? () => showReviewsSheet(
                                         context,
                                         mediaType: _item.mediaType,
-                                        tmdbId: _item.externalIds.tmdb!,
+                                        tmdbId: _item.externalIds.tmdb,
+                                        mediaId: _item.id,
                                         title: _item.title.display,
                                       )
                                   : null,
@@ -652,6 +759,7 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           ),
                           const SizedBox(height: 20),
                         ],
+                        TitleExtrasBlock(item: _item, slot: TitleExtrasSlot.readers),
                         if (_trailers.isNotEmpty) ...[
                           ScrollReveal(
                             riseBy: 12,
@@ -659,13 +767,21 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                           ),
                           const SizedBox(height: 20),
                         ],
+                        TitleExtrasBlock(
+                          item: _item,
+                          slot: TitleExtrasSlot.connected,
+                          onOpenRelated: _openRelated,
+                        ),
                         if (_similar.isNotEmpty) ...[
                           ScrollReveal(
                             riseBy: 12,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('if you liked this'.tr,
+                                Text(
+                                    _item.mediaType == 'book'
+                                        ? 'more from this author'.tr
+                                        : 'if you liked this'.tr,
                                     style: SeenlyText.serif(
                                         italic: true, size: 14, color: SeenlyPalette.accent)),
                                 const SizedBox(height: 12),
@@ -782,8 +898,8 @@ class _TitleDetailScreenState extends State<TitleDetailScreen> {
                                           HeartRating(value: latestRated.rating!),
                                         Text(
                                           history.length == 1
-                                              ? 'watched once'
-                                              : 'watched ${history.length} times',
+                                              ? 'watched once'.tr
+                                              : LocaleService.pick('смотрели ${history.length} ${nOnly('nTimes', history.length)}', 'watched ${history.length} times'),
                                           style: SeenlyText.metaLabel,
                                         ),
                                       ],
@@ -1378,8 +1494,10 @@ class _FactRow extends StatelessWidget {
   }
 }
 
-/// TMDB's own community rating, plus the merged TMDB+Trakt review count.
-/// This is the critic/community layer — distinct from the hearts in
+/// TMDB's own community rating — plus Kinopoisk and IMDb for
+/// Russian-language users, when the backend had them; Steam's share of
+/// positive reviews for a game, AniList's score for a manga — and the
+/// review count. This is the critic/community layer — distinct from the hearts in
 /// "your evenings with this title" below, which are the user's own
 /// reaction.
 class _RatingsRow extends StatelessWidget {
@@ -1395,6 +1513,43 @@ class _RatingsRow extends StatelessWidget {
           label: 'tmdb',
           value: ratings.tmdbRating!.toStringAsFixed(1),
           votes: ratings.tmdbVotes,
+          showStar: true,
+        ),
+      if (ratings.kpRating != null)
+        _RatingStat(
+          label: 'kinopoisk'.tr,
+          value: ratings.kpRating!.toStringAsFixed(1),
+          votes: ratings.kpVotes,
+          showStar: true,
+        ),
+      if (ratings.imdbRating != null)
+        _RatingStat(
+          label: 'imdb',
+          value: ratings.imdbRating!.toStringAsFixed(1),
+          votes: ratings.imdbVotes,
+          showStar: true,
+        ),
+      // Books: Hardcover's 0–5 community rating. Named in the label because
+      // its API terms allow aggregate figures only when credited to it.
+      if (ratings.hcRating != null)
+        _RatingStat(
+          label: 'hardcover /5',
+          value: ratings.hcRating!.toStringAsFixed(1),
+          votes: ratings.hcVotes,
+          showStar: true,
+        ),
+      // Games: the share of positive Steam reviews, all languages.
+      if (ratings.steamPct != null)
+        _RatingStat(
+          label: 'steam · positive'.tr,
+          value: '${ratings.steamPct}%',
+          votes: ratings.steamVotes,
+        ),
+      // Manga: AniList's community mean, 0–10 like TMDB's.
+      if (ratings.alRating != null)
+        _RatingStat(
+          label: 'anilist',
+          value: ratings.alRating!.toStringAsFixed(1),
           showStar: true,
         ),
     ];
@@ -1443,6 +1598,33 @@ class _RatingsRow extends StatelessWidget {
                       const SizedBox(width: 4),
                       Icon(Icons.chevron_right, size: 12, color: SeenlyPalette.inkFaint),
                     ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+          // Books have no in-app reviews (Hardcover doesn't allow showing
+          // its users' review text), so the reviews line becomes a link out.
+          if (ratings.hcUrl != null && ratings.reviewsCount == null) ...[
+            const SizedBox(height: 14),
+            Container(height: 1, color: SeenlyPalette.border),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => launchUrl(Uri.parse(ratings.hcUrl!), mode: LaunchMode.externalApplication),
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(
+                width: double.infinity,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.chat_bubble_outline, size: 11, color: SeenlyPalette.inkFaint),
+                    const SizedBox(width: 6),
+                    Text(
+                      'reviews on Hardcover'.tr,
+                      style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_outward, size: 12, color: SeenlyPalette.inkFaint),
                   ],
                 ),
               ),
@@ -1553,7 +1735,7 @@ class _SuggestTonightStrip extends StatelessWidget {
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              sent ? 'sent — $partnerUsername will see it' : 'suggest for tonight — $partnerUsername',
+              sent ? LocaleService.pick('отправлено — $partnerUsername увидит', 'sent — $partnerUsername will see it') : LocaleService.pick('предложить на сегодня — $partnerUsername', 'suggest for tonight — $partnerUsername'),
               style: SeenlyText.serif(
                 italic: true,
                 size: 12,
@@ -1743,7 +1925,7 @@ class _CastMemberTile extends StatelessWidget {
 /// header's play button and the Home trailer feed.
 class _TrailersSection extends StatelessWidget {
   final List<TitleTrailer> trailers;
-  const _TrailersSection({required this.trailers});
+  _TrailersSection({required this.trailers});
 
   @override
   Widget build(BuildContext context) {
@@ -1772,7 +1954,7 @@ class _TrailersSection extends StatelessWidget {
 
 class _TrailerTile extends StatelessWidget {
   final TitleTrailer trailer;
-  const _TrailerTile({required this.trailer});
+  _TrailerTile({required this.trailer});
 
   // A true 16:9 frame, not the near-square shape used elsewhere for
   // poster tiles — this matters beyond just "looks like a trailer card".

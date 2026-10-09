@@ -166,14 +166,17 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
         .toList();
   }
 
-  String get _title => widget.isOwn
-      ? 'favorite'
-      : (_friendData?.nameForDisplay ??
-              (widget.seedDisplayName?.trim().isNotEmpty == true
-                  ? widget.seedDisplayName!
-                  : widget.seedUsername) ??
-              '') +
-          "'s favorites";
+  String get _title {
+    if (widget.isOwn) return 'favorite'.tr;
+    final name = _friendData?.nameForDisplay ??
+        (widget.seedDisplayName?.trim().isNotEmpty == true
+            ? widget.seedDisplayName!
+            : widget.seedUsername) ??
+        '';
+    // A possessive suffix can't be translated by `.tr`: in Russian the name
+    // follows the word ("избранное: <name>").
+    return LocaleService.pick('избранное: $name', "$name's favorites");
+  }
 
   Future<void> _openAdd() async {
     final collections = _collections;
@@ -241,8 +244,8 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
                   _ownFavorites.isEmpty
                       ? ''
                       : (_ownTopKeys.isEmpty
-                          ? 'tap the star on up to 5 to build your profile banner'
-                          : 'tap a star to add or remove it from your profile banner'),
+                          ? 'tap the star on up to 5 to build your profile banner'.tr
+                          : 'tap a star to add or remove it from your profile banner'.tr),
                   style: SeenlyText.serif(size: 11.5, italic: true, color: SeenlyPalette.inkMuted),
                 ),
               ),
@@ -306,7 +309,7 @@ class _FavoriteFilmsScreenState extends State<FavoriteFilmsScreen> {
       privateLabel: '$name ${'keeps their favorites private'.tr}',
       onTapEntry: (e) => showWatchedPreview(
         context,
-        WatchedPreviewData.fromFriendEntry(e, friendLabel: "$name's favorites"),
+        WatchedPreviewData.fromFriendEntry(e, friendLabel: LocaleService.pick('избранное: $name', "$name's favorites")),
       ),
       topKeys: topKeys,
     );
@@ -580,7 +583,7 @@ class _FavoriteListCard extends StatelessWidget {
                               Icon(Icons.star, size: 11, color: SeenlyPalette.mustard),
                               const SizedBox(width: 4),
                               Text(
-                                topOrder == null ? 'in banner' : 'banner · #$topOrder',
+                                topOrder == null ? 'in banner'.tr : 'banner · #$topOrder',
                                 style: SeenlyText.mono(size: 9.5, color: SeenlyPalette.mustard, weight: FontWeight.w600),
                               ),
                             ],

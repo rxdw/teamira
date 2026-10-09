@@ -37,6 +37,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from app.bi import Bi
 from app import models, push
 
 logger = logging.getLogger(__name__)
@@ -113,6 +114,18 @@ def _when_phrase(end_local: datetime, now_local: datetime) -> str:
     return end_local.strftime("%d.%m в %H:%M")
 
 
+def _when_phrase_en(end_local: datetime, now_local: datetime) -> str:
+    days = (end_local.date() - now_local.date()).days
+    clock = end_local.strftime("%H:%M")
+    if days <= 0:
+        return f"today at {clock}"
+    if days == 1:
+        return f"tomorrow at {clock}"
+    if days == 2:
+        return f"in 2 days at {clock}"
+    return end_local.strftime("%b %d at %H:%M")
+
+
 @dataclass(frozen=True)
 class ReminderCopy:
     title: str
@@ -133,31 +146,41 @@ def reminder_copy(
     began) is used only when it's positive — "you did 0 things" would be
     a reminder of nothing."""
     used = ""
+    used_en = ""
     if logged_count > 0:
         noun = _ru_plural(logged_count, "действие", "действия", "действий")
         used = f"За это время у вас {logged_count} {noun} в Seenly. "
+        used_en = f"So far you've done {logged_count} {'thing' if logged_count == 1 else 'things'} in Seenly. "
+    when_ru = _when_phrase(end_local, now_local)
+    when_en = _when_phrase_en(end_local, now_local)
 
     if stage == STAGE_ENDS_SOON:
         return ReminderCopy(
-            title=f"Бесплатный период закончится {_when_phrase(end_local, now_local)}",
-            body=(
+            title=Bi(f"Бесплатный период закончится {when_ru}", f"Your free period ends {when_en}"),
+            body=Bi(
                 f"{used}Карту вы не привязывали — само ничего не спишется. "
-                "Оформите подписку, чтобы Teamira без лимитов и всё остальное остались с вами."
+                "Оформите подписку, чтобы Teamira без лимитов и всё остальное остались с вами.",
+                f"{used_en}You never added a card, so nothing gets charged on its own. "
+                "Subscribe to keep Teamira unlimited and everything else.",
             ),
         )
     if stage == STAGE_LAST_HOURS:
         return ReminderCopy(
-            title=f"Бесплатный период заканчивается {_when_phrase(end_local, now_local)}",
-            body=(
+            title=Bi(f"Бесплатный период заканчивается {when_ru}", f"Your free period is ending {when_en}"),
+            body=Bi(
                 "Дальше — 3 вопроса Teamira в месяц и лимиты на избранное и списки. "
-                "Оформить подписку можно в пару касаний."
+                "Оформить подписку можно в пару касаний.",
+                "After that: 3 Teamira questions a month and limits on favorites and lists. "
+                "Subscribing takes a couple of taps.",
             ),
         )
     return ReminderCopy(
-        title="Бесплатный период закончился",
-        body=(
+        title=Bi("Бесплатный период закончился", "Your free period has ended"),
+        body=Bi(
             "Все ваши записи и списки на месте — вернулись только лимиты. "
-            "Безлимит можно вернуть в любой момент."
+            "Безлимит можно вернуть в любой момент.",
+            "All your entries and lists are right where you left them — only the limits came back. "
+            "You can get unlimited back any time.",
         ),
     )
 

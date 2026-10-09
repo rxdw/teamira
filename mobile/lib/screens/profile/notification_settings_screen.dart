@@ -11,6 +11,7 @@ import '../../widgets/soft_motion.dart';
 import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/wow_motion.dart' show Entrance;
 import '../../theme/clay_kit.dart';
+import '../../services/app_translations.dart';
 
 /// Settings > Notifications — per-category push toggles. Renders
 /// whatever GET /push/preferences hands back (see app/push.py's
@@ -18,11 +19,11 @@ import '../../theme/clay_kit.dart';
 /// list here, so a new category added server-side shows up the next
 /// time this screen loads, no client release required.
 ///
-/// Not localized (.tr) — see app/push.py's own notification copy for
-/// the same choice and why: this screen and the stores/onboarding work
-/// alongside it in this same update are new, Russian-only surfaces,
-/// same accepted gap noted in this project's own CHANGES files for
-/// what shipped just before it.
+/// The category names and descriptions come from the server in Russian and are
+/// translated here (`.tr` finds the English by the Russian text — lowercased
+/// first, since the server capitalises and the ARB pairs are all lowercase). A category
+/// added server-side shows up in Russian until its pair is added to the ARB
+/// files — the one thing a new category still needs from an app release.
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -61,7 +62,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'не удалось загрузить настройки — попробуйте ещё раз';
+        _error = 'не удалось загрузить настройки — попробуйте ещё раз'.tr;
       });
     }
   }
@@ -103,7 +104,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         _saving.remove(pref.rawCategory);
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('не получилось сохранить — попробуйте ещё раз')),
+        SnackBar(content: Text('не получилось сохранить — попробуйте ещё раз'.tr)),
       );
     }
   }
@@ -115,7 +116,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       appBar: AppBar(
         backgroundColor: SeenlyPalette.background,
         elevation: 0,
-        title: Text('уведомления', style: SeenlyText.serif(size: 16)),
+        title: Text('уведомления'.tr, style: SeenlyText.serif(size: 16)),
       ),
       // Loading, the error and the list glide into one another; the list
       // itself settles in row by row.
@@ -136,7 +137,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 22),
                           child: Text(
-                            'какие пуши вы хотите получать — остальное просто не будет присылаться.',
+                            'какие пуши вы хотите получать — остальное просто не будет присылаться.'.tr,
                             style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
                           ),
                         ),
@@ -185,10 +186,10 @@ class _PreferenceRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(pref.label, style: SeenlyText.serif(size: 13)),
+                    Text(pref.label.toLowerCase().tr, style: SeenlyText.serif(size: 13)),
                     const SizedBox(height: 2),
                     Text(
-                      pref.description,
+                      pref.description.toLowerCase().tr,
                       style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                     ),
                   ],
@@ -242,7 +243,7 @@ class _ErrorState extends StatelessWidget {
                 style: SeenlyText.serif(size: 13, color: SeenlyPalette.inkMuted),
               ),
               const SizedBox(height: 12),
-              TextButton(onPressed: onRetry, child: const Text('повторить')),
+              TextButton(onPressed: onRetry, child: Text('повторить'.tr)),
             ],
           ),
         ),

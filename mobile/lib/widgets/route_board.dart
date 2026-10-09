@@ -88,7 +88,7 @@ class _RouteBoardState extends State<RouteBoard> with SingleTickerProviderStateM
             ),
             const SizedBox(height: 12),
             if (recent.isEmpty)
-              _BoardRow(left: 'a blank board', right: 'waiting', flip: 0, delay: 0)
+              _BoardRow(left: 'a blank board'.tr, right: 'waiting', flip: 0, delay: 0)
             else
               for (int i = 0; i < recent.length; i++)
                 Padding(
@@ -110,7 +110,7 @@ class _RouteBoardState extends State<RouteBoard> with SingleTickerProviderStateM
                 Icon(Icons.touch_app, size: 12, color: SeenlyPalette.mustard.withOpacity(0.6)),
                 const SizedBox(width: 5),
                 Text(
-                  widget.entries.isEmpty ? 'log one to see it posted' : 'tap for the full manifest',
+                  widget.entries.isEmpty ? 'log one to see it posted'.tr : 'tap for the full manifest'.tr,
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.mustard.withOpacity(0.6)),
                 ),
               ],

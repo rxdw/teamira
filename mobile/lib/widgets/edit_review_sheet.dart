@@ -171,6 +171,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (sheetContext) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
         child: Container(
@@ -196,8 +197,8 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
               const SizedBox(height: 6),
               Text(
                 widget.entry.season != null
-                    ? "this removes your rating, review, and episode progress for this show — it'll drop back to plan to watch."
-                    : "this removes your rating and review for this evening. if it's the only time you logged this title, it'll drop back to plan to watch.",
+                    ? "this removes your rating, review, and episode progress for this show — it'll drop back to plan to watch.".tr
+                    : "this removes your rating and review for this evening. if it's the only time you logged this title, it'll drop back to plan to watch.".tr,
                 maxLines: 3,
                 style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
               ),
@@ -336,7 +337,7 @@ class _EditReviewSheetState extends State<_EditReviewSheet> {
                 Text('cast'.tr, style: SeenlyText.metaLabel),
                 const SizedBox(height: 4),
                 Text(
-                  _favoriteCast.isEmpty ? 'who stood out? pick up to 3' : '${_favoriteCast.length}/3 picked',
+                  _favoriteCast.isEmpty ? 'who stood out? pick up to 3'.tr : '${_favoriteCast.length}/3 picked',
                   style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                 ),
                 const SizedBox(height: 12),

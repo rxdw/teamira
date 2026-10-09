@@ -53,6 +53,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from sqlalchemy import func  # noqa: E402
 
+from app.bi import Bi, years_en
 from app import models, push, subscription, trial  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
 from app.streaks import current_streak, logged_today  # noqa: E402
@@ -145,8 +146,9 @@ def send_streak_reminders(db, start_hour: int, end_hour: int, dry_run: bool) -> 
             continue
         n = push.push_service.send_to_user(
             db, user, push.PushCategory.STREAK_REMINDERS,
-            title=f"Серия {streak} дней под угрозой 🔥",
-            body="Отметьте что-нибудь сегодня, чтобы не потерять серию",
+            title=Bi(f"Серия {streak} дней под угрозой 🔥", f"Your {streak}-day streak is at risk 🔥"),
+            body=Bi("Отметьте что-нибудь сегодня, чтобы не потерять серию",
+                    "Log something today to keep your streak going"),
             data={"type": "streak_reminder", "streak": streak},
         )
         if n:
@@ -176,14 +178,16 @@ def send_memories(db, start_hour: int, end_hour: int, dry_run: bool) -> int:
         entry = candidates[0]
         years_ago = today.year - entry.watched_at.year
         title_name = entry.title_ru or entry.title_en or "что-то"
+        title_name_en = entry.title_en or entry.title_ru or "something"
         if dry_run:
             logger.info("[dry-run] memory -> %s (%s, %s)", user.username, title_name, _ru_years(years_ago))
             sent += 1
             continue
         n = push.push_service.send_to_user(
             db, user, push.PushCategory.MEMORIES,
-            title=f"{_ru_years(years_ago)} назад сегодня 🎬",
-            body=f"Вы смотрели «{title_name}» — пересмотреть?",
+            title=Bi(f"{_ru_years(years_ago)} назад сегодня 🎬", f"{years_en(years_ago)} ago today 🎬"),
+            body=Bi(f"Вы смотрели «{title_name}» — пересмотреть?",
+                    f"You watched “{title_name_en}” — watch it again?"),
             data={
                 "type": "memory", "media_id": entry.media_id, "source": entry.source,
                 "media_type": entry.media_type.value if hasattr(entry.media_type, "value") else entry.media_type,
@@ -240,7 +244,7 @@ def send_pair_album_pushes(db, dry_run: bool) -> int:
 
         # 1. A capsule whose day it is (or that opened while nobody was
         # looking) and that this person hasn't opened yet.
-        title = "Капсула ждёт вас 🕰️"
+        title = Bi("Капсула ждёт вас 🕰️", "A capsule is waiting for you 🕰️")
         capsules = db.query(models.PairCapsule).filter(
             models.PairCapsule.link_id == link.id, models.PairCapsule.opens_on <= today,
         ).all()
@@ -258,7 +262,8 @@ def send_pair_album_pushes(db, dry_run: bool) -> int:
                 break
             n = push.push_service.send_to_user(
                 db, user, push.PushCategory.PAIR_ALBUM, title=title,
-                body="Ваша капсула времени готова — откройте её вместе",
+                body=Bi("Ваша капсула времени готова — откройте её вместе",
+                    "Your time capsule is ready — open it together"),
                 data={"type": "pair_album_capsule"},
             )
             if n:
@@ -272,14 +277,14 @@ def send_pair_album_pushes(db, dry_run: bool) -> int:
         start = settings.together_since
         if album.is_anniversary_today(start, today):
             years = album.full_years(start, today)
-            title = f"{_ru_years(years)} вместе 💞"
-            body = "Сегодня ваша годовщина — загляните в альбом"
+            title = Bi(f"{_ru_years(years)} вместе 💞", f"{years_en(years)} together 💞")
+            body = Bi("Сегодня ваша годовщина — загляните в альбом", "It's your anniversary today — take a look at the album")
         else:
             milestone = album.milestone_today(start, today)
             if milestone is None:
                 continue
-            title = f"{album.ru_days(milestone)} вместе ✨"
-            body = "Круглая дата — загляните в альбом"
+            title = Bi(f"{album.ru_days(milestone)} вместе ✨", f"{milestone} days together ✨")
+            body = Bi("Круглая дата — загляните в альбом", "A round number — take a look at the album")
         if _sent_today_with_title(db, user.id, push.PushCategory.PAIR_ALBUM.value, title):
             continue
         if dry_run:

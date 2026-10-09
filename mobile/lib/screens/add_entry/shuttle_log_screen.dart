@@ -33,6 +33,7 @@ import '../../widgets/share_card.dart';
 import '../../widgets/share_sheet.dart';
 import '../../widgets/decide_motion.dart' show SecondaryActionButton;
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 // A handful of deep-space waypoints — same "plausible, seeded, never
 // reshuffles" trick as the train theme's route match: a title always
@@ -136,7 +137,7 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
     _taken = seededTakenSeats(seed, _rows * _cols, salt: 0x6c61756e, minTaken: 6, extraRange: 10); // 'laun'
     _motes = seededMotes(seed, 12, salt: 0x6c61756e);
     final destSeed = math.Random(seed.hashCode ^ 0x64657374); // 'dest'
-    _destination = _shuttleDestinations[destSeed.nextInt(_shuttleDestinations.length)];
+    _destination = _shuttleDestinations[destSeed.nextInt(_shuttleDestinations.length)].tr;
     _gateNumber = 1 + destSeed.nextInt(24);
     _dust = AnimationController(vsync: this, duration: const Duration(seconds: 10))..repeat();
     _breathe = AnimationController(vsync: this, duration: const Duration(milliseconds: 2100))..repeat(reverse: true);
@@ -301,7 +302,7 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
       context,
       card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       fileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
       rewardKey: 'seenly-${entry.id}',
     );
   }
@@ -882,7 +883,7 @@ class _ShuttleLogScreenState extends State<ShuttleLogScreen> with TickerProvider
 
   String _verdictFor(int rating) {
     final idx = ((rating - 1) * kDefaultVerdictLabels.length / 10).floor().clamp(0, kDefaultVerdictLabels.length - 1);
-    return kDefaultVerdictLabels[idx];
+    return kDefaultVerdictLabels[idx].tr;
   }
 }
 

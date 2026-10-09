@@ -40,12 +40,12 @@ it commercially.
 import asyncio
 import logging
 import re
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import httpx
 
 from app.config import settings
-from app.schemas import MediaItem, ExternalIds, LocalizedText
+from app.schemas import MediaItem, ExternalIds, LocalizedText, TitleExtras, TitleCreator, TitleLink
 from app.adapters.base import MediaAdapter
 
 logger = logging.getLogger("seenly.adapters.google_books")
@@ -187,6 +187,103 @@ def _normalize(volume_id: Optional[str], info: dict) -> Optional[MediaItem]:
         runtime_minutes=_reading_minutes(info.get("pageCount")),
         tagline=("By " + ", ".join(authors)) if authors else None,
     )
+
+
+# ---------------------------------------------------------------------------
+# Detail-screen enrichment. GET /volumes/{id} (no `fields` filter) already
+# returns the whole record — publisher, page count, ISBNs, language, preview
+# and sale links are all in it; the search-card normaliser just never read
+# them, so a book's "facts" block was always empty.
+# ---------------------------------------------------------------------------
+
+MAX_MORE_BY_AUTHOR = 12
+MAX_AUTHORS = 3
+
+
+def _isbn(info: dict) -> Optional[str]:
+    """volumeInfo.industryIdentifiers -> ISBN-13 if present, else ISBN-10."""
+    found = {}
+    for ident in info.get("industryIdentifiers") or []:
+        if isinstance(ident, dict) and ident.get("type") in ("ISBN_13", "ISBN_10") and ident.get("identifier"):
+            found[ident["type"]] = str(ident["identifier"]).replace("-", "")
+    return found.get("ISBN_13") or found.get("ISBN_10")
+
+
+def _book_links(volume: dict) -> List[TitleLink]:
+    """A free sample and a store page when Google has them. `saleability`
+    is FOR_SALE / FREE / NOT_FOR_SALE; a preview is only worth a link when
+    some pages are actually viewable."""
+    info = volume.get("volumeInfo") or {}
+    access = volume.get("accessInfo") or {}
+    sale = volume.get("saleInfo") or {}
+    out: List[TitleLink] = []
+    preview = info.get("previewLink")
+    if preview and access.get("viewability") in ("PARTIAL", "ALL_PAGES"):
+        out.append(TitleLink(kind="preview", label="Read a sample", url=preview))
+    if sale.get("saleability") in ("FOR_SALE", "FREE") and sale.get("buyLink"):
+        out.append(TitleLink(kind="buy", label="Google Play Books", url=sale["buyLink"]))
+    info_link = info.get("infoLink")
+    if info_link and not out:
+        out.append(TitleLink(kind="other", label="Google Books", url=info_link))
+    return out
+
+
+def normalize_detail(volume: dict) -> Optional[MediaItem]:
+    """A full /volumes/{id} record -> the card plus its extras (publisher,
+    ISBN, pages, language, authors, links). Pure — unit-tested without the
+    network."""
+    info = volume.get("volumeInfo") or {}
+    item = _normalize(volume.get("id"), info)
+    if item is None:
+        return None
+    item.publisher = (info.get("publisher") or "").strip() or None
+    item.isbn = _isbn(info)
+    pages = info.get("pageCount")
+    authors = [a for a in (info.get("authors") or []) if isinstance(a, str) and a.strip()]
+    extras = TitleExtras(
+        pages=int(pages) if isinstance(pages, int) and pages > 0 else None,
+        published_date=(info.get("publishedDate") or "").strip() or None,
+        subtitle=(info.get("subtitle") or "").strip() or None,
+        book_language=(info.get("language") or "").strip().lower() or None,
+        creators=[TitleCreator(name=a.strip(), role="Author") for a in authors[:MAX_AUTHORS]],
+        links=_book_links(volume),
+    )
+    item.extras = extras
+    return item
+
+
+def _title_key(title: str) -> str:
+    return re.sub(r"[\W_]+", "", (title or "").casefold())
+
+
+def pick_more_by_author(rows: List[dict], exclude_id: str, exclude_title: str,
+                        language: Optional[str]) -> List[MediaItem]:
+    """`inauthor:` search rows -> other books by the same author. Skips the
+    book itself and its other editions (same title), books without a cover,
+    and — when the language is known — books in another language, so a
+    Russian reader isn't offered the same novel's English edition. Most
+    rated first: the popular ones are what "more by this author" should lead
+    with. Pure."""
+    own_key = _title_key(exclude_title)
+    seen = {own_key}
+    picked: List[Tuple[int, MediaItem]] = []
+    for r in rows:
+        info = r.get("volumeInfo") or {}
+        if r.get("id") == exclude_id:
+            continue
+        if language and info.get("language") and info["language"] != language:
+            continue
+        item = _normalize(r.get("id"), info)
+        if item is None or not item.poster_url:
+            continue
+        key = _title_key(item.title.en or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        picked.append((info.get("ratingsCount") or 0, item))
+    picked.sort(key=lambda t: -t[0])
+    return [it for _, it in picked[:MAX_MORE_BY_AUTHOR]]
+
 
 
 class GoogleBooksAdapter(MediaAdapter):
@@ -380,6 +477,25 @@ class GoogleBooksAdapter(MediaAdapter):
         )
         return [r for r in results if isinstance(r, tuple) and r[2]]
 
+    async def isbns(self, raw_id: str) -> Optional[dict]:
+        """{"isbn_13": ..., "isbn_10": ...} (either may be None) for one
+        volume, or None when the lookup itself failed — so a caller can tell
+        "this book has no ISBN" (cacheable) from "couldn't ask" (retry)."""
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            data = await self._get_with_retry(
+                client,
+                f"{BOOKS_BASE}/{raw_id}",
+                self._params(fields="volumeInfo(industryIdentifiers)"),
+            )
+        if data is None:
+            return None
+        found = {"isbn_13": None, "isbn_10": None}
+        for ident in (data.get("volumeInfo") or {}).get("industryIdentifiers") or []:
+            kind = (ident or {}).get("type")
+            if kind in ("ISBN_13", "ISBN_10"):
+                found[kind.lower()] = ident.get("identifier")
+        return found
+
     async def full_detail(self, raw_id: str) -> Optional[MediaItem]:
         async with httpx.AsyncClient(timeout=8.0) as client:
             data = await self._get_with_retry(
@@ -387,4 +503,36 @@ class GoogleBooksAdapter(MediaAdapter):
             )
         if data is None:
             return None
-        return _normalize(data.get("id"), data.get("volumeInfo") or {})
+        return normalize_detail(data)
+
+    async def more_by_author(self, author: str, exclude_id: str, exclude_title: str,
+                             language: Optional[str]) -> List[MediaItem]:
+        """Other books by `author`, for the "more from this author" shelf.
+        Best-effort: any failure is just an empty shelf."""
+        if not author:
+            return []
+        try:
+            raw = await self._query({
+                "q": f'inauthor:"{author}"',
+                "maxResults": 30,
+                "printType": "books",
+                "orderBy": "relevance",
+                "fields": _FIELDS,
+            })
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Google Books more-by-author failed: %s", exc)
+            return []
+        return pick_more_by_author(raw, exclude_id, exclude_title, language)
+
+    async def full_detail_bundle(self, raw_id: str) -> Optional[Tuple[MediaItem, List[MediaItem]]]:
+        """(card with extras, more books by the same author)."""
+        item = await self.full_detail(raw_id)
+        if item is None:
+            return None
+        creators = item.extras.creators if item.extras else []
+        language = item.extras.book_language if item.extras else None
+        similar = await self.more_by_author(
+            creators[0].name if creators else "", item.id[len(self.id_prefix):] if item.id.startswith(self.id_prefix) else raw_id,
+            item.title.en or "", language,
+        )
+        return item, similar

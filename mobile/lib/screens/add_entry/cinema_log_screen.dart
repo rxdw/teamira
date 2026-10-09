@@ -39,6 +39,7 @@ import '../../widgets/share_card.dart';
 import '../../widgets/share_sheet.dart';
 import '../../widgets/decide_motion.dart' show SecondaryActionButton;
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 /// A quiet aside for the confirm step — the kind of small thing you'd
 /// notice from your seat while the trailers are still running. One is
@@ -348,7 +349,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
       context,
       card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       fileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
       rewardKey: 'seenly-${entry.id}',
     );
   }
@@ -480,10 +481,10 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
           duration: const Duration(milliseconds: 200),
           child: Text(
             _selectedSeat == null
-                ? "tonight's little screening"
+                ? "tonight's little screening".tr
                 : _selectedIsPrime
-                    ? 'settled in — seat $_seatLabel, right in the sweet spot'
-                    : 'settled in — seat $_seatLabel',
+                    ? LocaleService.pick('устроились — место $_seatLabel, ровно в лучшей точке зала', 'settled in — seat $_seatLabel, right in the sweet spot')
+                    : LocaleService.pick('устроились — место $_seatLabel', 'settled in — seat $_seatLabel'),
             key: ValueKey('$_selectedSeat-$_selectedIsPrime'),
             style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.68)),
           ),
@@ -807,7 +808,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
                     const SizedBox(height: 4),
                     Text(
                       _favoriteCast.isEmpty
-                          ? 'pick up to 3 — totally optional'
+                          ? 'pick up to 3 — totally optional'.tr
                           : '${_favoriteCast.length}/3 picked',
                       style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                     ),
@@ -1097,7 +1098,7 @@ class _CinemaLogScreenState extends State<CinemaLogScreen> with TickerProviderSt
   // just repeating the bare number a second time.
   String _verdictFor(int rating) {
     final idx = ((rating - 1) * kDefaultVerdictLabels.length / 10).floor().clamp(0, kDefaultVerdictLabels.length - 1);
-    return kDefaultVerdictLabels[idx];
+    return kDefaultVerdictLabels[idx].tr;
   }
 }
 

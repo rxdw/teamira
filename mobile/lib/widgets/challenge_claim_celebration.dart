@@ -9,6 +9,8 @@ import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'challenge_card.dart' show challengeIcon;
 import 'wow_effects.dart';
+import '../services/app_translations.dart';
+import '../services/locale_service.dart';
 
 /// Shows the "just claimed" moment for a finished challenge — the same
 /// spin/rays/sweep ceremony [showLevelUpCelebration] and
@@ -33,7 +35,7 @@ import 'wow_effects.dart';
 Future<void> showChallengeClaimCelebration(BuildContext context, ChallengeClaim claim) {
   return showGeneralDialog(
     context: context,
-    barrierLabel: 'challenge claimed',
+    barrierLabel: 'challenge claimed'.tr,
     barrierDismissible: false,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 260),
@@ -217,7 +219,7 @@ class _ChallengeClaimMomentState extends State<_ChallengeClaimMoment>
                           child: Column(
                             children: [
                               Text(
-                                'челлендж выполнен',
+                                'челлендж выполнен'.tr,
                                 style: SeenlyText.mono(
                                   size: 11,
                                   weight: FontWeight.w700,
@@ -236,14 +238,18 @@ class _ChallengeClaimMomentState extends State<_ChallengeClaimMoment>
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                claim.leveledUp
-                                    ? 'и новый уровень — ${claim.level}'
-                                    : 'уровень ${claim.level} · всего ${claim.totalPoints}',
+                                LocaleService.appIsRussian
+                                    ? (claim.leveledUp
+                                        ? 'и новый уровень — ${claim.level}'
+                                        : 'уровень ${claim.level} · всего ${claim.totalPoints}')
+                                    : (claim.leveledUp
+                                        ? 'and a new level — ${claim.level}'
+                                        : 'level ${claim.level} · ${claim.totalPoints} in total'),
                                 style: SeenlyText.mono(size: 11, color: Colors.white60),
                               ),
                               const SizedBox(height: 26),
                               Text(
-                                'нажми, чтобы продолжить',
+                                'нажми, чтобы продолжить'.tr,
                                 style: SeenlyText.mono(size: 10, color: Colors.white38),
                               ),
                             ],

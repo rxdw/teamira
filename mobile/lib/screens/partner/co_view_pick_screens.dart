@@ -56,7 +56,7 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
             ? DecideRouletteScreen(
                 pool: pool,
                 onSecondary: _propose,
-                secondaryLabel: 'propose it',
+                secondaryLabel: 'propose it'.tr,
                 secondaryDoneLabel: 'proposed',
                 secondaryIcon: Icons.how_to_vote_outlined,
                 secondaryDoneIcon: Icons.how_to_vote,
@@ -64,7 +64,7 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
             : DecideRandomScreen(
                 pool: pool,
                 onSecondary: _propose,
-                secondaryLabel: 'propose it',
+                secondaryLabel: 'propose it'.tr,
                 secondaryDoneLabel: 'proposed',
                 secondaryIcon: Icons.how_to_vote_outlined,
                 secondaryDoneIcon: Icons.how_to_vote,
@@ -150,8 +150,8 @@ class _CoViewPoolSourceScreenState extends State<CoViewPoolSourceScreen> {
                   title: "what should it come from?".tr,
                   titleStyle: SeenlyText.serif(size: 21, weight: FontWeight.w600),
                   subtitle: _isReel
-                      ? "the reel draws from whichever pool you pick, then everyone votes on where it lands."
-                      : "one title gets drawn from whichever pool you pick, then everyone votes on it.",
+                      ? "the reel draws from whichever pool you pick, then everyone votes on where it lands.".tr
+                      : "one title gets drawn from whichever pool you pick, then everyone votes on it.".tr,
                 ),
                 value: _source,
                 onChanged: (v) => setState(() => _source = v),

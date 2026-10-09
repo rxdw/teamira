@@ -330,6 +330,7 @@ class User(Base):
     activity = relationship("ActivityEvent", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     diary_entries = relationship("DiaryEntry", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     episode_progress = relationship("EpisodeProgress", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    reading_progress = relationship("ReadingProgress", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     lists = relationship("UserList", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     sincerity_transactions = relationship(
         "SincerityTransaction", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
@@ -740,6 +741,45 @@ class EpisodeProgress(Base):
             "user_id", "source", "media_id", "season", "episode",
             name="uq_episode_progress",
         ),
+    )
+
+
+class ReadingProgress(Base):
+    """Where a user is in one book or manga: the current volume, chapter
+    and/or page. The reading counterpart of EpisodeProgress, but one row per
+    TITLE rather than one per episode — a book has no per-page "watched"
+    state worth storing, just "I'm on page 212".
+
+    Deliberately holds no totals: how many volumes/chapters/pages a title has
+    is catalog data that can change (an ongoing manga gains volumes), and the
+    client already has it on the card. It also never touches WatchlistEntry
+    or the diary — moving a bookmark is not logging an evening, and the
+    sincerity/stale-debt rules hang off those, not off this. Finishing is the
+    client's prompt (see mobile's reading_tracker.dart), not a server rule.
+
+    Any of the three counters may be NULL ("not tracking that"); a row with
+    all three empty is deleted rather than kept (see
+    routers/progress.py::set_reading_progress).
+    """
+    __tablename__ = "reading_progress"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    media_id = Column(String, nullable=False)
+    source = Column(String, nullable=False)
+
+    volume = Column(Integer, nullable=True)
+    chapter = Column(Integer, nullable=True)
+    page = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="reading_progress")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "source", "media_id", name="uq_reading_progress"),
     )
 
 
@@ -2379,6 +2419,11 @@ class PushToken(Base):
     # matches the "it's evening there" check and gets no streak reminder,
     # rather than a raise or a UTC-guess.
     timezone = Column(String, nullable=True)
+    # "ru" | "en" — the language the device's app shows, sent on every
+    # registration so a push is worded for the person holding it. NULL (an
+    # install from before this existed) is treated as Russian, which is what
+    # every push used to be. See app/bi.py.
+    locale = Column(String(8), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     # Bumped on every successful register call (even for a token this
     # table already has) and read by nothing yet — kept anyway, the same

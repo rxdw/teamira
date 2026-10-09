@@ -42,7 +42,10 @@ from typing import List, Optional, Tuple
 
 import httpx
 
-from app.schemas import MediaItem, ExternalIds, LocalizedText
+from app.schemas import (
+    MediaItem, ExternalIds, LocalizedText, TitleExtras, TitleCreator,
+    TitleCharacter, RelatedTitle, TitleTag,
+)
 from app.adapters.base import MediaAdapter
 from app.adapters.google_books import GoogleBooksAdapter
 
@@ -85,6 +88,204 @@ def _clean_description(raw: Optional[str]) -> Optional[str]:
     text = _BBCODE_TAG_RE.sub("", text)
     text = text.replace("\r\n", "\n").strip()
     return text or None
+
+
+# ---------------------------------------------------------------------------
+# Detail-screen enrichment shared by manga and anime: who made it, who is in
+# it, what it's connected to. Shikimori's REST sub-resources
+# (/mangas/{id}/roles, /related, /similar and the anime twins) are the source.
+# All parsers below are pure (dict in, model out) so they're unit-tested
+# without the network; the adapters only fetch.
+# ---------------------------------------------------------------------------
+
+MAX_CHARACTERS = 10
+MAX_CREATORS = 6
+MAX_RELATED = 12
+MAX_SIMILAR = 12
+
+# Anime staff worth a tile; Shikimori lists dozens (key animators, sound
+# directors ...) that mean nothing on a title card.
+_ANIME_STAFF_ROLES = (
+    "Director", "Original Creator", "Series Composition", "Script",
+    "Character Design", "Music",
+)
+_RELATION_ORDER = (
+    "Adaptation", "Prequel", "Sequel", "Parent Story", "Side Story",
+    "Spin-off", "Alternative Version", "Alternative Setting", "Summary",
+)
+
+
+def _abs_url(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+    return f"https://shikimori.io{url}" if url.startswith("/") else url
+
+
+def _person_image(entry: Optional[dict]) -> Optional[str]:
+    img = (entry or {}).get("image") or {}
+    return _abs_url(img.get("preview") or img.get("original") or img.get("x96"))
+
+
+def parse_roles(rows, *, anime: bool) -> Tuple[List[TitleCreator], List[TitleCharacter]]:
+    """/mangas/{id}/roles or /animes/{id}/roles -> (creators, characters).
+
+    A row carries EITHER `character` OR `person`, with `roles` (English) next
+    to it. Manga people are the authors ("Story", "Art", "Story & Art");
+    anime people are staff, filtered to the handful of roles above. Main
+    characters come before supporting ones."""
+    creators: List[TitleCreator] = []
+    characters: List[TitleCharacter] = []
+    seen_people, seen_chars = set(), set()
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        roles = [r for r in (row.get("roles") or []) if isinstance(r, str)]
+        person, char = row.get("person"), row.get("character")
+        if isinstance(person, dict) and person.get("name"):
+            if anime:
+                roles = [r for r in roles if r in _ANIME_STAFF_ROLES]
+                if not roles:
+                    continue
+            pid = person.get("id")
+            if pid in seen_people:
+                continue
+            seen_people.add(pid)
+            creators.append(TitleCreator(
+                name=person["name"], name_ru=(person.get("russian") or None),
+                role=", ".join(roles) or None, photo_url=_person_image(person),
+            ))
+        elif isinstance(char, dict) and char.get("name"):
+            cid = char.get("id")
+            if cid in seen_chars:
+                continue
+            seen_chars.add(cid)
+            characters.append(TitleCharacter(
+                name=char["name"], name_ru=(char.get("russian") or None),
+                role="Main" if "Main" in roles else "Supporting",
+                photo_url=_person_image(char),
+            ))
+    if anime:
+        order = {r: i for i, r in enumerate(_ANIME_STAFF_ROLES)}
+        creators.sort(key=lambda c: min(order.get(r.strip(), 99) for r in (c.role or "").split(",")))
+    characters.sort(key=lambda c: 0 if c.role == "Main" else 1)  # stable: keeps Shikimori's order inside a group
+    return creators[:MAX_CREATORS], characters[:MAX_CHARACTERS]
+
+
+def _year_from_date(date_str: Optional[str]) -> Optional[int]:
+    if date_str and len(date_str) >= 4 and date_str[:4].isdigit():
+        return int(date_str[:4])
+    return None
+
+
+def parse_related(rows) -> List[RelatedTitle]:
+    """/mangas/{id}/related or /animes/{id}/related -> RelatedTitle list.
+    A manga neighbour is openable directly (shikimanga-<id>); an anime
+    neighbour has no id this app can open (anime lives in the TMDB catalog),
+    so the client searches by its title — see RelatedTitle."""
+    out: List[RelatedTitle] = []
+    seen = set()
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        relation = (row.get("relation") or "").strip()
+        manga, anime = row.get("manga"), row.get("anime")
+        entry, kind = (manga, "manga") if isinstance(manga, dict) else (anime, "anime")
+        if not isinstance(entry, dict) or not entry.get("name") or not relation:
+            continue
+        key = (kind, entry.get("id"))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(RelatedTitle(
+            relation=relation,
+            title=entry["name"], title_ru=(entry.get("russian") or None), media_type=kind,
+            year=_year_from_date(entry.get("aired_on") or entry.get("released_on")),
+            poster_url=_manga_poster(entry) if kind == "manga" else _abs_url(
+                (entry.get("image") or {}).get("preview") or (entry.get("image") or {}).get("original")
+            ),
+            id=f"shikimanga-{entry['id']}" if kind == "manga" and entry.get("id") else None,
+            source="shikimori_manga" if kind == "manga" and entry.get("id") else None,
+        ))
+    rank = {r: i for i, r in enumerate(_RELATION_ORDER)}
+    out.sort(key=lambda r: rank.get(r.relation, len(rank)))
+    return out[:MAX_RELATED]
+
+
+def _stats_total(stats) -> Optional[int]:
+    """rates_statuses_stats ([{name, value}, ...]) -> how many people have
+    this title on any list. Shikimori's own popularity signal."""
+    total = 0
+    for row in stats or []:
+        v = (row or {}).get("value") if isinstance(row, dict) else None
+        if isinstance(v, (int, float)):
+            total += int(v)
+    return total or None
+
+
+def _alt_titles(detail: dict, main: Optional[str]) -> List[str]:
+    out: List[str] = []
+    for key in ("english", "japanese", "synonyms"):
+        for t in detail.get(key) or []:
+            if isinstance(t, str) and t.strip() and t != main and t not in out:
+                out.append(t.strip())
+    return out[:4]
+
+
+def _split_genres(genres) -> Tuple[List[str], List[TitleTag]]:
+    """Shikimori marks each genre with a kind: genre | theme | demographic.
+    Plain genres stay the card's chips; themes/demographics become tags."""
+    plain, tags = [], []
+    for g in genres or []:
+        if not isinstance(g, dict) or not g.get("name"):
+            continue
+        (plain if g.get("kind") in (None, "genre") else tags).append(g)
+    return ([g["name"] for g in plain], [TitleTag(name=g["name"]) for g in tags])
+
+
+def manga_extras(detail: dict, creators, characters, related, complete: bool = True) -> TitleExtras:
+    """Everything /mangas/{id} and its sub-resources give the detail screen."""
+    # No tags here: a manga's themes are already the genre chips on its card
+    # (see _manga_genres), so repeating them would just show the same words
+    # twice. Weighted tags come from AniList (app/manga_reviews.py).
+    extras = TitleExtras(
+        creators=creators, characters=characters, related=related,
+        alt_titles=_alt_titles(detail, detail.get("name")),
+        popularity=_stats_total(detail.get("rates_statuses_stats")),
+        start_date=detail.get("aired_on") or None,
+        end_date=detail.get("released_on") or None,
+        original_language={"manhwa": "ko", "manhua": "zh"}.get(detail.get("kind"), "ja"),
+        complete=complete,
+    )
+    return extras
+
+
+def anime_extras(detail: dict, creators, characters, related, complete: bool = True) -> TitleExtras:
+    """The anime twin of manga_extras — adds studios, episode counts and the
+    next-episode date, which only Shikimori has in a clean form."""
+    studios = [
+        s["name"] for s in detail.get("studios") or []
+        if isinstance(s, dict) and s.get("name")
+    ]
+    duration = detail.get("duration")
+    # TMDB's genres are coarse ("Animation", "Drama"); Shikimori's themes and
+    # demographics ("Isekai", "School", "Shounen") are what anime fans scan for.
+    _, theme_tags = _split_genres(detail.get("genres"))
+    extras = TitleExtras(
+        creators=creators, characters=characters, related=related,
+        tags=theme_tags,
+        studios=studios[:3],
+        episodes=detail.get("episodes") or None,
+        episodes_aired=detail.get("episodes_aired") or None,
+        episode_minutes=int(duration) if isinstance(duration, (int, float)) and duration > 0 else None,
+        next_episode_at=detail.get("next_episode_at") or None,
+        alt_titles=_alt_titles(detail, detail.get("name")),
+        popularity=_stats_total(detail.get("rates_statuses_stats")),
+        start_date=detail.get("aired_on") or None,
+        end_date=detail.get("released_on") or None,
+        complete=complete,
+    )
+    return extras
+
 
 
 class ShikimoriAdapter:
@@ -182,7 +383,12 @@ class ShikimoriAdapter:
                 resp.raise_for_status()
             except httpx.HTTPError:
                 return None
-        detail = resp.json()
+            detail = resp.json()
+            # Who made it / who is in it / what it's connected to — two more
+            # requests, both optional: a failure leaves the Russian text
+            # above intact and just skips the extras.
+            roles = await self._sub_resource(client, match["id"], "roles")
+            related = await self._sub_resource(client, match["id"], "related")
 
         title_ru = (detail.get("russian") or "").strip() or None
         overview_ru = _clean_description(detail.get("description"))
@@ -191,14 +397,36 @@ class ShikimoriAdapter:
         if poster_url and poster_url.startswith("/"):
             poster_url = f"https://shikimori.io{poster_url}"
 
-        if not title_ru and not overview_ru and not poster_url:
-            return None
+        partial = roles is None or related is None
+        try:
+            creators, characters = parse_roles(roles or [], anime=True)
+            extras = anime_extras(
+                detail, creators, characters, parse_related(related or []), complete=not partial,
+            )
+        except Exception as exc:  # noqa: BLE001 — extras must never cost the ru text
+            logger.warning("Shikimori anime extras failed [%s]: %s", match.get("id"), exc)
+            extras = TitleExtras(complete=False)
 
         return {
             "title_ru": title_ru,
             "overview_ru": overview_ru,
             "poster_ru": poster_url,
+            "extras": extras.model_dump(mode="json", exclude_defaults=True) if extras else None,
+            "extras_complete": extras.complete,
+            "shikimori_id": match["id"],
         }
+
+    async def _sub_resource(self, client: httpx.AsyncClient, anime_id, name: str) -> Optional[list]:
+        """/animes/{id}/{roles|related}, or None on any failure (so the
+        caller can tell "failed" from "nothing there")."""
+        try:
+            resp = await client.get(f"{SHIKIMORI_BASE}/animes/{anime_id}/{name}")
+            resp.raise_for_status()
+            data = resp.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.info("Shikimori anime %s failed [%s]: %s", name, anime_id, exc)
+            return None
+        return data if isinstance(data, list) else []
 
     async def genres_for(self, shikimori_ids: List[int]) -> dict:
         """{shikimori_id: [genre, ...]} for the given anime ids — one
@@ -593,6 +821,31 @@ class ShikimoriMangaAdapter(MediaAdapter):
         return pool
 
     async def full_detail(self, raw_id: str) -> Optional[MediaItem]:
+        """The enriched manga card alone (Teamira/AI only need this). The
+        title screen calls full_detail_bundle for the similar shelf too."""
+        bundle = await self.full_detail_bundle(raw_id)
+        return bundle[0] if bundle else None
+
+    async def _sub(self, client: httpx.AsyncClient, raw_id: str, name: str) -> Optional[list]:
+        """/mangas/{id}/{roles|related|similar}, or None on any failure — an
+        extra section missing is never worth losing the card, but the caller
+        needs to know it was a failure rather than an empty answer so the
+        result is retried instead of cached as final."""
+        await _manga_rate_limiter.wait()
+        try:
+            resp = await client.get(f"{SHIKIMORI_BASE}/mangas/{raw_id}/{name}")
+            resp.raise_for_status()
+            data = resp.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.info("Shikimori manga %s failed [%s]: %s", name, raw_id, exc)
+            return None
+        return data if isinstance(data, list) else []
+
+    async def full_detail_bundle(self, raw_id: str) -> Optional[Tuple[MediaItem, List[MediaItem]]]:
+        """(card with extras, similar manga), or None when Shikimori doesn't
+        know the id. Four requests on a never-seen manga (card, roles,
+        related, similar), all inside the 5 req/s limiter, and the whole
+        result lands in the forever detail cache."""
         async with self._client() as client:
             await _manga_rate_limiter.wait()
             try:
@@ -605,6 +858,11 @@ class ShikimoriMangaAdapter(MediaAdapter):
                 logger.warning("Shikimori manga detail query failed [%s]: %s", status, exc)
                 return None
             detail = resp.json()
+            roles, related, similar = await asyncio.gather(
+                self._sub(client, raw_id, "roles"),
+                self._sub(client, raw_id, "related"),
+                self._sub(client, raw_id, "similar"),
+            )
 
         item = _normalize_manga(detail)
         if item is None:
@@ -617,6 +875,19 @@ class ShikimoriMangaAdapter(MediaAdapter):
         # exactly like poster_url_ru/title_ru degrade elsewhere on this
         # model (see schemas.py's module docstring).
         item.description = LocalizedText(ru=_clean_description(detail.get("description")), en=None)
+
+        partial = any(r is None for r in (roles, related, similar))
+        try:
+            creators, characters = parse_roles(roles or [], anime=False)
+            item.extras = manga_extras(
+                detail, creators, characters, parse_related(related or []), complete=not partial,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Shikimori manga extras failed [shikimanga-%s]: %s", raw_id, exc)
+            item.extras = TitleExtras(complete=False)
+        similar_items = [
+            it for r in (similar or []) if (it := _normalize_manga(r)) is not None and it.poster_url
+        ][:MAX_SIMILAR]
 
         # Best-effort English text, on the detail screen only (not
         # search/shelves — same "enrichment is a detail-screen-only cost"
@@ -633,4 +904,4 @@ class ShikimoriMangaAdapter(MediaAdapter):
         if description_en:
             item.description.en = description_en
 
-        return item
+        return item, similar_items

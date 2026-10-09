@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
+import '../services/app_translations.dart';
 
 /// Default verdict captions for a 1–10 heart rating — warm and specific
 /// rather than a bare number, so the rating reads as a reaction rather
@@ -90,9 +91,9 @@ class _VerdictRatingState extends State<VerdictRating> with SingleTickerProvider
 
   String get _caption {
     final v = widget.value;
-    if (v <= 0) return widget.idleLabel;
+    if (v <= 0) return widget.idleLabel.tr;
     final idx = ((v - 1) * widget.labels.length / widget.max).floor().clamp(0, widget.labels.length - 1);
-    return widget.labels[idx];
+    return widget.labels[idx].tr;
   }
 
   @override

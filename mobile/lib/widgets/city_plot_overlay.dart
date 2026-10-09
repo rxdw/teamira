@@ -205,7 +205,7 @@ class _CityPlotOverlayState extends State<_CityPlotOverlay> with TickerProviderS
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
                           child: Text(
-                            _selected == null ? "tonight's ${widget.mediaType}" : "there — build here",
+                            _selected == null ? "tonight's ${widget.mediaType}" : "there — build here".tr,
                             key: ValueKey(_selected == null),
                             style: SeenlyText.mono(size: 10, color: SeenlyPalette.paper.withOpacity(0.68)),
                           ),

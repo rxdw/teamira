@@ -26,13 +26,17 @@ import logging
 import re
 import time
 from datetime import date, datetime, timezone
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
+from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.schemas import MediaItem, ExternalIds, LocalizedText
+from app.schemas import (
+    MediaItem, ExternalIds, LocalizedText, TitleExtras, TitleTag, GameLanguage,
+    TimeToBeat, TitleLink, RelatedTitle, TitleTrailer,
+)
 from app.adapters.base import MediaAdapter
 from app.adapters.steam import SteamAdapter
 
@@ -354,6 +358,254 @@ def _normalize(raw: dict) -> Optional[MediaItem]:
         platforms=platforms,
         game_modes=game_modes,
     )
+
+
+# ---------------------------------------------------------------------------
+# Detail-screen enrichment. Everything below is asked for ONLY by
+# full_detail (one game), never by search/shelves — same "enrichment is a
+# detail-screen-only cost" rule as the Steam Russian description. The result
+# lands in the forever title-detail cache, so it is limited to facts that
+# don't go stale in a week (price/Metacritic come from app/game_store.py).
+# ---------------------------------------------------------------------------
+
+_RELATED_GAME_FIELDS = "name,cover.url,first_release_date"
+_SIMILAR_GAME_FIELDS = (
+    "name,summary,genres.name,cover.url,first_release_date,"
+    "rating,aggregated_rating,total_rating"
+)
+
+_DETAIL_EXTRA_FIELDS = (
+    "storyline,themes.name,player_perspectives.name,videos.video_id,videos.name,"
+    "alternative_names.name,aggregated_rating,aggregated_rating_count,"
+    "language_supports.language.name,language_supports.language_support_type.name,"
+    + ",".join(f"similar_games.{f}" for f in _SIMILAR_GAME_FIELDS.split(",")) + ","
+    + ",".join(f"collections.games.{f}" for f in _RELATED_GAME_FIELDS.split(",")) + ",collections.name,"
+    + ",".join(
+        f"{rel}.{f}"
+        for rel in ("dlcs", "expansions", "remakes", "remasters", "parent_game")
+        for f in _RELATED_GAME_FIELDS.split(",")
+    )
+)
+
+MAX_SCREENSHOTS = 10
+MAX_TRAILERS = 4
+MAX_SIMILAR = 12
+MAX_RELATED = 14
+MAX_LANGUAGES = 16
+
+# (IGDB field, relation key the client translates). Order = display order.
+_RELATED_FIELDS = (
+    ("parent_game", "Base game"),
+    ("remakes", "Remake"),
+    ("remasters", "Remaster"),
+    ("expansions", "Expansion"),
+    ("dlcs", "DLC"),
+)
+
+# IGDB's language_support_type names (api-docs.igdb.com/#language-support-type).
+_LANG_FLAG = {"audio": "audio", "subtitles": "subtitles", "interface": "interface"}
+_LANG_FIRST = ("Russian", "English")
+
+
+def _screenshot_urls(raw: dict) -> List[str]:
+    out: List[str] = []
+    for shot in raw.get("screenshots") or []:
+        url = _cover_url((shot or {}).get("url"), size="t_screenshot_big")
+        if url and url not in out:
+            out.append(url)
+    return out[:MAX_SCREENSHOTS]
+
+
+def _languages(raw_supports: Optional[list]) -> List[GameLanguage]:
+    """language_supports rows (one per language x kind of support) ->
+    one GameLanguage per language with its three flags. Russian and English
+    first (this app's readers), then alphabetical."""
+    by_name: dict = {}
+    for row in raw_supports or []:
+        if not isinstance(row, dict):
+            continue
+        name = (row.get("language") or {}).get("name")
+        kind = ((row.get("language_support_type") or {}).get("name") or "").strip().lower()
+        flag = _LANG_FLAG.get(kind)
+        if not name or not flag:
+            continue
+        lang = by_name.setdefault(name, GameLanguage(name=name))
+        setattr(lang, flag, True)
+    def _order(l: GameLanguage):
+        return (_LANG_FIRST.index(l.name) if l.name in _LANG_FIRST else len(_LANG_FIRST), l.name)
+    return sorted(by_name.values(), key=_order)[:MAX_LANGUAGES]
+
+
+# Host -> (kind, label) for "where to play". Social/community sites are left
+# out on purpose: this is a place to get the game, not a link farm.
+_STORE_HOSTS = (
+    ("store.steampowered.com", "steam", "Steam"),
+    ("gog.com", "gog", "GOG"),
+    ("epicgames.com", "epic", "Epic Games Store"),
+    ("playstation.com", "playstation", "PlayStation Store"),
+    ("xbox.com", "xbox", "Xbox"),
+    ("nintendo.com", "nintendo", "Nintendo eShop"),
+    ("itch.io", "itch", "itch.io"),
+    ("apps.apple.com", "store", "App Store"),
+    ("play.google.com", "store", "Google Play"),
+)
+_LINK_ORDER = {"steam": 0, "gog": 1, "epic": 2, "playstation": 3, "xbox": 4,
+               "nintendo": 5, "itch": 6, "store": 7, "official": 8, "wiki": 9}
+
+
+def _links(raw_websites: Optional[list]) -> List[TitleLink]:
+    out: dict = {}
+    for site in raw_websites or []:
+        if not isinstance(site, dict):
+            continue
+        url = (site.get("url") or "").strip()
+        if not url.startswith("http"):
+            continue
+        host = (urlparse(url).hostname or "").lower()
+        kind = label = None
+        for needle, k, l in _STORE_HOSTS:
+            if host == needle or host.endswith("." + needle):
+                kind, label = k, l
+                break
+        if kind is None:
+            if site.get("category") == 1:
+                kind, label = "official", "Official site"
+            elif host.endswith("wikipedia.org"):
+                kind, label = "wiki", "Wikipedia"
+        if kind is None:
+            continue
+        key = label if kind == "store" else kind
+        out.setdefault(key, TitleLink(kind=kind, label=label, url=url))
+    return sorted(out.values(), key=lambda l: _LINK_ORDER.get(l.kind, 99))
+
+
+def _related_titles(raw: dict) -> List[RelatedTitle]:
+    """Series mates, DLC, expansions, remakes/remasters and the base game
+    this one belongs to — each openable as its own game card."""
+    own_id = raw.get("id")
+    seen = {own_id}
+    out: List[RelatedTitle] = []
+
+    def _add(game: dict, relation: str) -> None:
+        gid, name = game.get("id"), game.get("name")
+        if gid is None or not name or gid in seen:
+            return
+        seen.add(gid)
+        ts = game.get("first_release_date")
+        try:
+            year = datetime.fromtimestamp(ts, tz=timezone.utc).year if ts else None
+        except (ValueError, OSError, OverflowError, TypeError):
+            year = None
+        out.append(RelatedTitle(
+            relation=relation, title=name, media_type="game", year=year,
+            poster_url=_cover_url((game.get("cover") or {}).get("url")),
+            id=f"igdb-{gid}", source="igdb",
+        ))
+
+    parent = raw.get("parent_game")
+    if isinstance(parent, dict):
+        _add(parent, "Base game")
+    # The rest of the series, oldest first. Several collections are rare but
+    # legal; they're just concatenated.
+    series: List[dict] = []
+    for coll in raw.get("collections") or []:
+        series.extend(g for g in (coll or {}).get("games") or [] if isinstance(g, dict))
+    series.sort(key=lambda g: g.get("first_release_date") or 0)
+    for g in series:
+        _add(g, "Same series")
+    for field, relation in _RELATED_FIELDS:
+        if field == "parent_game":
+            continue
+        for g in raw.get(field) or []:
+            if isinstance(g, dict):
+                _add(g, relation)
+    # A series of 30 would drown the shelf; keep the first MAX_RELATED but
+    # never let "same series" crowd out every DLC.
+    return out[:MAX_RELATED]
+
+
+def build_extras(raw: dict) -> TitleExtras:
+    """Everything the detail screen shows beyond the basic card, from one
+    IGDB `games` row. Pure — no network — so it's unit-testable. Always an
+    object, even an empty one: that is how a freshly-built row is told apart
+    from one cached before extras existed (see TitleExtras.complete)."""
+    themes = [
+        TitleTag(name=t["name"]) for t in raw.get("themes") or []
+        if isinstance(t, dict) and t.get("name")
+    ]
+    perspectives = [
+        p["name"] for p in raw.get("player_perspectives") or []
+        if isinstance(p, dict) and p.get("name")
+    ]
+    alt = []
+    for a in raw.get("alternative_names") or []:
+        name = (a or {}).get("name") if isinstance(a, dict) else None
+        if name and name not in alt and name != raw.get("name"):
+            alt.append(name)
+
+    critic = raw.get("aggregated_rating")
+    extras = TitleExtras(
+        screenshots=_screenshot_urls(raw),
+        tags=themes,
+        perspectives=perspectives,
+        languages=_languages(raw.get("language_supports")),
+        links=_links(raw.get("websites")),
+        related=_related_titles(raw),
+        alt_titles=alt[:4],
+        storyline=(raw.get("storyline") or "").strip() or None,
+        critic_score=round(critic) if isinstance(critic, (int, float)) and critic > 0 else None,
+        critic_votes=raw.get("aggregated_rating_count") or None,
+    )
+    return extras
+
+
+def build_trailers(raw: dict) -> List[TitleTrailer]:
+    out: List[TitleTrailer] = []
+    seen = set()
+    for v in raw.get("videos") or []:
+        vid = (v or {}).get("video_id") if isinstance(v, dict) else None
+        if not vid or vid in seen:
+            continue
+        seen.add(vid)
+        out.append(TitleTrailer(
+            video_id=vid,
+            name=((v.get("name") or "Trailer").strip() or "Trailer")[:60],
+            thumbnail_url=f"https://img.youtube.com/vi/{vid}/hqdefault.jpg",
+        ))
+    return out[:MAX_TRAILERS]
+
+
+def build_similar(raw: dict) -> List[MediaItem]:
+    """IGDB `similar_games` -> the same MediaItem cards search returns. A
+    game with no cover is skipped: a grey tile in a "if you liked this"
+    shelf reads as broken."""
+    out: List[MediaItem] = []
+    for g in raw.get("similar_games") or []:
+        if not isinstance(g, dict):
+            continue
+        item = _normalize(g)
+        if item is not None and item.poster_url:
+            out.append(item)
+    return out[:MAX_SIMILAR]
+
+
+def parse_time_to_beat(rows: Optional[list]) -> Optional[TimeToBeat]:
+    """game_time_to_beats row (seconds) -> hours, one decimal. IGDB can
+    return all-null rows for games nobody has timed."""
+    if not rows or not isinstance(rows[0], dict):
+        return None
+    row = rows[0]
+
+    def _hours(key: str) -> Optional[float]:
+        v = row.get(key)
+        return round(v / 3600, 1) if isinstance(v, (int, float)) and v > 0 else None
+
+    ttb = TimeToBeat(
+        hastily=_hours("hastily"), normally=_hours("normally"),
+        completely=_hours("completely"), votes=row.get("count") or None,
+    )
+    return ttb if (ttb.hastily or ttb.normally or ttb.completely) else None
+
 
 
 def _normalize_hit(raw: dict) -> Optional[GameHit]:
@@ -681,27 +933,89 @@ class IgdbAdapter(MediaAdapter):
         raw = await self._query("games", apicalypse)
         return [item for r in raw if (item := _normalize(r)) is not None]
 
-    async def full_detail(self, raw_id: str) -> Optional[MediaItem]:
-        if not self._configured:
-            raise RuntimeError("IGDB_CLIENT_ID / IGDB_CLIENT_SECRET are not configured")
-        apicalypse = f"fields {_GAME_FIELDS}; where id = {raw_id};"
-        raw = await self._query("games", apicalypse)
+    async def steam_appid(self, raw_id: str) -> Optional[str]:
+        """This game's Steam appid (from its IGDB `websites`), or None when
+        it has no Steam page. Lets transport/HTTP errors propagate (the
+        caller must tell "IGDB couldn't answer" apart from "no Steam page"
+        so it doesn't cache the first as the second). Used by
+        app/game_reviews.py — the detail cache stores no appid."""
+        if not raw_id.isdigit():
+            return None
+        raw = await self._query_raw(
+            "games", f"fields websites.url,websites.category; where id = {raw_id};"
+        )
         if not raw:
             return None
-        item = _normalize(raw[0])
+        return _steam_appid_from_websites(raw[0].get("websites"))
+
+    async def full_detail(self, raw_id: str) -> Optional[MediaItem]:
+        """The enriched game card alone (calendar/Teamira only need this).
+        The title screen calls full_detail_bundle for trailers/similar too."""
+        bundle = await self.full_detail_bundle(raw_id)
+        return bundle[0] if bundle else None
+
+    async def _time_to_beat(self, raw_id: str) -> Optional[TimeToBeat]:
+        """How long the game takes (IGDB game_time_to_beats). A separate
+        endpoint, so a failure here must never cost the rest of the card."""
+        try:
+            rows = await self._query(
+                "game_time_to_beats",
+                f"fields hastily,normally,completely,count; where game_id = {raw_id}; limit 1;",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("IGDB time_to_beat failed [igdb-%s]: %s", raw_id, exc)
+            return None
+        return parse_time_to_beat(rows)
+
+    async def full_detail_bundle(
+        self, raw_id: str,
+    ) -> Optional[Tuple[MediaItem, List[TitleTrailer], List[MediaItem]]]:
+        """(card with extras, trailers, similar games) for one game, or None
+        when IGDB doesn't know the id. The extras are asked for in the same
+        request as the card; if IGDB rejects the bigger query the plain card
+        is still returned (a screen with fewer sections beats an error)."""
+        if not self._configured:
+            raise RuntimeError("IGDB_CLIENT_ID / IGDB_CLIENT_SECRET are not configured")
+        raw = None
+        try:
+            raw = await self._query(
+                "games", f"fields {_GAME_FIELDS},{_DETAIL_EXTRA_FIELDS}; where id = {raw_id};",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("IGDB extended detail failed [igdb-%s]: %s — plain card", raw_id, exc)
+        if not raw:
+            raw = await self._query("games", f"fields {_GAME_FIELDS}; where id = {raw_id};")
+        if not raw:
+            return None
+        game = raw[0]
+        item = _normalize(game)
         if item is None:
             return None
 
-        # A best-effort Russian description, on the detail screen only
-        # (not search/shelves — same "enrichment is a detail-screen-only
-        # cost" convention as everywhere else this app fans out a second
-        # network call per title). See app/adapters/steam.py's module
-        # docstring for what makes this different from a machine
-        # translation. Silently skipped (not raised) when the game has no
-        # Steam page or Steam itself has nothing — a missing Russian
-        # description is not an error, same as it already wasn't before
-        # this existed.
-        steam_appid = _steam_appid_from_websites(raw[0].get("websites"))
+        try:
+            item.extras = build_extras(game)
+        except Exception as exc:  # noqa: BLE001 — a malformed extra must not cost the card
+            logger.warning("IGDB extras build failed [igdb-%s]: %s", raw_id, exc)
+        trailers = build_trailers(game)
+        if trailers:
+            item.has_trailer = True
+            item.trailer_youtube_id = trailers[0].video_id
+        similar = build_similar(game)
+
+        ttb = await self._time_to_beat(raw_id)
+        if ttb:
+            if item.extras is None:
+                item.extras = TitleExtras()
+            item.extras.time_to_beat = ttb
+
+        # A best-effort Russian description, on the detail screen only (not
+        # search/shelves — same "enrichment is a detail-screen-only cost"
+        # convention as everywhere else this app fans out a second network
+        # call per title). See app/adapters/steam.py's module docstring for
+        # what makes this different from a machine translation. Silently
+        # skipped (not raised) when the game has no Steam page or Steam
+        # itself has nothing — a missing Russian description is not an error.
+        steam_appid = _steam_appid_from_websites(game.get("websites"))
         if steam_appid:
             try:
                 description_ru = await self._steam.description_ru(steam_appid)
@@ -711,7 +1025,7 @@ class IgdbAdapter(MediaAdapter):
             if description_ru:
                 item.description.ru = description_ru
 
-        return item
+        return item, trailers, similar
 
 
 def _escape(text: str) -> str:

@@ -143,7 +143,7 @@ class _RecommendSheetState extends State<RecommendSheet> {
               Text('поставить на рекомендацию'.tr, style: SeenlyText.serif(size: 16, weight: FontWeight.w600)),
               const SizedBox(height: 4),
               Text(
-                '«${widget.title}» — предскажи, на сколько оценит друг, и поставь очки на свою правоту'.tr,
+                '«${widget.title}» — ${'предскажи, на сколько оценит друг, и поставь очки на свою правоту'.tr}',
                 style: SeenlyText.serif(size: 13, color: SeenlyPalette.inkMuted),
               ),
               const SizedBox(height: 18),

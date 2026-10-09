@@ -40,6 +40,7 @@ import time
 from typing import List, Optional, Tuple
 
 import httpx
+from pydantic import BaseModel
 
 from app.schemas import MediaItem, ExternalIds, LocalizedText
 from app.adapters.base import MediaAdapter
@@ -332,6 +333,111 @@ def _normalize(doc: dict, media_type: str, id_prefix: str, source: str) -> Optio
     )
 
 
+# ---------------------------------------------------------------------------
+# "About the author + what readers do with this book" — used by the book
+# detail screen only (app/book_extras.py caches it). Google Books, the
+# catalog for books here, has neither an author biography nor reader
+# counts; Open Library has both, free, keyless.
+# ---------------------------------------------------------------------------
+
+_BOOK_INFO_FIELDS = (
+    "key,title,author_name,author_key,first_sentence,first_publish_year,"
+    "number_of_pages_median,want_to_read_count,currently_reading_count,"
+    "already_read_count"
+)
+MAX_BIO_CHARS = 700
+
+
+class OlUnavailable(Exception):
+    """Couldn't ask Open Library right now (network, throttled, bad body).
+    Distinct from "Open Library doesn't know this book"."""
+
+
+class OlBookInfo(BaseModel):
+    """`missing=True` is the cached "no confident Open Library match"."""
+    missing: bool = False
+    author_name: Optional[str] = None
+    bio: Optional[str] = None
+    born: Optional[str] = None
+    died: Optional[str] = None
+    photo_url: Optional[str] = None
+    first_sentence: Optional[str] = None
+    first_publish_year: Optional[int] = None
+    want: Optional[int] = None
+    reading: Optional[int] = None
+    read: Optional[int] = None
+
+
+def _name_tokens(name: str) -> set:
+    return {t for t in re.split(r"[\W_]+", (name or "").casefold()) if len(t) > 1}
+
+
+def _same_author(wanted: str, found: Optional[list]) -> Optional[int]:
+    """Index of the Open Library author whose name shares a name token with
+    the one we asked about ("Stephen King" vs "King, Stephen"), else None.
+    The match is the guard against showing someone else's biography under a
+    book — a wrong bio is worse than none."""
+    want = _name_tokens(wanted)
+    if not want:
+        return None
+    for i, cand in enumerate(found or []):
+        if len(want & _name_tokens(cand)) >= min(2, len(want)):
+            return i
+    return None
+
+
+def _cut_bio(text: str) -> str:
+    """Plain-text bio cut at a sentence end near MAX_BIO_CHARS."""
+    text = _strip_markdown(text.strip())
+    if len(text) <= MAX_BIO_CHARS:
+        return text
+    cut = text[:MAX_BIO_CHARS]
+    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    return (cut[:end + 1] if end > MAX_BIO_CHARS * 0.5 else cut.rsplit(" ", 1)[0] + "…").strip()
+
+
+def parse_book_info(docs: Optional[list], title: str, author: str,
+                    author_json: Optional[dict]) -> OlBookInfo:
+    """search.json docs (+ the matched author's record) -> OlBookInfo. Only
+    a doc whose title equals ours AND whose author matches is accepted."""
+    key = lambda t: re.sub(r"[\W_]+", "", (t or "").casefold())
+    doc = next(
+        (d for d in docs or []
+         if isinstance(d, dict) and key(d.get("title")) == key(title)
+         and _same_author(author, d.get("author_name")) is not None),
+        None,
+    )
+    if doc is None:
+        return OlBookInfo(missing=True)
+
+    def _n(v):
+        return int(v) if isinstance(v, (int, float)) and v >= 0 else None
+
+    info = OlBookInfo(
+        first_sentence=_first_sentence(doc.get("first_sentence")),
+        first_publish_year=_n(doc.get("first_publish_year")),
+        want=_n(doc.get("want_to_read_count")),
+        reading=_n(doc.get("currently_reading_count")),
+        read=_n(doc.get("already_read_count")),
+    )
+    names = doc.get("author_name") or []
+    idx = _same_author(author, names)
+    info.author_name = names[idx] if idx is not None and idx < len(names) else None
+    if isinstance(author_json, dict):
+        bio = _description_text(author_json.get("bio"))
+        info.bio = _cut_bio(bio) if bio else None
+        info.born = (author_json.get("birth_date") or "").strip() or None
+        info.died = (author_json.get("death_date") or "").strip() or None
+        keys = doc.get("author_key") or []
+        photos = [p for p in (author_json.get("photos") or []) if isinstance(p, int) and p > 0]
+        if photos and idx is not None and idx < len(keys):
+            info.photo_url = f"https://covers.openlibrary.org/a/olid/{keys[idx]}-M.jpg?default=false"
+    # Nothing worth showing at all -> same as no match.
+    shown = (info.bio, info.first_sentence, info.want, info.reading, info.read, info.photo_url)
+    return info if any(v for v in shown) else OlBookInfo(missing=True)
+
+
+
 class OpenLibraryAdapter(MediaAdapter):
     """Books' live catalog adapter (see the module docstring for why
     manga no longer shares this class). `media_type`/`id_prefix`/`source`
@@ -608,3 +714,43 @@ class OpenLibraryAdapter(MediaAdapter):
             publisher=_first_publisher(enrich_doc.get("publisher")),
             isbn=_first_isbn(enrich_doc.get("isbn")),
         )
+
+    async def book_info(self, title: str, author: str) -> OlBookInfo:
+        """Author biography and reader counts for one book, matched by title
+        + author. Two requests at most (search, then the author record),
+        both inside this adapter's 1 req/s limiter."""
+        if not title.strip() or not author.strip():
+            return OlBookInfo(missing=True)
+        async with httpx.AsyncClient(timeout=8.0, headers=_HEADERS) as client:
+            docs = await self._get_strict(client, SEARCH_URL, {
+                "title": title, "author": author, "limit": 5, "fields": _BOOK_INFO_FIELDS,
+            })
+            docs = (docs or {}).get("docs") or []
+            doc = next(
+                (d for d in docs if isinstance(d, dict) and _same_author(author, d.get("author_name")) is not None),
+                None,
+            )
+            author_json = None
+            if doc and doc.get("author_key"):
+                idx = _same_author(author, doc.get("author_name")) or 0
+                keys = doc["author_key"]
+                akey = keys[idx] if idx < len(keys) else keys[0]
+                try:
+                    author_json = await self._get_strict(client, f"{AUTHORS_URL}/{akey}.json", {})
+                except OlUnavailable:
+                    author_json = None  # the reader counts are still worth showing
+        return parse_book_info(docs, title, author, author_json)
+
+    async def _get_strict(self, client: httpx.AsyncClient, url: str, params: dict) -> dict:
+        """Like _get but raises OlUnavailable instead of returning None, so
+        the caching layer can tell "couldn't ask" from "nothing there"."""
+        await _rate_limiter.wait()
+        try:
+            resp = await client.get(url, params=params)
+            if resp.status_code == 404:
+                return {}
+            resp.raise_for_status()
+            data = resp.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            raise OlUnavailable(type(exc).__name__) from exc
+        return data if isinstance(data, dict) else {}

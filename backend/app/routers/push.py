@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app import models
 from app.database import get_db
+from app.bi import normalize_lang
 from app.deps import get_current_user
 from app.push import CATEGORY_COPY, PushCategory
 
@@ -29,6 +30,10 @@ class RegisterTokenIn(BaseModel):
     # IANA name ("Europe/Moscow") — see models.PushToken.timezone's own
     # docstring for what this is used for and why it's optional.
     timezone: Optional[str] = None
+    # "ru" / "en" (or a full locale like "en-US") — the app's own interface
+    # language, so pushes are worded to match it. Optional: an older client
+    # simply doesn't send it and keeps getting Russian.
+    locale: Optional[str] = Field(default=None, max_length=16)
 
 
 class RegisterTokenOut(BaseModel):
@@ -65,6 +70,8 @@ def register_token(
         existing.platform = platform
         if payload.timezone:
             existing.timezone = payload.timezone
+        if payload.locale:
+            existing.locale = normalize_lang(payload.locale)
         existing.last_seen_at = datetime.now(timezone.utc)
     else:
         db.add(models.PushToken(
@@ -72,6 +79,7 @@ def register_token(
             token=payload.token,
             platform=platform,
             timezone=payload.timezone,
+            locale=normalize_lang(payload.locale) if payload.locale else None,
         ))
     db.commit()
     return RegisterTokenOut()

@@ -7,6 +7,9 @@ import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'secure_token_store.dart';
+import 'locale_service.dart';
+import 'app_translations.dart';
+import 'server_messages.dart';
 
 /// Thrown for any non-2xx response; carries the status code and whatever
 /// `detail` FastAPI put in the body, so screens can show a real message
@@ -36,7 +39,7 @@ class ApiException implements Exception {
 /// the time this surfaces; screens catch it as an ordinary error.
 class SessionExpiredException extends ApiException {
   SessionExpiredException()
-      : super(401, 'your session has ended — please sign in again',
+      : super(401, 'your session has ended — please sign in again'.tr,
             authError: 'token_revoked');
 }
 
@@ -257,11 +260,11 @@ class ApiClient {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return Future.value(body);
     }
-    String message = 'request failed (${res.statusCode})';
+    String message = LocaleService.pick('запрос не удался (${res.statusCode})', 'request failed (${res.statusCode})');
     if (body is Map && body['detail'] != null) {
       // Lowercased like all other copy in the app; this only
       // changes how the message reads in a snackbar/error state.
-      message = body['detail'].toString().toLowerCase();
+      message = translateServerMessage(body['detail'].toString().toLowerCase());
     }
     throw ApiException(res.statusCode, message, authError: _authError(res));
   }

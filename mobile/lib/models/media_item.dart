@@ -1,4 +1,5 @@
 import '../services/locale_service.dart';
+import 'title_extras.dart';
 import 'watchlist_entry.dart';
 
 /// Mirrors `ExternalIds` in backend/app/schemas.py.
@@ -142,6 +143,11 @@ class MediaItem {
   final int? volumes; // manga
   final int? chapters; // manga
 
+  /// The richer per-type layer (screenshots, authors, characters, languages,
+  /// links, related works ...) — see models/title_extras.dart. Set by
+  /// GET /media/detail only; null on search/feed/shelf cards.
+  final TitleExtras? extras;
+
   /// The poster every screen actually renders. Prefers [posterUrlRu] when
   /// the device is set to Russian (services/locale_service.dart) and TMDB
   /// actually had a Russian poster for this title; falls back to the base
@@ -202,6 +208,7 @@ class MediaItem {
     this.isbn,
     this.volumes,
     this.chapters,
+    this.extras,
   }) : _posterUrlBase = posterUrl,
        _taglineBase = tagline;
 
@@ -266,6 +273,9 @@ class MediaItem {
         isbn: json['isbn'] as String?,
         volumes: json['volumes'] as int?,
         chapters: json['chapters'] as int?,
+        extras: json['extras'] is Map
+            ? TitleExtras.fromJson(Map<String, dynamic>.from(json['extras'] as Map))
+            : null,
       );
 
   Map<String, dynamic> toJson() => {

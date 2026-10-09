@@ -83,8 +83,8 @@ class RouteBoard extends StatelessWidget {
             const SizedBox(height: 5),
             Text(
               isEmpty
-                  ? 'log an evening to lay the first stretch of road'
-                  : 'trace back any evening you passed through',
+                  ? 'log an evening to lay the first stretch of road'.tr
+                  : 'trace back any evening you passed through'.tr,
               style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
             ),
           ],

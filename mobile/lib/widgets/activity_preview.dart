@@ -4,6 +4,7 @@ import '../models/activity_item.dart';
 import '../theme/palette.dart';
 import '../utils/server_time.dart';
 import 'watched_preview_sheet.dart';
+import '../services/locale_service.dart';
 
 /// Turns a friend's [ActivityItem] into the same [WatchedPreviewData]
 /// shape the diary/profile/co-viewing grids already use — so tapping a
@@ -33,7 +34,7 @@ WatchedPreviewData watchedPreviewFromActivity(ActivityItem item) {
     rating: item.rating,
     date: date,
     watchedWithUsername: null,
-    friendLabel: item.isMine ? null : '${item.nameForDisplay}\'s activity',
+    friendLabel: item.isMine ? null : LocaleService.pick('активность: ${item.nameForDisplay}', '${item.nameForDisplay}\'s activity'),
     showShareButton: false,
     shareCard: const SizedBox.shrink(),
     shareFileName: 'seenly-activity',

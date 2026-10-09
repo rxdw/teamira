@@ -35,6 +35,7 @@ import '../../theme/notebook_paper.dart';
 import '../../theme/seenly_skin.dart';
 import '../../widgets/dashed_border.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 class DiaryScreen extends StatefulWidget {
   const DiaryScreen({super.key});
@@ -1578,7 +1579,7 @@ class _DiaryRow extends StatelessWidget {
                   fallbackColor: SeenlyPalette.mediaColor(entry.mediaType),
                 ),
                 fileName: 'seenly-${entry.id}',
-                shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+                shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
                 rewardKey: 'seenly-${entry.id}',
               ),
               // Was a faint, background-colored circle with a

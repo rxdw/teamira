@@ -15,6 +15,7 @@ import '../../widgets/themed_loading_indicator.dart';
 import '../../widgets/themed_pull_to_refresh.dart';
 import '../../widgets/wow_motion.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/app_translations.dart';
 
 /// The full challenges screen — this week's three, then the year's six.
 ///
@@ -104,7 +105,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
         backgroundColor: SeenlyPalette.background,
         elevation: 0,
         centerTitle: false,
-        title: Text('челленджи', style: SeenlyText.screenTitle),
+        title: Text('челленджи'.tr, style: SeenlyText.screenTitle),
         iconTheme: IconThemeData(color: SeenlyPalette.ink),
       ),
       body: SafeArea(
@@ -130,7 +131,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
           const SizedBox(height: 90),
           Center(
             child: Text(
-              'челленджи скоро появятся',
+              'челленджи скоро появятся'.tr,
               style: SeenlyText.emptyState(),
             ),
           ),
@@ -144,7 +145,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
       children: [
         _Intro(weekEndsAt: data.weekEndsAt),
         const SizedBox(height: 18),
-        SectionHeader(title: 'на этой неделе'),
+        SectionHeader(title: 'на этой неделе'.tr),
         const SizedBox(height: 10),
         for (var i = 0; i < data.weekly.length; i++) ...[
           ScrollReveal(
@@ -159,7 +160,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
           const SizedBox(height: 10),
         ],
         const SizedBox(height: 14),
-        SectionHeader(title: 'весь год'),
+        SectionHeader(title: 'весь год'.tr),
         const SizedBox(height: 10),
         for (var i = 0; i < data.yearly.length; i++) ...[
           ScrollReveal(
@@ -209,7 +210,7 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
             if (c.rule.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                'как считается',
+                'как считается'.tr,
                 style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
               ),
               const SizedBox(height: 4),
@@ -222,7 +223,9 @@ class _ChallengesScreenState extends State<ChallengesScreen> {
             SoftProgressBar(value: c.progress),
             const SizedBox(height: 7),
             Text(
-              '${c.current} из ${c.target} · +${c.points}',
+              LocaleService.appIsRussian
+                  ? '${c.current} из ${c.target} · +${c.points}'
+                  : '${c.current} of ${c.target} · +${c.points}',
               style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
             ),
           ],
@@ -257,8 +260,8 @@ class _Intro extends StatelessWidget {
           const SizedBox(width: 11),
           Expanded(
             child: Text(
-              'маленькие цели на неделю и на год. ничего не успел — '
-              'они просто сменятся новыми',
+              ('маленькие цели на неделю и на год. ничего не успел — '
+              'они просто сменятся новыми').tr,
               style: SeenlyText.serif(
                 size: 13,
                 italic: true,
@@ -289,7 +292,7 @@ class _ErrorState extends StatelessWidget {
               const SizedBox(height: 14),
               PressScale(
                 onTap: onRetry,
-                child: Text('попробовать снова',
+                child: Text('попробовать снова'.tr,
                     style: SeenlyText.mono(
                         size: 12, color: SeenlyPalette.accent)),
               ),

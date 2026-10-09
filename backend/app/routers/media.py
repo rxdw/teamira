@@ -9,15 +9,16 @@ from fastapi import APIRouter, Query, HTTPException, Depends, Request
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
 
-from app import cache
+from app import book_extras, book_ratings, cache, extras_merge, game_reviews, game_store, kinopoisk, manga_reviews
 from app.database import get_db
 from app.deps import get_current_user_id
 from app.rate_limit import media_read_limiter, client_key
 from app.schemas import (
-    MediaItem, MediaDetailOut, EpisodesOut, PersonDetailOut,
+    MediaItem, MediaDetailOut, EpisodesOut, PersonDetailOut, RatingsOut, TitleExtras,
 )
 from app.adapters.igdb import IgdbAdapter
 from app.adapters.google_books import GoogleBooksAdapter
+from app.adapters.hardcover import book_url as hardcover_book_url
 from app.adapters.tmdb import TmdbAdapter
 from app.adapters.shikimori import ShikimoriAdapter, ShikimoriMangaAdapter, SHIKIMORI_ATTRIBUTION
 from app.routers.reviews import fetch_reviews as _fetch_merged_reviews, REVIEWS_TTL as _REVIEWS_TTL
@@ -38,7 +39,7 @@ _shikimori = ShikimoriAdapter()
 # is the only stable key available regardless of which title it is.
 # "-v1" so the shape can be bumped later the same way TMDB's own cached
 # rows are versioned (see app/adapters/tmdb.py).
-_SHIKIMORI_SUPPLEMENT_SOURCE = "shikimori-supplement-anime-v1"
+_SHIKIMORI_SUPPLEMENT_SOURCE = "shikimori-supplement-anime-v2"
 
 # GET /media/detail's own forever-cache row version. Bumped whenever the
 # cached MediaDetailOut shape changes in a way an old cached row wouldn't
@@ -103,8 +104,29 @@ async def _apply_shikimori_ru(db: Optional[Session], item: MediaItem, match_titl
             supplement = await _shikimori.anime_supplement(match_title or "", item.year)
         except Exception as exc:  # a Shikimori hiccup should never break the title screen
             logger.warning("Shikimori supplement fetch failed [%s] -> %s", item.id, exc)
+            item.extras = TitleExtras(complete=False)
             return False
-        cache.set_static_title(db, item.id, _SHIKIMORI_SUPPLEMENT_SOURCE, supplement)
+        # A supplement whose sub-requests partly failed is used this once
+        # but not remembered, so the next open asks again.
+        if supplement is None or supplement.get("extras_complete", True):
+            cache.set_static_title(db, item.id, _SHIKIMORI_SUPPLEMENT_SOURCE, supplement)
+
+    # Extras (studios, episodes, staff, characters, related). A supplement
+    # cached by an older build has no "extras" key at all — v2 of the cache
+    # key makes that a miss, so this only ever sees the new shape.
+    extras_raw = (supplement or {}).get("extras")
+    if extras_raw:
+        try:
+            item.extras = TitleExtras.model_validate(extras_raw)
+        except Exception as exc:  # noqa: BLE001 — a malformed extras must not cost the ru text
+            logger.warning("Shikimori anime extras unreadable [%s] -> %s", item.id, exc)
+    if item.extras is None:
+        # Asked, and Shikimori had nothing / no match: an empty object marks
+        # that as final (None is how a row cached before extras existed
+        # looks, and is rebuilt once — see media_detail).
+        item.extras = TitleExtras()
+    if supplement and supplement.get("shikimori_id"):
+        await _apply_anime_passport(item, supplement["shikimori_id"])
 
     if not supplement:
         return False
@@ -148,6 +170,219 @@ async def _apply_review_count(db: Session, result: MediaDetailOut) -> None:
     # None (not 0) when there's genuinely nothing — same "hide the badge
     # entirely" convention the client already applies for a null count.
     result.ratings.reviews_count = count or None
+
+
+async def _apply_kinopoisk(result: MediaDetailOut, lang: str) -> None:
+    """Russian-language callers also get Kinopoisk/IMDb ratings, and the
+    review badge counts Kinopoisk's reviews too (so it matches the list
+    the reviews sheet opens). Applied after the cache read/write like
+    _apply_review_count — these numbers are never stored in the forever
+    detail cache — and any miss just leaves them unset. Costs nothing
+    extra for a title Kinopoisk already answered for (see
+    app/kinopoisk.py)."""
+    if lang != "ru" or not kinopoisk.enabled():
+        return
+    tmdb_id = result.item.external_ids.tmdb
+    if not tmdb_id or result.item.media_type not in ("movie", "series", "anime"):
+        return
+    is_series = result.item.media_type != "movie"
+    title = await kinopoisk.get_title(tmdb_id, is_series)
+    if title is None:
+        return
+    if result.ratings is None:
+        result.ratings = RatingsOut()
+    ratings = result.ratings
+    ratings.kp_rating = title.kp_rating
+    ratings.kp_votes = title.kp_votes
+    ratings.imdb_rating = title.imdb_rating
+    ratings.imdb_votes = title.imdb_votes
+    kp_reviews = await kinopoisk.get_reviews(tmdb_id, is_series)
+    if kp_reviews:
+        ratings.reviews_count = (ratings.reviews_count or 0) + len(kp_reviews)
+
+
+async def _apply_hardcover(result: MediaDetailOut) -> None:
+    """A book's Hardcover community rating (and the link to its page there)
+    for the title screen. Like _apply_kinopoisk: applied after the cache
+    read/write, never stored in the forever detail cache, and any miss —
+    no token, no ISBN, not on Hardcover, API unreachable — just leaves the
+    book without a rating. Aggregate only; see app/adapters/hardcover.py
+    for why review text is not used."""
+    if not book_ratings.enabled():
+        return
+    item = result.item
+    if item.media_type != "book" or not item.id.startswith(_books.id_prefix):
+        return
+    book = await book_ratings.get_rating(item.id[len(_books.id_prefix):])
+    if book is None or book.rating is None:
+        return
+    if result.ratings is None:
+        result.ratings = RatingsOut()
+    result.ratings.hc_rating = book.rating
+    result.ratings.hc_votes = book.ratings_count
+    result.ratings.hc_url = hardcover_book_url(book.slug) if book.slug else None
+
+
+# A game or manga title screen must not hang on a slow review source: the
+# first open of a never-seen title makes up to three outbound requests
+# (IGDB link -> Steam totals -> Steam texts). Past this, the screen just goes
+# without the numbers this once; whatever finished is cached already, so the
+# next open is instant.
+_REVIEW_SOURCE_TIMEOUT_SEC = 7.0
+
+
+async def _apply_steam(result: MediaDetailOut, lang: str) -> None:
+    """A game's Steam score ("94% positive · N reviews") and the review
+    count for the badge that opens the reviews sheet. Applied after the
+    cache read/write like _apply_hardcover: never stored in the forever
+    detail cache, and any miss — no Steam page, Steam unreachable, slow —
+    leaves the game without them."""
+    item = result.item
+    if item.media_type != "game" or not item.id.startswith("igdb-"):
+        return
+    raw_id = item.id[len("igdb-"):]
+    if not raw_id.isdigit():
+        return
+    try:
+        steam = await asyncio.wait_for(
+            game_reviews.get_reviews(raw_id, lang), timeout=_REVIEW_SOURCE_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # noqa: BLE001 — a review source must never break the title screen
+        logger.warning("Steam reviews lookup failed [%s] -> %s", item.id, type(exc).__name__)
+        return
+    if steam is None:
+        return
+    if result.ratings is None:
+        result.ratings = RatingsOut()
+    result.ratings.steam_pct = steam.positive_pct
+    result.ratings.steam_votes = steam.total or None
+    result.ratings.reviews_count = len(steam.reviews) or None
+
+
+async def _apply_anilist(result: MediaDetailOut) -> None:
+    """A manga's AniList score and review count, same rules as _apply_steam."""
+    item = result.item
+    if item.media_type != "manga":
+        return
+    mal_id = manga_reviews.mal_id_from_media_id(item.id)
+    if mal_id is None:
+        return
+    try:
+        manga = await asyncio.wait_for(
+            manga_reviews.get_manga(mal_id), timeout=_REVIEW_SOURCE_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AniList lookup failed [%s] -> %s", item.id, type(exc).__name__)
+        return
+    if manga is None:
+        return
+    if manga.score is None and not manga.reviews:
+        return
+    if result.ratings is None:
+        result.ratings = RatingsOut()
+    result.ratings.al_rating = manga.score
+    result.ratings.reviews_count = len(manga.reviews) or None
+
+
+async def _apply_anime_passport(item: MediaItem, mal_id) -> None:
+    """AniList's tags and source material (manga / light novel / original)
+    for an anime. Best-effort and bounded, like every other optional source
+    on this screen. Runs while the title is first built, so what it adds
+    lands in the forever cache with the rest of the card."""
+    try:
+        info = await asyncio.wait_for(
+            manga_reviews.get_info(int(mal_id), "anime"), timeout=_REVIEW_SOURCE_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AniList anime info failed [%s] -> %s", item.id, type(exc).__name__)
+        return
+    if info is not None:
+        extras_merge.merge_anilist_info(item, info)
+
+
+async def _apply_game_store(result: MediaDetailOut, lang: str) -> None:
+    """A game's price, Metacritic, achievements, controller support and — when
+    IGDB had few — Steam's languages and screenshots. Applied after the cache
+    read/write like _apply_steam: never stored in the forever detail cache
+    (a price must not outlive its week), any miss leaves the game without."""
+    item = result.item
+    if item.media_type != "game" or not item.id.startswith("igdb-"):
+        return
+    raw_id = item.id[len("igdb-"):]
+    if not raw_id.isdigit():
+        return
+    try:
+        store = await asyncio.wait_for(
+            game_store.get_store(raw_id, lang), timeout=_REVIEW_SOURCE_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Steam store lookup failed [%s] -> %s", item.id, type(exc).__name__)
+        return
+    if store is not None:
+        extras_merge.merge_steam_store(item, store)
+
+
+async def _apply_book_extras(result: MediaDetailOut) -> None:
+    """A book's author biography and reader counts (Open Library). Same
+    rules as the other overlays: after the cache, bounded, best-effort."""
+    item = result.item
+    if item.media_type != "book" or not item.id.startswith("gbooks-"):
+        return
+    creators = item.extras.creators if item.extras else []
+    author = creators[0].name if creators else ""
+    title = item.title.en or item.title.ru or ""
+    if not author or not title:
+        return
+    try:
+        info = await asyncio.wait_for(
+            book_extras.get_book_info(item.id[len("gbooks-"):], title, author),
+            timeout=_REVIEW_SOURCE_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Open Library book info failed [%s] -> %s", item.id, type(exc).__name__)
+        return
+    if info is not None:
+        extras_merge.merge_book_info(item, info)
+
+
+async def _apply_manga_info(result: MediaDetailOut) -> None:
+    """A manga's AniList passport: weighted tags, popularity, banner, legal
+    places to read. Separate from _apply_anilist (score/reviews) on purpose —
+    its own query, its own cache row."""
+    item = result.item
+    if item.media_type != "manga":
+        return
+    mal_id = manga_reviews.mal_id_from_media_id(item.id)
+    if mal_id is None:
+        return
+    try:
+        info = await asyncio.wait_for(
+            manga_reviews.get_info(mal_id, "manga"), timeout=_REVIEW_SOURCE_TIMEOUT_SEC,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("AniList info lookup failed [%s] -> %s", item.id, type(exc).__name__)
+        return
+    if info is not None:
+        extras_merge.merge_anilist_info(item, info)
+
+
+def _extras_stale(item: MediaItem) -> bool:
+    """A cached game/book/manga card built before extras existed (None), or
+    whose sources were only partly reachable (complete=False), is rebuilt on
+    the next open instead of served as final."""
+    return item.extras is None or not item.extras.complete
+
+
+async def _apply_overlays(result: MediaDetailOut, source: str, lang: str) -> None:
+    """Everything refreshed per request, after the forever cache. The
+    sources are independent, so they run side by side — the screen waits for
+    the slowest, not the sum."""
+    if source == "igdb":
+        await asyncio.gather(_apply_steam(result, lang), _apply_game_store(result, lang))
+    elif source == "google_books":
+        await asyncio.gather(_apply_hardcover(result), _apply_book_extras(result))
+    elif source == "shikimori_manga":
+        await asyncio.gather(_apply_anilist(result), _apply_manga_info(result))
 
 
 _games = IgdbAdapter()
@@ -406,6 +641,7 @@ async def media_detail(
     media_id: str = Query(...),
     media_type: str = Query(...),  # "movie" | "series" | "anime" | "game" | "book" | "manga"
     source: str = Query(...),
+    lang: str = Query("en"),  # "en" | "ru" — client's content-language setting
     db: Session = Depends(get_db),
     _user_id: str = Depends(get_current_user_id),
 ):
@@ -432,24 +668,49 @@ async def media_detail(
     cache_source = _DETAIL_CACHE_SOURCE if source == "tmdb" else source
 
     cached = cache.get_static_title(db, media_id, cache_source)
+    # A pre-extras copy that is about to be rebuilt. If the rebuild can't reach
+    # its source (Google Books throttling, IGDB down ...), serving this beats
+    # turning a title that used to open into a 404.
+    stale_copy: Optional[MediaDetailOut] = None
     if cached is not None:
         result = MediaDetailOut.model_validate_json(cached)
-        if source == "tmdb":
-            await _apply_review_count(db, result)
-        return result
+        # A card cached before extras existed (or whose sources were only
+        # partly reachable) is rebuilt below instead of served as final.
+        # Movies/series never carry extras; anime does — see
+        # _apply_shikimori_ru.
+        stale = (
+            _extras_stale(result.item)
+            if source in ("igdb", "google_books", "shikimori_manga")
+            or (source == "tmdb" and result.item.media_type == "anime")
+            else False
+        )
+        if not stale:
+            if source == "tmdb":
+                await _apply_review_count(db, result)
+                await _apply_kinopoisk(result, lang)
+            else:
+                await _apply_overlays(result, source, lang)
+            return result
+        if source != "tmdb":
+            stale_copy = result
 
     if source == "igdb":
         raw_id = media_id[len("igdb-"):] if media_id.startswith("igdb-") else None
         if not raw_id:
             raise HTTPException(status_code=400, detail="Unrecognized media_id format")
         try:
-            item = await _games.full_detail(raw_id)
+            bundle = await _games.full_detail_bundle(raw_id)
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
-        if item is None:
+        if bundle is None:
+            if stale_copy is not None:
+                await _apply_overlays(stale_copy, source, lang)
+                return stale_copy
             raise HTTPException(status_code=404, detail="Title not found")
-        result = MediaDetailOut(item=item, ratings=None, similar=[])
+        item, trailers, similar = bundle
+        result = MediaDetailOut(item=item, ratings=None, similar=similar, trailers=trailers)
         cache.set_static_title(db, media_id, source, result)
+        await _apply_overlays(result, source, lang)
         return result
 
     if source in ("google_books", "shikimori_manga"):
@@ -457,12 +718,22 @@ async def media_detail(
         raw_id = media_id[len(adapter.id_prefix):] if media_id.startswith(adapter.id_prefix) else None
         if not raw_id:
             raise HTTPException(status_code=400, detail="Unrecognized media_id format")
-        item = await adapter.full_detail(raw_id)
-        if item is None:
+        bundle = await adapter.full_detail_bundle(raw_id)
+        if bundle is None:
+            if stale_copy is not None:
+                await _apply_overlays(stale_copy, source, lang)
+                return stale_copy
             raise HTTPException(status_code=404, detail="Title not found")
-        # Same lighter shape as games — no ratings/similar round-trip.
-        result = MediaDetailOut(item=item, ratings=None, similar=[])
-        cache.set_static_title(db, media_id, source, result)
+        item, similar = bundle
+        # No ratings round-trip here (those are the per-request overlays
+        # below); `similar` is the "more from this author" / similar-manga
+        # shelf the adapter built alongside the card.
+        result = MediaDetailOut(item=item, ratings=None, similar=similar)
+        # A card whose sources were only partly reachable is returned but not
+        # remembered, so the next open asks again (see TitleExtras.complete).
+        if not _extras_stale(item):
+            cache.set_static_title(db, media_id, source, result)
+        await _apply_overlays(result, source, lang)
         return result
 
     # source == "tmdb" — the only movie/series/anime source now.
@@ -486,11 +757,13 @@ async def media_detail(
     # collections poster backfill is running) would permanently stick
     # this title showing English-only, never retried. On a failed fetch
     # we still return what we have this one time, just don't persist it.
-    if ru_fetch_ok:
+    extras_ok = not (result.item.media_type == "anime" and _extras_stale(result.item))
+    if ru_fetch_ok and extras_ok:
         cache.set_static_title(db, media_id, cache_source, result)
     else:
         logger.warning("TMDB ru-RU detail fetch failed [%s] — not caching, will retry next open", media_id)
     await _apply_review_count(db, result)
+    await _apply_kinopoisk(result, lang)
     return result
 
 

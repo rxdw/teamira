@@ -781,7 +781,7 @@ class _BadgeDetailCard extends StatelessWidget {
                                         : SeenlyPalette.accentOnAccent),
                                 const SizedBox(width: 7),
                                 Text(
-                                  pinned ? 'unpin from profile' : 'pin to profile',
+                                  pinned ? 'unpin from profile'.tr : 'pin to profile'.tr,
                                   style: SeenlyText.serif(
                                     italic: true,
                                     color: pinned

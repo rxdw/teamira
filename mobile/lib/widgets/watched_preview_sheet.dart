@@ -19,6 +19,7 @@ import 'source_video_link.dart';
 import 'wow_motion.dart' show PressScale;
 import '../services/app_translations.dart';
 import '../theme/clay_kit.dart';
+import '../services/locale_service.dart';
 
 /// Everything [WatchedPreviewCard] needs to draw itself, gathered from
 /// whichever shelf the person tapped into — the diary log, a "route"/
@@ -107,7 +108,7 @@ class WatchedPreviewData {
         isRewatch: entry.isRewatch,
         shareCard: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
         shareFileName: 'seenly-${entry.id}',
-        shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+        shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
         entryId: entry.id,
       );
 
@@ -144,7 +145,7 @@ class WatchedPreviewData {
       favoriteCast: entry.favoriteCast,
       shareCard: EveningShareCard(entry: asDiary, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       shareFileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
     );
   }
 
@@ -186,7 +187,7 @@ class WatchedPreviewData {
       showShareButton: false,
       shareCard: EveningShareCard(entry: asDiary, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       shareFileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
     );
   }
 
@@ -222,7 +223,7 @@ class WatchedPreviewData {
       watchedWithUsername: watchedWith,
       shareCard: EveningShareCard(entry: asDiary, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       shareFileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" together — logged in seenly',
+      shareText: LocaleService.pick('посмотрено вместе: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" together — logged in seenly'),
     );
   }
 
@@ -270,8 +271,8 @@ class WatchedPreviewData {
       shareCard: EveningShareCard(entry: asDiary, fallbackColor: SeenlyPalette.mediaColor(item.mediaType)),
       shareFileName: 'seenly-${mine?.entryId ?? item.mediaId}',
       shareText: item.watchedTogether
-          ? 'watched "$title" together — logged in seenly'
-          : 'watched "$title" — logged in seenly',
+          ? LocaleService.pick('посмотрено вместе: «$title» — записано в seenly', 'watched "$title" together — logged in seenly')
+          : LocaleService.pick('посмотрено: «$title» — записано в seenly', 'watched "$title" — logged in seenly'),
       // Only set when this account actually has its own row on this
       // card — a title shared by the partner alone has nothing here to
       // edit, so the sheet's edit button stays hidden for it, same as
@@ -300,7 +301,7 @@ String _previewDateLabel(DateTime? d) {
 Future<void> showWatchedPreview(BuildContext context, WatchedPreviewData data) {
   return showGeneralDialog(
     context: context,
-    barrierLabel: 'watched preview',
+    barrierLabel: 'watched preview'.tr,
     barrierDismissible: true,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 240),
@@ -626,7 +627,7 @@ class _WatchedPreviewCardState extends State<WatchedPreviewCard> {
                       child: Column(
                         children: [
                           Text(
-                            hasNote ? '“${data.note!.trim()}”' : 'no review left for this one yet',
+                            hasNote ? '“${data.note!.trim()}”' : 'no review left for this one yet'.tr,
                             textAlign: TextAlign.center,
                             maxLines: 5,
                             overflow: TextOverflow.ellipsis,

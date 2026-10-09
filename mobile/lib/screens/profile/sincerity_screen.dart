@@ -465,7 +465,7 @@ class _StaleItemsSectionState extends State<_StaleItemsSection> {
     final confirmed = await SpendConfirmSheet.show(
       context,
       title: 'погасить долг?'.tr,
-      body: '«${item.title}» слишком давно висит в планах без движения. заплати один раз — и это больше никогда не потянет из тебя очки.'.tr,
+      body: '«${item.title}» ${'слишком давно висит в планах без движения. заплати один раз — и это больше никогда не потянет из тебя очки.'.tr}',
       cost: item.settleCost,
       balance: widget.balance,
       confirmLabel: 'погасить'.tr,

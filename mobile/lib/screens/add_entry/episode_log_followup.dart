@@ -225,6 +225,7 @@ Future<bool> confirmWatchNextEpisode(BuildContext context, LogTheme theme) async
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
       child: Container(

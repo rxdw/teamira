@@ -268,7 +268,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
     final confirmed = await SpendConfirmSheet.show(
       context,
       title: 'открыть оценку?'.tr,
-      body: '${person.name} уже оценил(а) этот тайтл. посмотреть сейчас — или оценить сначала самому и получить очки за собственное мнение?'.tr,
+      body: '${person.name} ${'уже оценил(а) этот тайтл. посмотреть сейчас — или оценить сначала самому и получить очки за собственное мнение?'.tr}',
       cost: _spoilerUnlockCost,
       confirmLabel: 'открыть'.tr,
     );
@@ -301,7 +301,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
     final confirmed = await SpendConfirmSheet.show(
       context,
       title: 'напомнить о плане?'.tr,
-      body: '«${entry.displayTitle}» висит в общих планах без движения. отправить остальным один пуш с напоминанием?'.tr,
+      body: '«${entry.displayTitle}» ${'висит в общих планах без движения. отправить остальным один пуш с напоминанием?'.tr}',
       cost: _nudgeCost,
       confirmLabel: 'напомнить'.tr,
     );
@@ -423,7 +423,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('логировали, но не получилось убрать из «запланировано» — попробуйте ещё раз')),
+        SnackBar(content: Text('логировали, но не получилось убрать из «запланировано» — попробуйте ещё раз'.tr)),
       );
     } finally {
       if (mounted) setState(() => _markingWatched.remove(entry.id));
@@ -447,9 +447,9 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
         triggerSource: 'co_view_circle_size',
         initialKind: PremiumPlanKind.family,
         icon: Icons.people_outline,
-        title: 'круг побольше — это премиум',
-        message: 'пара всегда бесплатно — с премиумом можно смотреть вместе '
-            'компанией, втроём и больше',
+        title: 'круг побольше — это премиум'.tr,
+        message: ('пара всегда бесплатно — с премиумом можно смотреть вместе '
+            'компанией, втроём и больше').tr,
       );
       return;
     }
@@ -462,6 +462,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
       context: context,
       backgroundColor: SeenlyPalette.paper,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -500,28 +501,35 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
               backgroundColor: SeenlyPalette.paper,
               title: Text(
                 isCompany
-                    ? 'покинуть этот круг совместного просмотра?'
-                    : 'разорвать связь с ${_status?.partnerUsername ?? "партнёром"}?',
+                    ? 'покинуть этот круг совместного просмотра?'.tr
+                    : album_strings.at(
+                        'разорвать связь с ${_status?.partnerUsername ?? "партнёром"}?',
+                        'end the link with ${_status?.partnerUsername ?? "your partner"}?',
+                      ),
                 style: SeenlyText.serif(size: 16),
               ),
               content: Text(
                 isCompany
-                    ? 'вы покинете круг — остальные продолжат, а то, что уже '
-                        'в вашем собственном дневнике, останется на месте.'
-                    : 'это закроет совместный просмотр между вами — то, что уже '
-                        'есть в дневниках у каждого, останется на месте.'
-                        '${albumHasContent ? '\n\nа вот альбом пары — записки, капсулы и дата годовщины — '
-                            'исчезнет у вас обоих, и вернуть его будет нельзя.' : ''}',
+                    ? ('вы покинете круг — остальные продолжат, а то, что уже '
+                        'в вашем собственном дневнике, останется на месте.').tr
+                    : ('это закроет совместный просмотр между вами — то, что уже '
+                            'есть в дневниках у каждого, останется на месте.')
+                        .tr +
+                        (albumHasContent
+                            ? '\n\n${('а вот альбом пары — записки, капсулы и дата годовщины — '
+                                    'исчезнет у вас обоих, и вернуть его будет нельзя.')
+                                .tr}'
+                            : ''),
                 style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: Text('отмена', style: SeenlyText.mono(size: 11)),
+                  child: Text('отмена'.tr, style: SeenlyText.mono(size: 11)),
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: Text(isCompany ? 'покинуть' : 'разорвать',
+                  child: Text(isCompany ? 'покинуть'.tr : 'разорвать'.tr,
                       style: SeenlyText.mono(size: 11, color: SeenlyPalette.coral)),
                 ),
               ],
@@ -536,7 +544,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
           } catch (_) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('не получилось разорвать связь — попробуйте ещё раз')),
+              SnackBar(content: Text('не получилось разорвать связь — попробуйте ещё раз'.tr)),
             );
           }
         },
@@ -596,7 +604,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
               child: UnderlineTabRow(
-                labels: const ['вместе', 'дневник', 'мы'],
+                labels: ['вместе'.tr, 'дневник'.tr, 'мы'.tr],
                 activeIndex: _tab,
                 onChanged: (i) => setState(() => _tab = i),
               ),
@@ -635,7 +643,9 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
             child: SectionHeader(
-              title: _suggestions.length == 1 ? 'вам предложили' : 'вам предложили (${_suggestions.length})',
+              title: _suggestions.length == 1
+                  ? 'вам предложили'.tr
+                  : '${'вам предложили'.tr} (${_suggestions.length})',
             ),
           ),
         ),
@@ -688,7 +698,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
       SliverToBoxAdapter(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-          child: SectionHeader(title: 'запланировано'),
+          child: SectionHeader(title: 'запланировано'.tr),
         ),
       ),
       if (planned != null && planned.limit != null)
@@ -698,7 +708,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
             child: Text(
-              'пока пусто — добавьте что-нибудь сердечком на странице фильма',
+              'пока пусто — добавьте что-нибудь сердечком на странице фильма'.tr,
               style: SeenlyText.emptyState(),
             ),
           ),
@@ -761,15 +771,15 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
                     size: 28, color: SeenlyPalette.inkFaint),
                 const SizedBox(height: 12),
                 Text(
-                  'здесь будут ваши общие вечера',
+                  'здесь будут ваши общие вечера'.tr,
                   textAlign: TextAlign.center,
                   style: SeenlyText.serif(
                       size: 15, italic: true, color: SeenlyPalette.inkMuted),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'отметьте что-нибудь просмотренным вместе — или включите '
-                  '«записывать мои вечера в общий дневник» в настройках',
+                  ('отметьте что-нибудь просмотренным вместе — или включите '
+                  '«записывать мои вечера в общий дневник» в настройках').tr,
                   textAlign: TextAlign.center,
                   style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkFaint),
                 ),
@@ -832,7 +842,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 18, vertical: 8),
-                        child: Text('показать ещё',
+                        child: Text('показать ещё'.tr,
                             style: SeenlyText.mono(
                                 size: 12, color: SeenlyPalette.accent)),
                       ),
@@ -878,12 +888,12 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(d.year, d.month, d.day);
     final diff = today.difference(day).inDays;
-    if (diff == 0) return 'сегодня';
-    if (diff == 1) return 'вчера';
-    const months = [
+    if (diff == 0) return 'сегодня'.tr;
+    if (diff == 1) return 'вчера'.tr;
+    final months = [
       'янв', 'фев', 'мар', 'апр', 'май', 'июн',
       'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
-    ];
+    ].map((m) => m.tr).toList();
     return '${d.day} ${months[d.month - 1]}';
   }
 
@@ -960,7 +970,7 @@ class _CoViewHubScreenState extends State<CoViewHubScreen> {
               10,
             ),
             child: Text(
-              'статистика появится после первого общего вечера',
+              'статистика появится после первого общего вечера'.tr,
               textAlign: TextAlign.center,
               style: SeenlyText.emptyState(),
             ),
@@ -1023,7 +1033,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final names = status.partnerUsername ?? 'вы вдвоём';
+    final names = status.partnerUsername ?? 'вы вдвоём'.tr;
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 14, 22, 12),
       child: Row(
@@ -1042,7 +1052,7 @@ class _Header extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'вы и $names',
+                  album_strings.at('вы и $names', 'you and $names'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: SeenlyText.serif(size: 18, weight: FontWeight.w600),
@@ -1050,8 +1060,8 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   stats == null || stats!.eveningsTogether == 0
-                      ? 'ваш общий дневник'
-                      : '${stats!.eveningsTogether} ${nOnly('nEvenings', stats!.eveningsTogether)} вместе',
+                      ? 'ваш общий дневник'.tr
+                      : '${stats!.eveningsTogether} ${nOnly('nEvenings', stats!.eveningsTogether)} ${'вместе'.tr}',
                   style: SeenlyText.mono(size: 11, color: SeenlyPalette.inkFaint),
                 ),
               ],
@@ -1237,7 +1247,7 @@ class _SuggestionCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('предложил${_gender(suggestion.senderUsername)} ${suggestion.senderUsername}',
+                      Text('${'предложил'.tr}${_gender(suggestion.senderUsername)} ${suggestion.senderUsername}',
                           style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
                       const SizedBox(height: 3),
                       Text(suggestion.displayTitle,
@@ -1275,7 +1285,7 @@ class _SuggestionCard extends StatelessWidget {
                                   strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                             )
                           : Text(
-                              'смотрим вместе',
+                              'смотрим вместе'.tr,
                               key: const ValueKey('label'),
                               style: SeenlyText.mono(
                                   size: 10.5, weight: FontWeight.w600, color: SeenlyPalette.accentOnAccent),
@@ -1379,11 +1389,11 @@ class _DecideCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('не можем выбрать',
+                    Text('не можем выбрать'.tr,
                         style: SeenlyText.serif(
                             size: 17, italic: true, weight: FontWeight.w600)),
                     const SizedBox(height: 3),
-                    Text('голосование, рулетка или спросить tanè',
+                    Text('голосование, рулетка или спросить tanè'.tr,
                         style: SeenlyText.mono(
                             size: 11, color: SeenlyPalette.inkMuted)),
                   ],
@@ -1427,7 +1437,7 @@ class _QueueMeter extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text('${planned.used} из $limit',
+              Text(album_strings.at('${planned.used} из $limit', '${planned.used} of $limit'),
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint)),
             ],
           ),
@@ -1437,8 +1447,11 @@ class _QueueMeter extends StatelessWidget {
               Expanded(
                 child: Text(
                   full
-                      ? 'список полон — отметьте что-нибудь просмотренным, чтобы освободить место'
-                      : 'в общем списке помещается $limit фильмов одновременно',
+                      ? 'список полон — отметьте что-нибудь просмотренным, чтобы освободить место'.tr
+                      : album_strings.at(
+                          'в общем списке помещается $limit фильмов одновременно',
+                          'the shared list holds $limit movies at a time',
+                        ),
                   style: SeenlyText.mono(
                     size: 10.5,
                     color: full ? SeenlyPalette.mustard : SeenlyPalette.inkFaint,
@@ -1452,15 +1465,20 @@ class _QueueMeter extends StatelessWidget {
                     context,
                     triggerSource: 'co_view_list_limit',
                     icon: Icons.favorite_rounded,
-                    title: 'безлимитный совместный список',
-                    message:
-                        'бесплатно в общем списке помещается $limit фильмов '
-                        'одновременно — этого хватает на пару вечеров вперёд. '
-                        'с премиумом список не ограничен, а всё, что вы уже '
-                        'посмотрели вместе, остаётся в общем дневнике навсегда '
-                        'в любом случае.',
+                    title: 'безлимитный совместный список'.tr,
+                    message: album_strings.at(
+                      'бесплатно в общем списке помещается $limit фильмов '
+                          'одновременно — этого хватает на пару вечеров вперёд. '
+                          'с премиумом список не ограничен, а всё, что вы уже '
+                          'посмотрели вместе, остаётся в общем дневнике навсегда '
+                          'в любом случае.',
+                      'for free the shared list holds $limit movies at a time — '
+                          'enough for a couple of evenings ahead. with premium the '
+                          'list is unlimited, and everything you\'ve already watched '
+                          'together stays in the shared diary forever either way.',
+                    ),
                   ),
-                  child: Text('безлимит',
+                  child: Text('безлимит'.tr,
                       style: SeenlyText.mono(
                           size: 11,
                           weight: FontWeight.w700,
@@ -1577,9 +1595,9 @@ class _PlannedTile extends StatelessWidget {
     );
   }
 
-  static const _months = [
-    'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
-  ];
+  static List<String> get _months => [
+        'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+      ].map((m) => m.tr).toList();
 
   String _scheduledLabel(CoViewEntry e) {
     final date = e.scheduledDate!;
@@ -1665,7 +1683,7 @@ class _LogButton extends StatelessWidget {
                     Icon(Icons.visibility_rounded, size: 13, color: SeenlyPalette.accentOnAccent),
                     const SizedBox(width: 5),
                     Text(
-                      'смотрю',
+                      'смотрю'.tr,
                       style: SeenlyText.mono(size: 10.5, weight: FontWeight.w700, color: SeenlyPalette.accentOnAccent),
                     ),
                   ],
@@ -1756,7 +1774,7 @@ class _SharedEntryCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 5),
                           Text(
-                            item.watchedTogether ? 'смотрели вместе' : 'смотрел один',
+                            item.watchedTogether ? 'смотрели вместе'.tr : 'смотрел один'.tr,
                             style: SeenlyText.mono(
                               size: 10.5,
                               color: item.watchedTogether
@@ -1808,7 +1826,10 @@ class _SharedEntryCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(11),
                 ),
                 child: Text(
-                  'разошлись на ${item.ratingGap} ${nOnly('nPoints', item.ratingGap!)}',
+                  album_strings.at(
+                    'разошлись на ${item.ratingGap} ${nOnly('nPoints', item.ratingGap!)}',
+                    'rated ${item.ratingGap} ${nOnly('nPoints', item.ratingGap!)} apart',
+                  ),
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.mustard),
                 ),
               ),
@@ -1881,7 +1902,7 @@ class _PersonChipState extends State<_PersonChip> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            person.isMe ? 'вы' : person.name.toLowerCase(),
+            person.isMe ? 'вы'.tr : person.name.toLowerCase(),
             style: SeenlyText.mono(size: 10.5, color: color),
           ),
           const SizedBox(width: 6),
@@ -1909,7 +1930,7 @@ class _PersonChipState extends State<_PersonChip> {
               style: SeenlyText.mono(size: 10, weight: FontWeight.w600, color: SeenlyPalette.mustard),
             ),
           ] else
-            Text('без оценки',
+            Text('без оценки'.tr,
                 style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
         ],
       ),
@@ -1945,7 +1966,7 @@ class _StatsBody extends StatelessWidget {
               Expanded(
                 child: _StatTile(
                   value: '${stats.eveningsTogether}',
-                  label: 'вечеров вместе',
+                  label: 'вечеров вместе'.tr,
                   color: SeenlyPalette.pink,
                 ),
               ),
@@ -1955,7 +1976,7 @@ class _StatsBody extends StatelessWidget {
                   value: stats.hoursTogether >= 10
                       ? '${stats.hoursTogether.round()}'
                       : stats.hoursTogether.toStringAsFixed(1),
-                  label: 'часов рядом',
+                  label: 'часов рядом'.tr,
                   color: SeenlyPalette.sage,
                 ),
               ),
@@ -1967,7 +1988,7 @@ class _StatsBody extends StatelessWidget {
               Expanded(
                 child: _StatTile(
                   value: '${stats.eveningsSharedTotal}',
-                  label: 'записей в общем',
+                  label: 'записей в общем'.tr,
                   color: SeenlyPalette.periwinkle,
                 ),
               ),
@@ -1975,7 +1996,7 @@ class _StatsBody extends StatelessWidget {
               Expanded(
                 child: _StatTile(
                   value: '${stats.longestStreakDays}',
-                  label: 'дней подряд',
+                  label: 'дней подряд'.tr,
                   color: SeenlyPalette.mustard,
                 ),
               ),
@@ -1983,7 +2004,7 @@ class _StatsBody extends StatelessWidget {
           ),
           if (stats.averageRatings.isNotEmpty) ...[
             const SizedBox(height: 20),
-            SectionHeader(title: 'кто щедрее на оценки'),
+            SectionHeader(title: 'кто щедрее на оценки'.tr),
             const SizedBox(height: 10),
             for (final e in stats.averageRatings.entries)
               Padding(
@@ -2016,13 +2037,13 @@ class _StatsBody extends StatelessWidget {
           ],
           if (stats.addedByCounts.isNotEmpty) ...[
             const SizedBox(height: 20),
-            SectionHeader(title: 'кто чаще предлагает'),
+            SectionHeader(title: 'кто чаще предлагает'.tr),
             const SizedBox(height: 10),
             _ProposerSplitBar(counts: stats.addedByCounts, members: members),
           ],
           if (stats.topGenres.isNotEmpty) ...[
             const SizedBox(height: 14),
-            SectionHeader(title: 'ваши жанры'),
+            SectionHeader(title: 'ваши жанры'.tr),
             const SizedBox(height: 10),
             Wrap(
               spacing: 7,
@@ -2034,11 +2055,11 @@ class _StatsBody extends StatelessWidget {
           ],
           if (stats.bestSharedPick != null) ...[
             const SizedBox(height: 20),
-            SectionHeader(title: 'общая любовь'),
+            SectionHeader(title: 'общая любовь'.tr),
             const SizedBox(height: 10),
             _HighlightTile(
               item: stats.bestSharedPick!,
-              caption: 'понравилось обоим',
+              caption: 'понравилось обоим'.tr,
               color: SeenlyPalette.sage,
               onTap: () => onOpen(stats.bestSharedPick!),
               ru: ru,
@@ -2046,12 +2067,15 @@ class _StatsBody extends StatelessWidget {
           ],
           if (stats.biggestDisagreement != null) ...[
             const SizedBox(height: 14),
-            SectionHeader(title: 'здесь вы не сошлись'),
+            SectionHeader(title: 'здесь вы не сошлись'.tr),
             const SizedBox(height: 10),
             _HighlightTile(
               item: stats.biggestDisagreement!,
               caption:
-                  'разница в ${stats.biggestDisagreement!.ratingGap} — есть о чём поспорить',
+                  album_strings.at(
+                'разница в ${stats.biggestDisagreement!.ratingGap} — есть о чём поспорить',
+                'a gap of ${stats.biggestDisagreement!.ratingGap} — something to argue about',
+              ),
               color: SeenlyPalette.coral,
               onTap: () => onOpen(stats.biggestDisagreement!),
               ru: ru,
@@ -2083,7 +2107,7 @@ class _ProposerSplitBar extends StatelessWidget {
 
   String _labelFor(String username) {
     for (final m in members) {
-      if (m.username == username) return m.isYou ? 'ты' : m.nameForDisplay;
+      if (m.username == username) return m.isYou ? 'ты'.tr : m.nameForDisplay;
     }
     return username.toLowerCase();
   }
@@ -2172,7 +2196,7 @@ class _CoupleBadgesSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          title: 'наши вехи',
+          title: 'наши вехи'.tr,
           trailing: unlocked.isNotEmpty ? '${unlocked.length} / ${achievements.length}' : null,
         ),
         const SizedBox(height: 10),
@@ -2246,10 +2270,10 @@ class _CoupleWrappedEntry extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('наш враппед', style: SeenlyText.serif(size: 15, weight: FontWeight.w600)),
+                  Text('наш враппед'.tr, style: SeenlyText.serif(size: 15, weight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(
-                    'ваши вечера в кино вдвоём',
+                    'ваши вечера в кино вдвоём'.tr,
                     style: SeenlyText.mono(size: 11.5, color: SeenlyPalette.inkFaint),
                   ),
                 ],
@@ -2403,7 +2427,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _loadError = 'не получилось загрузить друзей — попробуйте ещё раз';
+        _loadError = 'не получилось загрузить друзей — попробуйте ещё раз'.tr;
         _loading = false;
       });
     }
@@ -2426,7 +2450,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
       if (!mounted) return;
       setState(() => _busyUserIds.remove(friend.userId));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('не получилось отправить приглашение — попробуйте ещё раз')),
+        SnackBar(content: Text('не получилось отправить приглашение — попробуйте ещё раз'.tr)),
       );
     }
   }
@@ -2449,11 +2473,11 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text('добавить в свой круг', style: SeenlyText.sectionTitle),
+            Text('добавить в свой круг'.tr, style: SeenlyText.sectionTitle),
             const SizedBox(height: 4),
             Text(
-              'они присоединятся, как только примут — как и любое другое '
-              'приглашение к совместному просмотру.',
+              ('они присоединятся, как только примут — как и любое другое '
+              'приглашение к совместному просмотру.').tr,
               style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
             ),
             const SizedBox(height: 16),
@@ -2472,7 +2496,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                   children: [
                     Text(_loadError!, style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted)),
                     const SizedBox(height: 10),
-                    PrimaryButton(label: 'попробовать снова', onTap: _load, expand: false),
+                    PrimaryButton(label: 'попробовать снова'.tr, onTap: _load, expand: false),
                   ],
                 ),
               )
@@ -2480,8 +2504,8 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'все ваши друзья уже здесь — сначала добавьте новых, потом '
-                  'приглашайте их отсюда.',
+                  ('все ваши друзья уже здесь — сначала добавьте новых, потом '
+                  'приглашайте их отсюда.').tr,
                   style: SeenlyText.serif(italic: true, size: 13, color: SeenlyPalette.inkMuted),
                 ),
               )
@@ -2530,7 +2554,7 @@ class _AddToCircleSheetState extends State<_AddToCircleSheet> {
                                       child: ThemedLoadingIndicator(strokeWidth: 2, color: SeenlyPalette.accentOnAccent),
                                     )
                                   : Text(
-                                      sent ? 'приглашение отправлено' : 'пригласить',
+                                      sent ? 'приглашение отправлено'.tr : 'пригласить'.tr,
                                       key: ValueKey(sent),
                                       style: SeenlyText.mono(
                                         size: 11,
@@ -2576,7 +2600,7 @@ class _CoViewSettingsSheet extends StatelessWidget {
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text('настройки совместного просмотра', style: SeenlyText.sectionTitle),
+            Text('настройки совместного просмотра'.tr, style: SeenlyText.sectionTitle),
             const SizedBox(height: 16),
             PressScale(
               onTap: onUnlink,
@@ -2585,7 +2609,12 @@ class _CoViewSettingsSheet extends StatelessWidget {
                   Icon(isCompany ? Icons.logout : Icons.link_off, size: 16, color: SeenlyPalette.coral),
                   const SizedBox(width: 10),
                   Text(
-                    isCompany ? 'покинуть этот круг' : 'разорвать связь с ${partnerUsername ?? "партнёром"}',
+                    isCompany
+                        ? 'покинуть этот круг'.tr
+                        : album_strings.at(
+                            'разорвать связь с ${partnerUsername ?? "партнёром"}',
+                            'end the link with ${partnerUsername ?? "your partner"}',
+                          ),
                     style: SeenlyText.serif(size: 14, color: SeenlyPalette.coral),
                   ),
                 ],
@@ -2628,19 +2657,19 @@ class _NotLinkedState extends StatelessWidget {
                     size: 26, color: SeenlyPalette.pink),
               ),
               const SizedBox(height: 16),
-              Text('здесь будет ваш общий дневник',
+              Text('здесь будет ваш общий дневник'.tr,
                   textAlign: TextAlign.center,
                   style: SeenlyText.serif(size: 17, weight: FontWeight.w600)),
               const SizedBox(height: 8),
               Text(
-                'свяжитесь с тем, с кем смотрите вместе — и вечера, оценки '
-                'и статистика станут общими',
+                ('свяжитесь с тем, с кем смотрите вместе — и вечера, оценки '
+                'и статистика станут общими').tr,
                 textAlign: TextAlign.center,
                 style: SeenlyText.mono(size: 12, color: SeenlyPalette.inkMuted),
               ),
               const SizedBox(height: 20),
               PrimaryButton(
-                label: 'связаться',
+                label: 'связаться'.tr,
                 expand: false,
                 onTap: () {
                   final back = onBack;
@@ -2674,7 +2703,7 @@ class _Retry extends StatelessWidget {
               const SizedBox(height: 14),
               PressScale(
                 onTap: onRetry,
-                child: Text('попробовать снова',
+                child: Text('попробовать снова'.tr,
                     style: SeenlyText.mono(size: 12, color: SeenlyPalette.accent)),
               ),
             ],

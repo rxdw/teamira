@@ -101,7 +101,7 @@ class CityMap extends StatelessWidget {
                   const SizedBox(height: 14),
                   Text(
                     entries.isEmpty
-                        ? 'a skyline, waiting to start'
+                        ? 'a skyline, waiting to start'.tr
                         : '${entries.length} ${entries.length == 1 ? 'evening' : 'evenings'}, built',
                     style: SeenlyText.serif(italic: true, size: 19, color: SeenlyPalette.paper),
                   ),
@@ -112,7 +112,7 @@ class CityMap extends StatelessWidget {
                       Icon(Icons.touch_app, size: 12, color: SeenlyPalette.paper.withOpacity(0.5)),
                       const SizedBox(width: 5),
                       Text(
-                        entries.isEmpty ? 'log one to see it rise' : 'walk the street to see them all',
+                        entries.isEmpty ? 'log one to see it rise'.tr : 'walk the street to see them all'.tr,
                         style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.paper.withOpacity(0.5)),
                       ),
                     ],

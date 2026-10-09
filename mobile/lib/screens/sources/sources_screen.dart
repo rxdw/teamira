@@ -238,10 +238,10 @@ class _SourcesScreenState extends State<SourcesScreen> {
                                     padding: const EdgeInsets.symmetric(vertical: 24),
                                     child: Text(
                                       _tab == 0
-                                          ? 'nothing marked watched yet'
+                                          ? 'nothing marked watched yet'.tr
                                           : _tab == 1
-                                              ? 'nothing in progress right now'
-                                              : 'nothing queued yet',
+                                              ? 'nothing in progress right now'.tr
+                                              : 'nothing queued yet'.tr,
                                       style: SeenlyText.emptyState(),
                                     ),
                                   ),
@@ -363,7 +363,7 @@ class _VideoThumbTile extends StatelessWidget {
               bottom: 0,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,

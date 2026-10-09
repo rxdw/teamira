@@ -42,6 +42,7 @@ from sqlalchemy.orm import Session
 
 from app import models, push
 from app.trial import _local_now, _ru_plural
+from app.bi import Bi
 
 logger = logging.getLogger(__name__)
 
@@ -294,10 +295,12 @@ class SubscriptionCopy:
 
 def winback_copy(percent: int, expires_local: datetime) -> SubscriptionCopy:
     return SubscriptionCopy(
-        title=f"Вернём Seenly Premium со скидкой {percent}%",
-        body=(
+        title=Bi(f"Вернём Seenly Premium со скидкой {percent}%", f"Come back to Seenly Premium for {percent}% off"),
+        body=Bi(
             "Все ваши записи и списки на месте. Это личное предложение — "
-            f"оно действует до {expires_local.strftime('%d.%m')}, скидка применится сама."
+            f"оно действует до {expires_local.strftime('%d.%m')}, скидка применится сама.",
+            "All your entries and lists are right where you left them. This is a personal offer — "
+            f"it's valid until {expires_local.strftime('%b %d')}, and the discount applies automatically.",
         ),
     )
 
@@ -305,16 +308,19 @@ def winback_copy(percent: int, expires_local: datetime) -> SubscriptionCopy:
 def pause_ending_copy(resume_local: datetime, now_local: datetime) -> SubscriptionCopy:
     days = (resume_local.date() - now_local.date()).days
     if days <= 0:
-        when = "сегодня"
+        when, when_en = "сегодня", "today"
     elif days == 1:
-        when = "завтра"
+        when, when_en = "завтра", "tomorrow"
     else:
         when = f"через {days} {_ru_plural(days, 'день', 'дня', 'дней')}"
+        when_en = f"in {days} days"
     return SubscriptionCopy(
-        title=f"Пауза заканчивается {when}",
-        body=(
+        title=Bi(f"Пауза заканчивается {when}", f"Your pause ends {when_en}"),
+        body=Bi(
             f"Премиум вернётся {resume_local.strftime('%d.%m')}. "
-            "Если планы изменились — подписку можно отменить в настройках."
+            "Если планы изменились — подписку можно отменить в настройках.",
+            f"Premium comes back on {resume_local.strftime('%b %d')}. "
+            "If your plans changed, you can cancel in the settings.",
         ),
     )
 

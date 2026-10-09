@@ -23,6 +23,7 @@ import 'themed_loading_indicator.dart';
 import '../services/app_translations.dart';
 import '../theme/notebook_paper.dart';
 import '../theme/clay_kit.dart';
+import '../services/locale_service.dart';
 
 /// Opened from a series' single roll-up card on the Diary tab or the
 /// "watched" shelf — one card per series rather than one row per logged
@@ -56,7 +57,7 @@ Future<void> showSeriesEpisodesSheet(
 }) {
   return showGeneralDialog(
     context: context,
-    barrierLabel: 'series preview',
+    barrierLabel: 'series preview'.tr,
     barrierDismissible: true,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 240),
@@ -382,7 +383,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                     // one tap away, at the cost of the space episodes
                     // actually need.
                     Text(
-                      _loading ? '' : 'watched $watched of $total episodes',
+                      _loading ? '' : LocaleService.pick('просмотрено серий: $watched из $total', 'watched $watched of $total episodes'),
                       style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                     ),
                     if (!_loading && total > 0) ...[
@@ -408,7 +409,7 @@ class _SeriesEpisodesSheetState extends State<_SeriesEpisodesSheet> {
                     ] else if (_failed || episodes == null || episodes.seasons.isEmpty) ...[
                       const SizedBox(height: 28),
                       Text(
-                        _failed ? "couldn't load episodes — try again" : 'no episode data for this one yet',
+                        _failed ? "couldn't load episodes — try again".tr : 'no episode data for this one yet'.tr,
                         textAlign: TextAlign.center,
                         style: SeenlyText.emptyState(),
                       ),
@@ -503,7 +504,7 @@ class _SeriesReviewCard extends StatelessWidget {
             child: Column(
               children: [
                 Text(
-                  hasNote ? '“${entry.note!.trim()}”' : 'no review left for this one yet',
+                  hasNote ? '“${entry.note!.trim()}”' : 'no review left for this one yet'.tr,
                   textAlign: TextAlign.center,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,

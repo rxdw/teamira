@@ -29,6 +29,7 @@ import '../../widgets/wow_motion.dart';
 import '../profile/favorite_films_screen.dart';
 import '../../services/app_translations.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 /// A friend's own profile — reached by tapping their row on the friends
 /// screen, a card in the friends activity feed, or a "people you may
@@ -209,7 +210,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> {
                                   context,
                                   WatchedPreviewData.fromFriendEntry(
                                     e,
-                                    friendLabel: "${data.nameForDisplay}'s favorites",
+                                    friendLabel: LocaleService.pick('избранное: ${data.nameForDisplay}', "${data.nameForDisplay}'s favorites"),
                                   ),
                                 ),
                               ),
@@ -894,7 +895,7 @@ class _Shelf extends StatelessWidget {
         return TiltPosterTile(
           onTap: () => showWatchedPreview(
             context,
-            WatchedPreviewData.fromFriendEntry(e, friendLabel: "$friendName's activity"),
+            WatchedPreviewData.fromFriendEntry(e, friendLabel: LocaleService.pick('активность: $friendName', "$friendName's activity")),
           ),
           onLongPress: () => _shareEntry(e),
           child: MosaicParallaxPoster(

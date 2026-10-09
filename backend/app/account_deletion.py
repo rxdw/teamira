@@ -368,6 +368,7 @@ def build_export(db: Session, user: models.User) -> dict:
         .all()
     )
     episodes = db.query(models.EpisodeProgress).filter_by(user_id=user.id).all()
+    reading = db.query(models.ReadingProgress).filter_by(user_id=user.id).all()
     lists = db.query(models.UserList).filter_by(user_id=user.id).all()
     activity = (
         db.query(models.ActivityEvent)
@@ -475,6 +476,10 @@ def build_export(db: Session, user: models.User) -> dict:
         "episode_progress": [
             _row(e, "media_id", "source", "season", "episode", "rating", "note", "watched_at")
             for e in episodes
+        ],
+        "reading_progress": [
+            _row(r, "media_id", "source", "volume", "chapter", "page", "updated_at")
+            for r in reading
         ],
         "lists": [
             {

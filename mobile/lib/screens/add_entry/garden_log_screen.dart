@@ -308,7 +308,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
       context,
       card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       fileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
       rewardKey: 'seenly-${entry.id}',
     );
   }
@@ -424,10 +424,10 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
           duration: const Duration(milliseconds: 200),
           child: Text(
             _selectedSpot == null
-                ? "tonight's little planting"
+                ? "tonight's little planting".tr
                 : _selectedIsSunny
-                    ? 'settled — $_spotLabel, right where the sun lands'
-                    : 'settled — $_spotLabel is tonight\'s',
+                    ? LocaleService.pick('устроились — $_spotLabel, как раз там, куда падает солнце', 'settled — $_spotLabel, right where the sun lands')
+                    : LocaleService.pick('устроились — $_spotLabel на сегодня', 'settled — $_spotLabel is tonight\'s'),
             key: ValueKey('$_selectedSpot-$_selectedIsSunny'),
             style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.68)),
           ),
@@ -501,7 +501,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                       value: _rating,
                       breathe: _sway,
                       labels: _gardenVerdictLabels,
-                      idleLabel: 'tap a bud to rate it',
+                      idleLabel: 'tap a bud to rate it'.tr,
                       onChanged: (v) => setState(() => _rating = v),
                     ),
                   ),
@@ -714,7 +714,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
                     const SizedBox(height: 4),
                     Text(
                       _favoriteCast.isEmpty
-                          ? 'pick up to 3 — totally optional'
+                          ? 'pick up to 3 — totally optional'.tr
                           : '${_favoriteCast.length}/3 picked',
                       style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                     ),
@@ -1000,7 +1000,7 @@ class _GardenLogScreenState extends State<GardenLogScreen> with TickerProviderSt
   // words, so the confirm card echoes the exact one already chosen.
   String _verdictFor(int rating) {
     final idx = ((rating - 1) * _gardenVerdictLabels.length / 10).floor().clamp(0, _gardenVerdictLabels.length - 1);
-    return _gardenVerdictLabels[idx];
+    return _gardenVerdictLabels[idx].tr;
   }
 }
 

@@ -85,6 +85,7 @@ class _ListsScreenState extends State<ListsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (context) => const _NewListSheet(),
     );
     if (result == null || !mounted) return;

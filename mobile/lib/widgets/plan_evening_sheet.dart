@@ -554,6 +554,7 @@ class _PlanEveningSheetState extends State<_PlanEveningSheet> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (_) => const _InvitePartnerSheet(),
     );
     if (status != null && mounted) {

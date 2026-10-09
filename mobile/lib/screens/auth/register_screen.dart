@@ -28,7 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _submit() async {
     if (_username.text.trim().length < 3 || _password.text.length < 6) {
       setState(() => _error =
-          'username needs 3+ characters, password needs 6+');
+          'username needs 3+ characters, password needs 6+'.tr);
       return;
     }
     setState(() {

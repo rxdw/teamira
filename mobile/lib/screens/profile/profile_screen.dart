@@ -61,6 +61,7 @@ import '../../services/app_translations.dart';
 import '../decide/decide_random_screen.dart';
 import '../../models/media_item.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 const _kWeekdayAbbrev = ['', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
@@ -479,7 +480,7 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                       children: [
                         Text(
                           data.achievements != null
-                              ? 'badges · ${data.achievements!.unlockedCount} of ${data.achievements!.totalCount}'
+                              ? LocaleService.pick('значки · ${data.achievements!.unlockedCount} из ${data.achievements!.totalCount}', 'badges · ${data.achievements!.unlockedCount} of ${data.achievements!.totalCount}')
                               : 'badges',
                           style: SeenlyText.sectionTitle,
                         ),
@@ -687,8 +688,8 @@ class _ProfileScreenState extends State<ProfileScreen> with RouteAware {
                             padding: const EdgeInsets.symmetric(vertical: 24),
                             child: Text(
                               _tab == 0
-                                  ? 'nothing marked watched yet'
-                                  : 'nothing queued yet — search to add something',
+                                  ? 'nothing marked watched yet'.tr
+                                  : 'nothing queued yet — search to add something'.tr,
                               style: SeenlyText.emptyState(),
                             ),
                           ),
@@ -1282,7 +1283,7 @@ class _StoriesBannerState extends State<_StoriesBanner> with SingleTickerProvide
             // Bottom scrim for legibility, not decoration — just enough to
             // keep the avatar's ring and the pill button from disappearing
             // into a bright or busy poster.
-            const DecoratedBox(
+            DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
@@ -1905,7 +1906,7 @@ class _RingArcPainter extends CustomPainter {
   final Color trackColor;
   final Color progressColor;
   final double strokeWidth;
-  const _RingArcPainter({
+  _RingArcPainter({
     required this.progress,
     required this.trackColor,
     required this.progressColor,
@@ -2470,7 +2471,7 @@ class _ProgressiveBlurBand extends StatelessWidget {
       shaderCallback: (rect) => LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: const [Colors.transparent, Colors.white],
+        colors: [Colors.transparent, Colors.white],
         stops: [start, end.clamp(0.0, 1.0)],
       ).createShader(rect),
       child: BackdropFilter(
@@ -2624,7 +2625,7 @@ class _AchievementsTeaserRow extends StatelessWidget {
     final all = achievements?.achievements ?? const <Achievement>[];
     if (all.isEmpty) {
       return Text(
-        achievements == null ? 'couldn\'t load achievements right now' : 'nothing unlocked yet — keep logging',
+        achievements == null ? 'couldn\'t load achievements right now'.tr : 'nothing unlocked yet — keep logging'.tr,
         style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.placeholder),
       );
     }

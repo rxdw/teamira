@@ -1,0 +1,6 @@
+/* Permission prompts, English. Info.plist keeps a fallback value for each key;
+   iOS shows these when the device language is English.
+   NOTE: these files must be added to the Runner target in Xcode (see
+   changes/CHANGES_title_extras.md) before they take effect. */
+"NSCameraUsageDescription" = "Used to scan a partner's co-viewing pairing code, or a cinema ticket to quickly add a title.";
+"NSMicrophoneUsageDescription" = "The microphone is for voice chat in a co-viewing room. Voice is never recorded.";

@@ -18,6 +18,7 @@ import '../screens/title/title_detail_screen.dart';
 import '../theme/palette.dart';
 import 'premium_service.dart';
 import 'push_service.dart';
+import 'locale_service.dart';
 
 /// Must be a top-level (or static) function — firebase_messaging calls
 /// this in a separate isolate for a message that arrives while the app
@@ -61,12 +62,16 @@ class PushNotificationManager {
   bool _initStarted = false;
   RemoteMessage? _lastForegroundMessage;
 
-  static const _androidChannel = AndroidNotificationChannel(
-    'default_channel',
-    'уведомления',
-    description: 'совпадения, активность друзей и напоминания о серии',
-    importance: Importance.high,
-  );
+  // A getter, not a const: the name and description are shown in Android's
+  // system notification settings, in the language the app starts in.
+  static AndroidNotificationChannel get _androidChannel => AndroidNotificationChannel(
+        'default_channel',
+        LocaleService.appIsRussian ? 'уведомления' : 'notifications',
+        description: LocaleService.appIsRussian
+            ? 'совпадения, активность друзей и напоминания о серии'
+            : 'matches, friends\' activity and series reminders',
+        importance: Importance.high,
+      );
 
   /// Called once, early in app startup (see app.dart) — sets up
   /// Firebase and the local-notification/tap listeners. Deliberately
@@ -282,6 +287,24 @@ class PushNotificationManager {
     }
   }
 
+  /// Re-sends this device's token so the server starts wording pushes in the
+  /// language the app shows *now*. Called when the language is switched in
+  /// settings. Silent by design: it never asks for notification permission —
+  /// if that was never granted there is nothing to re-register.
+  Future<void> refreshLanguage() async {
+    if (!_firebaseReady) return;
+    try {
+      final settings = await FirebaseMessaging.instance.getNotificationSettings();
+      final granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+      if (!granted) return;
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) await _registerToken(token);
+    } catch (e, st) {
+      developer.log('refreshLanguage failed', name: 'PushNotificationManager', error: e, stackTrace: st);
+    }
+  }
+
   Future<void> _registerToken(String token) async {
     String? timezone;
     try {
@@ -297,6 +320,7 @@ class PushNotificationManager {
         token: token,
         platform: Platform.isIOS ? 'ios' : 'android',
         timezone: timezone,
+        locale: LocaleService.appIsRussian ? 'ru' : 'en',
       );
     } catch (e, st) {
       developer.log('registerToken failed', name: 'PushNotificationManager', error: e, stackTrace: st);

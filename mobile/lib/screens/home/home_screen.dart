@@ -1021,7 +1021,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           padding: const EdgeInsets.only(right: 22),
                           child: SectionHeader(
                             title: 'for you, with trailers'.tr,
-                            trailing: 'watch all →',
+                            trailing: 'watch all →'.tr,
                             onTrailingTap: () => Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) =>
@@ -1315,7 +1315,7 @@ class _AskTeamiraCardState extends State<_AskTeamiraCard> {
   void initState() {
     super.initState();
     final pool = [..._examplePool]..shuffle();
-    _examples = pool.take(3).toList();
+    _examples = pool.take(3).map((e) => e.tr).toList();
   }
 
   @override
@@ -1979,7 +1979,7 @@ class _ContinueWatchingCard extends StatelessWidget {
     final diff = DateTime.now().difference(d).inDays;
     if (diff <= 0) return 'today'.tr;
     if (diff == 1) return 'yesterday'.tr;
-    return '$diff days ago';
+    return LocaleService.pick('$diff ${nOnly('nDays', diff)} назад', '$diff days ago');
   }
 }
 
@@ -2936,12 +2936,12 @@ class _OnThisDayCard extends StatelessWidget {
     if (monthsAgo % 12 == 0) {
       final years = monthsAgo ~/ 12;
       return years == 1
-          ? 'a year ago today, you watched'
-          : '$years years ago today, you watched';
+          ? 'a year ago today, you watched'.tr
+          : LocaleService.pick('$years ${nOnly('nYears', years)} назад, в этот день, вы смотрели', '$years years ago today, you watched');
     }
     return monthsAgo == 1
-        ? 'a month ago today, you watched'
-        : '$monthsAgo months ago today, you watched';
+        ? 'a month ago today, you watched'.tr
+        : LocaleService.pick('$monthsAgo ${nOnly('nMonths', monthsAgo)} назад, в этот день, вы смотрели', '$monthsAgo months ago today, you watched');
   }
 
   @override
@@ -3335,8 +3335,8 @@ class _CoViewingCardState extends State<_CoViewingCard> {
         const SizedBox(height: 3),
         Text(
           _status?.linked ?? false
-              ? 'linked with ${_status!.partnerUsername} — suggest a title from any title page'
-              : 'link with a partner, then suggest titles with one tap',
+              ? LocaleService.pick('связаны с ${_status!.partnerUsername} — предлагайте тайтлы со страницы любого фильма', 'linked with ${_status!.partnerUsername} — suggest a title from any title page')
+              : 'link with a partner, then suggest titles with one tap'.tr,
           style: SeenlyText.serif(italic: true, size: 12, color: SeenlyPalette.inkMuted),
         ),
         const SizedBox(height: 12),
@@ -3440,7 +3440,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                     Text('co-viewing'.tr, style: SeenlyText.sectionTitle),
                     const SizedBox(height: 3),
                     Text(
-                      linked ? 'linked with ${_status!.partnerUsername}' : 'link with a partner',
+                      linked ? LocaleService.pick('связаны с ${_status!.partnerUsername}', 'linked with ${_status!.partnerUsername}') : 'link with a partner',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: SeenlyText.serif(italic: true, size: 11, color: SeenlyPalette.inkMuted),
@@ -3462,7 +3462,7 @@ class _CoViewingCardState extends State<_CoViewingCard> {
                       Text('code waiting for them'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint))
                     else
-                      Text(linked ? 'tap to see or suggest' : 'tap to get started',
+                      Text(linked ? 'tap to see or suggest'.tr : 'tap to get started'.tr,
                           style: SeenlyText.mono(size: 9, color: SeenlyPalette.inkFaint)),
                   ],
                 ),
@@ -4390,8 +4390,8 @@ class _ChallengesHomeCardState extends State<_ChallengesHomeCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          title: 'челлендж',
-          trailing: 'все',
+          title: 'челлендж'.tr,
+          trailing: 'все'.tr,
           onTrailingTap: _openAll,
         ),
         const SizedBox(height: 8),

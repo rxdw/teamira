@@ -35,7 +35,7 @@ class DecideFilters {
       if (genres.isNotEmpty) (genres.length == 1 ? genres.first.toLowerCase() : nCount('nGenres', genres.length)),
       if (decade != null) decadeLabel(decade!),
     ];
-    return parts.isEmpty ? 'anything, any year' : parts.join(' · ');
+    return parts.isEmpty ? 'anything, any year'.tr : parts.join(' · ');
   }
 }
 
@@ -375,22 +375,22 @@ class _DecideFiltersScreenState extends State<DecideFiltersScreen> {
   String get _headline {
     switch (_step) {
       case 0:
-        return 'what\'s the mood tonight?';
+        return 'what\'s the mood tonight?'.tr;
       case 1:
-        return 'any genre in mind?';
+        return 'any genre in mind?'.tr;
       default:
-        return 'and roughly which era?';
+        return 'and roughly which era?'.tr;
     }
   }
 
   String get _subline {
     switch (_step) {
       case 0:
-        return 'pick one or more to start narrowing';
+        return 'pick one or more to start narrowing'.tr;
       case 1:
-        return 'based on what you just picked';
+        return 'based on what you just picked'.tr;
       default:
-        return 'or leave it wide open';
+        return 'or leave it wide open'.tr;
     }
   }
 

@@ -6,6 +6,8 @@ import '../models/media_item.dart';
 import '../models/series_route_state.dart';
 import '../services/geo_city_service.dart';
 import '../services/log_theme_service.dart';
+import 'app_translations.dart';
+import 'locale_service.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -127,7 +129,7 @@ Future<JourneyTransfer?> _coachTransfer(SeriesRouteState state, MediaItem item) 
   final minutes = _effectiveMinutes(item);
   return JourneyTransfer(
     routeLabel: '${origin.name} → ${r.destCity}',
-    routeDetail: '${_fmtDuration(minutes)} on the rails · transfer at ${origin.name}',
+    routeDetail: LocaleService.pick('${_fmtDuration(minutes)} на рельсах · пересадка: ${origin.name}', '${_fmtDuration(minutes)} on the rails · transfer at ${origin.name}'),
     routeMinutes: minutes,
     destMatchKey: r.destCity,
     originLat: origin.lat,
@@ -152,7 +154,7 @@ JourneyTransfer? _ticketTransfer(SeriesRouteState state, MediaItem item) {
   if (cinema == null) return null;
   return JourneyTransfer(
     routeLabel: '${cinema.name}, ${cinema.city}',
-    routeDetail: 'next showing, same hall',
+    routeDetail: 'next showing, same hall'.tr,
     routeMinutes: _effectiveMinutes(item),
     destMatchKey: cinema.code,
     destLat: cinema.lat,
@@ -172,10 +174,10 @@ JourneyTransfer? _gardenTransfer(SeriesRouteState state, MediaItem item) {
     }
   }
   if (garden == null) return null;
-  final alley = _gardenAlleys[state.episode % _gardenAlleys.length];
+  final alley = _gardenAlleys[state.episode % _gardenAlleys.length].tr;
   return JourneyTransfer(
     routeLabel: '$alley, ${garden.name}',
-    routeDetail: '${_fmtDuration(_effectiveMinutes(item))} walk · back through ${garden.city}',
+    routeDetail: LocaleService.pick('${_fmtDuration(_effectiveMinutes(item))} пешком · обратно через ${garden.city}', '${_fmtDuration(_effectiveMinutes(item))} walk · back through ${garden.city}'),
     routeMinutes: _effectiveMinutes(item),
     destMatchKey: garden.name,
     originLat: garden.gateLat,
@@ -200,7 +202,7 @@ JourneyTransfer? _shuttleTransfer(SeriesRouteState state, MediaItem item) {
   if (site == null) return null;
   return JourneyTransfer(
     routeLabel: site.name,
-    routeDetail: '${_fmtDuration(_effectiveMinutes(item))} to the pad · ${site.city}, ${site.country}',
+    routeDetail: LocaleService.pick('${_fmtDuration(_effectiveMinutes(item))} до площадки · ${site.city}, ${site.country}', '${_fmtDuration(_effectiveMinutes(item))} to the pad · ${site.city}, ${site.country}'),
     routeMinutes: _effectiveMinutes(item),
     destMatchKey: site.name,
     originLat: site.gateLat,

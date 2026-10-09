@@ -49,6 +49,7 @@ from datetime import date
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from app.bi import Bi
 from app import models, push  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
 from app.routers.calendar import _game_release_date, _tmdb_next_episode_cached  # noqa: E402
@@ -136,6 +137,7 @@ async def send_new_episodes(db, dry_run: bool) -> int:
             if _already_notified(db, entry.user_id, "tmdb", media_id, release_key):
                 continue
             title_name = entry.title_ru or entry.title_en or "что-то"
+            title_name_en = entry.title_en or entry.title_ru or "something"
             if dry_run:
                 logger.info("[dry-run] new episode -> user=%s %s %s", entry.user_id, title_name, release_key)
                 sent += 1
@@ -146,8 +148,9 @@ async def send_new_episodes(db, dry_run: bool) -> int:
             media_type_str = entry.media_type.value if hasattr(entry.media_type, "value") else entry.media_type
             n = push.push_service.send_to_user(
                 db, user, push.PushCategory.NEW_EPISODES,
-                title="Новая серия! 🎬",
-                body=f"«{title_name}» — вышла {season} сезон {episode} серия",
+                title=Bi("Новая серия! 🎬", "A new episode! 🎬"),
+                body=Bi(f"«{title_name}» — вышла {season} сезон {episode} серия",
+                        f"“{title_name_en}” — season {season}, episode {episode} is out"),
                 data={
                     "type": "new_episode", "media_id": media_id, "source": "tmdb",
                     "media_type": media_type_str, "title": title_name,
@@ -195,6 +198,7 @@ async def send_game_releases(db, dry_run: bool) -> int:
             if _already_notified(db, entry.user_id, "igdb", media_id, release_key):
                 continue
             title_name = entry.title_ru or entry.title_en or "что-то"
+            title_name_en = entry.title_en or entry.title_ru or "something"
             if dry_run:
                 logger.info("[dry-run] game release -> user=%s %s", entry.user_id, title_name)
                 sent += 1
@@ -204,8 +208,9 @@ async def send_game_releases(db, dry_run: bool) -> int:
                 continue
             n = push.push_service.send_to_user(
                 db, user, push.PushCategory.NEW_EPISODES,
-                title="Игра вышла! 🎮",
-                body=f"«{title_name}» уже можно поиграть",
+                title=Bi("Игра вышла! 🎮", "The game is out! 🎮"),
+                body=Bi(f"«{title_name}» уже можно поиграть",
+                        f"“{title_name_en}” is out — time to play"),
                 data={
                     "type": "new_episode", "media_id": media_id, "source": "igdb",
                     "media_type": "game", "title": title_name,

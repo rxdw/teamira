@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter/material.dart';
@@ -381,8 +382,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
             _SettingsTile(
               icon: Icons.notifications_outlined,
-              label: 'уведомления',
-              subtitle: 'совпадения, друзья, серия и уровни',
+              label: 'уведомления'.tr,
+              subtitle: 'совпадения, друзья, серия и уровни'.tr,
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
               ),
@@ -722,8 +723,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       CozySwitch(
                         value: locale.preferRussian,
                         activeColor: SeenlyPalette.accent,
-                        onChanged: (value) =>
-                            context.read<LocaleService>().setPreferRussian(value),
+                        onChanged: (value) async {
+                          await context.read<LocaleService>().setPreferRussian(value);
+                          // Pushes are worded on the server — tell it the new language.
+                          if (context.mounted) {
+                            unawaited(context.read<AppState>().push.refreshLanguage());
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -1816,7 +1822,7 @@ class _SharedDiarySettingsSectionState
                 children: [
                   _SharedToggleRow(
                     icon: Icons.auto_stories_outlined,
-                    label: 'записывать мои вечера в общий дневник',
+                    label: 'записывать мои вечера в общий дневник'.tr,
                     value: prefs.autoShareLogs,
                     saving: _saving.contains('auto'),
                     onChanged: (v) => _set('auto', v),
@@ -1824,7 +1830,7 @@ class _SharedDiarySettingsSectionState
                   Padding(
                     padding: const EdgeInsets.only(left: 27, top: 2),
                     child: Text(
-                      'вечер, который вы посмотрели вместе, всё равно попадёт в общий дневник — этот переключатель только про то, что вы смотрите в одиночку',
+                      'вечер, который вы посмотрели вместе, всё равно попадёт в общий дневник — этот переключатель только про то, что вы смотрите в одиночку'.tr,
                       style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                     ),
                   ),
@@ -1834,7 +1840,7 @@ class _SharedDiarySettingsSectionState
                   ),
                   _SharedToggleRow(
                     icon: Icons.favorite_border_rounded,
-                    label: 'показывать мою оценку',
+                    label: 'показывать мою оценку'.tr,
                     value: prefs.shareRatings,
                     saving: _saving.contains('ratings'),
                     onChanged: (v) => _set('ratings', v),
@@ -1842,7 +1848,7 @@ class _SharedDiarySettingsSectionState
                   const SizedBox(height: 10),
                   _SharedToggleRow(
                     icon: Icons.edit_note_rounded,
-                    label: 'показывать мои заметки',
+                    label: 'показывать мои заметки'.tr,
                     value: prefs.shareNotes,
                     saving: _saving.contains('notes'),
                     onChanged: (v) => _set('notes', v),
@@ -1850,7 +1856,7 @@ class _SharedDiarySettingsSectionState
                   Padding(
                     padding: const EdgeInsets.only(left: 27, top: 2),
                     child: Text(
-                      'заметки — самое личное, что есть в дневнике, поэтому по умолчанию они скрыты',
+                      'заметки — самое личное, что есть в дневнике, поэтому по умолчанию они скрыты'.tr,
                       style: SeenlyText.mono(size: 9, color: SeenlyPalette.placeholder),
                     ),
                   ),

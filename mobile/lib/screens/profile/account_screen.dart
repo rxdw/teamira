@@ -78,6 +78,7 @@ class _AccountScreenState extends State<AccountScreen> {
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _EmailSheet(),
     );
@@ -93,6 +94,7 @@ class _AccountScreenState extends State<AccountScreen> {
     final result = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _PasswordSheet(),
     );
@@ -128,6 +130,7 @@ class _AccountScreenState extends State<AccountScreen> {
     final confirmed = await showModalBottomSheet<AccountDeletion>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _DeleteAccountSheet(),
     );

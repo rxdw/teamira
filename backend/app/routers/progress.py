@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import models
@@ -9,6 +9,8 @@ from app.schemas import (
     EpisodeKey,
     EpisodeRatingRequest,
     ProgressToggleRequest,
+    ReadingProgressIn,
+    ReadingProgressOut,
     SeriesProgressOut,
     WatchedEpisodeOut,
 )
@@ -178,3 +180,74 @@ def complete_series(
         watchlist_entry.status = models.WatchStatus.watched
         db.commit()
     return None
+
+
+# Books and manga only — a series' progress is per-episode (above), and a
+# film or game has no "where am I" to keep.
+_READING_SOURCES = {"google_books", "open_library", "shikimori_manga"}
+
+
+def _reading_out(row: "models.ReadingProgress | None") -> ReadingProgressOut:
+    if row is None:
+        return ReadingProgressOut()
+    return ReadingProgressOut(
+        volume=row.volume,
+        chapter=row.chapter,
+        page=row.page,
+        updated_at=row.updated_at.isoformat() if row.updated_at else None,
+    )
+
+
+def _reading_row(db: Session, user_id: str, media_id: str, source: str):
+    return (
+        db.query(models.ReadingProgress)
+        .filter_by(user_id=user_id, media_id=media_id, source=source)
+        .one_or_none()
+    )
+
+
+@router.get("/reading", response_model=ReadingProgressOut)
+def get_reading_progress(
+    media_id: str = Query(...),
+    source: str = Query(...),
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """The current user's bookmark on one book/manga — loaded once when the
+    title screen's reading tracker opens. Empty (all null), never a 404, for
+    a title they haven't started."""
+    return _reading_out(_reading_row(db, current_user.id, media_id, source))
+
+
+@router.put("/reading", response_model=ReadingProgressOut)
+def set_reading_progress(
+    payload: ReadingProgressIn,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Sets (replaces) the bookmark. Zero is treated as "not started" for
+    that counter, so stepping a counter back to 0 simply unsets it, and a
+    bookmark with nothing left in it is deleted instead of kept as an empty
+    row. Idempotent: the client sends the whole state each time, so a retry
+    or a late duplicate lands on the same result."""
+    if payload.source not in _READING_SOURCES:
+        raise HTTPException(status_code=400, detail="Reading progress is only kept for books and manga")
+
+    volume, chapter, page = (payload.volume or None), (payload.chapter or None), (payload.page or None)
+    row = _reading_row(db, current_user.id, payload.media_id, payload.source)
+
+    if volume is None and chapter is None and page is None:
+        if row is not None:
+            db.delete(row)
+            db.commit()
+        return ReadingProgressOut()
+
+    if row is None:
+        row = models.ReadingProgress(
+            user_id=current_user.id, media_id=payload.media_id, source=payload.source,
+        )
+        db.add(row)
+    row.volume, row.chapter, row.page = volume, chapter, page
+    db.commit()
+    db.refresh(row)
+    return _reading_out(row)

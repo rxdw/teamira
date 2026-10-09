@@ -20,6 +20,7 @@ import '../decide/decide_filters_screen.dart' show DecideFiltersScreen;
 import '../title/title_detail_screen.dart';
 import '../../services/app_translations.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 enum _Phase { setup, starting, swiping, matched, recap, error }
 
@@ -421,7 +422,7 @@ class NarrowDownPrompt extends StatelessWidget {
           onTap: loading ? null : onTakeItAll,
           child: Center(
             child: Text(
-              loading ? 'loading…' : 'no, just take the whole pool',
+              loading ? 'loading…' : 'no, just take the whole pool'.tr,
               style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.accent).copyWith(
                 decoration: TextDecoration.underline,
                 decorationColor: SeenlyPalette.accent,
@@ -508,7 +509,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.error;
-        _errorMessage = "couldn't start a round — check your connection and try again";
+        _errorMessage = "couldn't start a round — check your connection and try again".tr;
       });
     }
   }
@@ -540,7 +541,7 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.error;
-        _errorMessage = "couldn't start a round — check your connection and try again";
+        _errorMessage = "couldn't start a round — check your connection and try again".tr;
       });
     }
   }
@@ -661,11 +662,11 @@ class _CoViewVoteScreenState extends State<CoViewVoteScreen> {
       case CoViewVotePoolSource.coview:
         return "nothing planned together yet — suggest a few titles first";
       case CoViewVotePoolSource.both:
-        return "add a few titles to your plan-to-watch shelves, or plan something together first";
+        return "add a few titles to your plan-to-watch shelves, or plan something together first".tr;
       case CoViewVotePoolSource.catalog:
         return "couldn't load the catalog just now — try again in a moment";
       default:
-        return 'add a few titles to your plan-to-watch shelves first, then come back to vote on them';
+        return 'add a few titles to your plan-to-watch shelves first, then come back to vote on them'.tr;
     }
   }
 
@@ -819,8 +820,8 @@ class _VoteDeck extends StatelessWidget {
     // "3 of 12" would misleadingly read like nobody's close to done.
     final othersTotal = deck.length * (others > 1 ? others : 1);
     final otherProgressLabel = others > 1
-        ? 'others: $partnerDecided of $othersTotal'
-        : 'them: $partnerDecided of ${deck.length}';
+        ? LocaleService.pick('остальные: $partnerDecided из $othersTotal', 'others: $partnerDecided of $othersTotal')
+        : LocaleService.pick('они: $partnerDecided из ${deck.length}', 'them: $partnerDecided of ${deck.length}');
     return Column(
       children: [
         Padding(

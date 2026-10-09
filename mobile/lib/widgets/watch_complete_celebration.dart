@@ -31,7 +31,7 @@ Future<void> showWatchCompleteCelebration(
   final theme = context.read<LogThemeService>().theme;
   return showGeneralDialog(
     context: context,
-    barrierLabel: 'watch complete',
+    barrierLabel: 'watch complete'.tr,
     barrierDismissible: false,
     barrierColor: Colors.transparent,
     transitionDuration: const Duration(milliseconds: 260),

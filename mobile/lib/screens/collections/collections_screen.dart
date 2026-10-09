@@ -20,6 +20,7 @@ import '../../widgets/wow_motion.dart';
 import '../../theme/notebook_paper.dart';
 import '../../services/app_translations.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 class CollectionsScreen extends StatefulWidget {
   const CollectionsScreen({super.key});
@@ -225,9 +226,15 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
     await next;
   }
 
-  /// Header + swipeable poster stack for a regular (non-franchise) shelf —
-  /// shared by both the editorial and teamira picks tabs.
-  List<Widget> _buildPosterSection(BuildContext context, SeenlyCollection c) {
+  /// Header + swipeable poster stack for a shelf — shared by both the
+  /// editorial and teamira picks tabs, and used for franchise shelves too
+  /// (they used to be a full-width banner of their first poster; now they
+  /// scroll inline like every other shelf, with "all →" still opening the
+  /// whole franchise as a grid). [maxItems] caps the swipeable stack — a long
+  /// franchise would otherwise be a very long stack — while "all →" always
+  /// shows everything.
+  List<Widget> _buildPosterSection(BuildContext context, SeenlyCollection c, {int? maxItems}) {
+    final items = maxItems == null ? c.items : c.items.take(maxItems).toList();
     return [
       Padding(
         padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
@@ -243,7 +250,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
         ),
       ),
       ShelfStackCarousel(
-        items: c.items,
+        items: items,
         onTap: (item) => Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => TitleDetailScreen(
@@ -479,7 +486,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                       Text(
                         _filter == 'all'
                             ? 'no collections available right now'
-                            : 'no $label collections right now',
+                            : LocaleService.pick('сейчас нет подборок: $label', 'no $label collections right now'),
                         textAlign: TextAlign.center,
                         style: SeenlyText.emptyState(),
                       ),
@@ -495,7 +502,7 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                 ));
               }
               // Claims one stagger slot per top-level group (the hero, or
-              // each shelf/franchise banner) — capped the same way Home's
+              // each shelf) — capped the same way Home's
               // own `nextStagger` and Diary's `nextReveal` are, since a
               // group far down the page has nothing to cascade alongside
               // by the time anyone actually scrolls to it.
@@ -506,16 +513,13 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                 revealSlot++;
                 return d;
               }
-              // Franchise shelves (teamira picks only) get a full-width
-              // banner — tap opens the shelf as a 2-col grid rather than
-              // scrolling posters inline. Editorial keeps its existing
-              // "collection of the week" hero on the very first shelf.
-              // Every group (the banner, or a header+carousel pair) is
-              // wrapped in its own [ScrollReveal] — same "settle in on
-              // the way down" reveal Diary's day groups and Home's own
-              // sections use — so scrolling itself keeps unveiling
-              // fresh shelves rather than everything below the fold
-              // having already finished animating unseen.
+              // Every group (a header + carousel pair) is wrapped in its own
+              // [ScrollReveal] — same "settle in on the way down" reveal
+              // Diary's day groups and Home's own sections use — so
+              // scrolling itself keeps unveiling fresh shelves rather than
+              // everything below the fold having already finished animating
+              // unseen. Editorial keeps its existing "collection of the
+              // week" hero on the very first shelf.
               final List<Widget> children = [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 4, 22, 0),
@@ -529,27 +533,22 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
               if (_source == 'teamira') {
                 for (final c in collections) {
                   if (children.isNotEmpty) children.add(const SizedBox(height: 22));
-                  if (c.isFranchise) {
-                    children.add(
-                      ScrollReveal(
-                        delay: nextReveal(),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 22),
-                          child: _FranchiseBanner(collection: c),
+                  children.add(
+                    ScrollReveal(
+                      delay: nextReveal(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        // Franchise shelves (Star Wars, Marvel, ...) are
+                        // carousels like the rest; capped so a 30-film
+                        // franchise doesn't become a 30-page stack.
+                        children: _buildPosterSection(
+                          context,
+                          c,
+                          maxItems: c.isFranchise ? 12 : null,
                         ),
                       ),
-                    );
-                  } else {
-                    children.add(
-                      ScrollReveal(
-                        delay: nextReveal(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: _buildPosterSection(context, c),
-                        ),
-                      ),
-                    );
-                  }
+                    ),
+                  );
                 }
               } else {
                 final featured = collections.first;
@@ -724,66 +723,3 @@ class _CantDecideBanner extends StatelessWidget {
     );
   }
 }
-
-/// Full-width banner for a franchise shelf (Star Wars, Marvel, ...) on the
-/// teamira picks tab — a plain full-width poster banner, no "collection
-/// of the week" overline, and tapping opens the shelf as a
-/// grid (CollectionFullScreen) rather than jumping to a single title.
-class _FranchiseBanner extends StatelessWidget {
-  final SeenlyCollection collection;
-  const _FranchiseBanner({required this.collection});
-
-  @override
-  Widget build(BuildContext context) {
-    final firstItem = collection.items.first;
-    return WashiTapedCard(
-      corner: Alignment.topLeft,
-      angle: -0.09,
-      child: PressScale(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => CollectionFullScreen(collection: collection),
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: SizedBox(
-          height: 150,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (firstItem.posterUrl != null)
-                FadeInNetworkImage(
-                  url: firstItem.posterUrl!,
-                  fit: BoxFit.cover,
-                  placeholder: Container(color: SeenlyPalette.accent),
-                )
-              else
-                Container(color: SeenlyPalette.accent),
-              // A soft dark wash over the poster so the title stays
-              // legible regardless of what's underneath it — same
-              // reasoning as the old DecorationImage colorFilter, just
-              // layered on top instead of baked into the image paint so
-              // it still applies while FadeInNetworkImage is still
-              // fading its own placeholder in.
-              Container(color: Colors.black.withOpacity(0.4)),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Align(
-                  alignment: Alignment.bottomLeft,
-                  child: Text(
-                    collection.displayTitle,
-                    style: SeenlyText.serif(italic: true, size: 19, color: SeenlyPalette.paper),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),
-    );
-  }
-}
-
-

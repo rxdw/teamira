@@ -158,7 +158,9 @@ class VibeChip extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                label,
+                // Preset tags are translated; a tag the person typed themselves
+                // is shown exactly as typed (`.tr` would lowercase it).
+                AppTranslations.ru.containsKey(label) ? label.tr : label,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -492,7 +494,9 @@ class AmbientNote extends StatelessWidget {
 /// assignment already works, rather than reshuffling every rebuild.
 String pickAmbientLine(String seed, List<String> lines, {int salt = 0}) {
   final r = math.Random(seed.hashCode ^ salt ^ 0x616D6269); // 'ambi'
-  return lines[r.nextInt(lines.length)];
+  // The lines are English source text; translate at the moment of showing so
+  // the same pool serves both languages.
+  return lines[r.nextInt(lines.length)].tr;
 }
 
 /// Shown when someone tries to back out of the seat/spot step — by the

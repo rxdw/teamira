@@ -104,7 +104,7 @@ class _GardenBoxState extends State<GardenBox> with SingleTickerProviderStateMix
                 Icon(Icons.touch_app, size: 12, color: SeenlyPalette.inkFaint),
                 const SizedBox(width: 5),
                 Text(
-                  isEmpty ? 'log one to plant the first seed' : 'walk the window box to see every one',
+                  isEmpty ? 'log one to plant the first seed'.tr : 'walk the window box to see every one'.tr,
                   style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                 ),
               ],

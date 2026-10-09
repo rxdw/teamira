@@ -174,7 +174,7 @@ class _GreetingSplashScreenState extends State<GreetingSplashScreen> {
                         delay: const Duration(milliseconds: 130),
                         riseBy: 20,
                         child: Text(
-                          hasTitle ? last!.displayTitle : 'your diary is waiting',
+                          hasTitle ? last!.displayTitle : 'your diary is waiting'.tr,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: SeenlyText.serif(

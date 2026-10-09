@@ -331,6 +331,7 @@ Future<void> showTogetherVerdictSheet(BuildContext context, MediaItem item) asyn
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (ctx) => Container(
       padding: const EdgeInsets.only(top: 12, bottom: 12),

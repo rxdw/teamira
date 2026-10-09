@@ -39,6 +39,7 @@ Future<bool> showReportSheet(
   final result = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => _ReportSheet(
       reportedUserId: reportedUserId,

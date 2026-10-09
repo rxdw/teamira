@@ -17,6 +17,7 @@ import '../../widgets/journey_real_map.dart';
 import 'journey_progress_screen.dart';
 import '../../services/app_translations.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -286,7 +287,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         return routes
             .map((r) => _JourneyOption(
                   title: r.destCity,
-                  detailFor: (m) => '${_fmtDuration(m)} on the rails',
+                  detailFor: (m) => LocaleService.pick('${_fmtDuration(m)} на рельсах', '${_fmtDuration(m)} on the rails'),
                   minutes: r.minutes,
                   matchKey: r.destCity,
                   destLat: r.destLat,
@@ -325,7 +326,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
         return closestLaunchSites(runtimeMinutes: widget.item.runtimeMinutes, mediaType: widget.item.mediaType)
             .map((s) => _JourneyOption(
                   title: s.name,
-                  detailFor: (m) => '${_fmtDuration(m)} to the pad · ${s.city}, ${s.country}',
+                  detailFor: (m) => LocaleService.pick('${_fmtDuration(m)} до площадки · ${s.city}, ${s.country}', '${_fmtDuration(m)} to the pad · ${s.city}, ${s.country}'),
                   minutes: s.minutes,
                   matchKey: s.name,
                   originLat: s.gateLat,
@@ -554,7 +555,7 @@ class _JourneySelectScreenState extends State<JourneySelectScreen> {
             icon: Icons.adjust,
             iconColor: SeenlyPalette.inkFaint,
             label: 'to'.tr,
-            value: _loadingOptions ? 'finding routes…' : (_current?.title ?? '—'),
+            value: _loadingOptions ? 'finding routes…'.tr : (_current?.title ?? '—'),
             detail: (!_loadingOptions && _current != null) ? _fmtDuration(_current!.minutes) : null,
             expanded: _panel == _Panel.to,
             onTap: _loadingOptions ? null : () => _togglePanel(_Panel.to),
@@ -785,8 +786,8 @@ class _GardenOriginRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = lastGarden != null
-        ? 'still just past the gates of $lastGarden'
-        : 'the gate is open — choose where to wander tonight';
+        ? LocaleService.pick('мы всё ещё у ворот: $lastGarden', 'still just past the gates of $lastGarden')
+        : 'the gate is open — choose where to wander tonight'.tr;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(

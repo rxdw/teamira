@@ -216,7 +216,7 @@ class _PassportPageOverlayState extends State<_PassportPageOverlay>
                           child: Text(
                             _selected == null
                                 ? "tonight's ${widget.mediaType}"
-                                : "there — save it for tonight",
+                                : "there — save it for tonight".tr,
                             key: ValueKey(_selected == null),
                             style: SeenlyText.mono(
                                 size: 10, color: SeenlyPalette.paper.withOpacity(0.68)),

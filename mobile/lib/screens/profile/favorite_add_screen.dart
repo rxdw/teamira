@@ -258,10 +258,10 @@ class _FavoriteAddScreenState extends State<FavoriteAddScreen> {
         return const Center(child: ThemedLoadingIndicator());
       }
       if (_searchController.text.trim().isEmpty) {
-        return _emptyMessage('type a movie title to search');
+        return _emptyMessage('type a movie title to search'.tr);
       }
       if (_results.isEmpty) {
-        return _emptyMessage('no movies found');
+        return _emptyMessage('no movies found'.tr);
       }
       return ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),

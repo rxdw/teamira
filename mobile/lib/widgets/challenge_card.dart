@@ -5,6 +5,7 @@ import '../services/app_translations.dart';
 import '../theme/palette.dart';
 import '../theme/text_styles.dart';
 import 'wow_motion.dart';
+import '../services/locale_service.dart';
 
 /// Maps a backend `icon_key` onto this app's icon set. Unknown keys fall
 /// back to a neutral star rather than throwing, so the backend can add a
@@ -254,19 +255,25 @@ class _FootNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = challenge;
+    // These lines splice numbers into a sentence, so word order differs by
+    // language and `.tr` on the finished string could never match — each
+    // language gets its own sentence instead.
+    final ru = LocaleService.appIsRussian;
     String text;
     if (c.claimable) {
-      text = 'готово — забери награду';
+      text = ru ? 'готово — забери награду' : 'ready — claim your reward';
     } else if (c.completed) {
-      text = 'выполнено';
+      text = ru ? 'выполнено' : 'done';
     } else if (c.isWeekly) {
       final d = c.daysLeft ?? 0;
       final left = d <= 0
-          ? 'последний день'
-          : (d == 1 ? 'остался день' : 'осталось $d ${nOnly('nDays', d)}');
-      text = 'ещё ${c.remaining} · $left';
+          ? (ru ? 'последний день' : 'last day')
+          : (d == 1
+              ? (ru ? 'остался день' : '1 day left')
+              : (ru ? 'осталось $d ${nOnly('nDays', d)}' : '$d ${nOnly('nDays', d)} left'));
+      text = ru ? 'ещё ${c.remaining} · $left' : '${c.remaining} to go · $left';
     } else {
-      text = 'ещё ${c.remaining} до конца года';
+      text = ru ? 'ещё ${c.remaining} до конца года' : '${c.remaining} to go this year';
     }
     return Text(
       text,
@@ -307,7 +314,7 @@ class _ClaimButton extends StatelessWidget {
                   ),
                 )
               : Text(
-                  'забрать',
+                  'забрать'.tr,
                   style: SeenlyText.serif(
                     size: 13,
                     italic: true,

@@ -26,7 +26,15 @@ validated at build time by gen-l10n); `.tr` remains supported for
 everything already written against it.
 
 Usage (from mobile/):
-    python3 tools/l10n/generate_compat_layer.py
+    python3 tools/l10n/generate_compat_layer.py          # regenerate in place
+    python3 tools/l10n/generate_compat_layer.py --check  # exit 1 if the checked-in
+                                                         # file isn't what the ARB
+                                                         # files generate (CI)
+
+`--check` exists because the checked-in file is easy to edit by hand "just
+this once" (a one-line translation added straight to app_translations.dart)
+and then silently diverges from the ARB files — which is exactly how 65
+translations ended up existing only in the generated file. It writes nothing.
 
 Regenerates lib/services/app_translations.dart in place. Run this after
 any edit to lib/l10n/app_en.arb or lib/l10n/app_ru.arb — the two files
@@ -37,6 +45,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]  # mobile/
@@ -503,6 +512,17 @@ String ruPluralForm(
 }}
 '''
 
+    if '--check' in sys.argv:
+        current = OUT.read_text(encoding='utf-8') if OUT.exists() else ''
+        if current != template:
+            raise SystemExit(
+                f"{OUT.relative_to(ROOT)} is out of date with lib/l10n/*.arb — "
+                "someone edited it by hand, or an ARB file changed without "
+                "regenerating. Put any hand-added strings into the ARB files, "
+                "then run: python3 tools/l10n/generate_compat_layer.py"
+            )
+        print("app_translations.dart is up to date with the ARB files.")
+        return
     OUT.write_text(template, encoding='utf-8')
     print(f"wrote {OUT} — {len(plain_keys)} plain strings, "
           f"{len(plural_keys)} plural families, {len(compound_keys)} compound message(s)")

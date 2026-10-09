@@ -37,6 +37,7 @@ import '../../widgets/share_card.dart';
 import '../../widgets/share_sheet.dart';
 import '../../widgets/decide_motion.dart' show SecondaryActionButton;
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 // This route's own verdict words — same shape VerdictRating expects
 // from the cinema flow (10 entries, low to high), just spoken the way
@@ -353,7 +354,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
       context,
       card: EveningShareCard(entry: entry, fallbackColor: SeenlyPalette.mediaColor(entry.mediaType)),
       fileName: 'seenly-${entry.id}',
-      shareText: 'watched "${entry.displayTitle}" — logged in seenly',
+      shareText: LocaleService.pick('посмотрено: «${entry.displayTitle}» — записано в seenly', 'watched "${entry.displayTitle}" — logged in seenly'),
       rewardKey: 'seenly-${entry.id}',
     );
   }
@@ -479,10 +480,10 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
           duration: const Duration(milliseconds: 200),
           child: Text(
             _selectedSeat == null
-                ? "tonight's ride"
+                ? "tonight's ride".tr
                 : _selectedIsWindow
-                    ? 'cozy — seat $_seatLabel, right by the window'
-                    : 'cozy — seat $_seatLabel is yours',
+                    ? LocaleService.pick('уютно — место $_seatLabel, прямо у окна', 'cozy — seat $_seatLabel, right by the window')
+                    : LocaleService.pick('уютно — место $_seatLabel ваше', 'cozy — seat $_seatLabel is yours'),
             key: ValueKey('$_selectedSeat-$_selectedIsWindow'),
             style: SeenlyText.mono(size: 11, color: SeenlyPalette.paper.withOpacity(0.68)),
           ),
@@ -599,7 +600,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                       value: _rating,
                       breathe: _breathe,
                       labels: _coachVerdictLabels,
-                      idleLabel: 'tap to rate the ride',
+                      idleLabel: 'tap to rate the ride'.tr,
                       onChanged: (v) => setState(() => _rating = v),
                     ),
                   ),
@@ -812,7 +813,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
                     const SizedBox(height: 4),
                     Text(
                       _favoriteCast.isEmpty
-                          ? 'pick up to 3 — totally optional'
+                          ? 'pick up to 3 — totally optional'.tr
                           : '${_favoriteCast.length}/3 picked',
                       style: SeenlyText.mono(size: 10.5, color: SeenlyPalette.inkFaint),
                     ),
@@ -1097,7 +1098,7 @@ class _CoachLogScreenState extends State<CoachLogScreen> with TickerProviderStat
   // words, so the confirm card echoes the exact one already chosen.
   String _verdictFor(int rating) {
     final idx = ((rating - 1) * _coachVerdictLabels.length / 10).floor().clamp(0, _coachVerdictLabels.length - 1);
-    return _coachVerdictLabels[idx];
+    return _coachVerdictLabels[idx].tr;
   }
 }
 

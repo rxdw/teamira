@@ -24,6 +24,7 @@ import 'garden_log_screen.dart';
 import 'shuttle_log_screen.dart';
 import '../../services/app_translations.dart';
 import '../../theme/clay_kit.dart';
+import '../../services/locale_service.dart';
 
 String _fmtDuration(int minutes) {
   final h = minutes ~/ 60;
@@ -204,13 +205,13 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                 return (parts.first, parts.length > 1 ? parts.last : parts.first);
               }()
             : ('opening', 'credits'),
-        LogTheme.garden => _hasRealMap ? ('main gate', widget.routeLabel) : ('planted', 'in bloom'),
+        LogTheme.garden => _hasRealMap ? ('main gate'.tr, widget.routeLabel) : ('planted', 'in bloom'.tr),
         LogTheme.shuttle => _hasRealMap
             ? () {
                 final parts = widget.routeLabel.split(' → ');
                 return (parts.first, parts.length > 1 ? parts.last : parts.first);
               }()
-            : ('the pad', 'orbit'),
+            : ('the pad'.tr, 'orbit'),
       };
 
   IconData get _markerIcon => switch (widget.theme) {
@@ -484,7 +485,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
   Widget _buildFullscreenMap(BuildContext context) {
     final (originLabel, destLabel) = _endpoints;
     final remaining = Duration(minutes: widget.routeMinutes) - _elapsed;
-    final remainingText = remaining.isNegative ? 'any moment now' : _fmtDuration(remaining.inMinutes);
+    final remainingText = remaining.isNegative ? 'any moment now'.tr : _fmtDuration(remaining.inMinutes);
     final mapStyle = context.watch<MapStyleService>();
 
     return Stack(
@@ -586,8 +587,8 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                 children: [
                   Text(
                       _isPaused
-                          ? 'paused — tap ▶ up top to keep going'
-                          : '${widget.item.title.display} is playing somewhere behind you',
+                          ? 'paused — tap ▶ up top to keep going'.tr
+                          : LocaleService.pick('${widget.item.title.display} идёт где-то у вас за спиной', '${widget.item.title.display} is playing somewhere behind you'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
@@ -653,7 +654,7 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
   Widget _buildCardLayout(BuildContext context) {
     final (originLabel, destLabel) = _endpoints;
     final remaining = Duration(minutes: widget.routeMinutes) - _elapsed;
-    final remainingText = remaining.isNegative ? 'any moment now' : _fmtDuration(remaining.inMinutes);
+    final remainingText = remaining.isNegative ? 'any moment now'.tr : _fmtDuration(remaining.inMinutes);
 
     return SafeArea(
         child: Column(
@@ -691,8 +692,8 @@ class _JourneyProgressScreenState extends State<JourneyProgressScreen> {
                   const SizedBox(height: 4),
                   Text(
                       _isPaused
-                          ? 'paused — tap ▶ to keep going'
-                          : '${widget.item.title.display} is playing somewhere behind you',
+                          ? 'paused — tap ▶ to keep going'.tr
+                          : LocaleService.pick('${widget.item.title.display} идёт где-то у вас за спиной', '${widget.item.title.display} is playing somewhere behind you'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint)),
@@ -987,7 +988,7 @@ class _JourneyPathPainter extends CustomPainter {
   final IconData markerIcon;
   final String originLabel;
   final String destLabel;
-  const _JourneyPathPainter({
+  _JourneyPathPainter({
     required this.progress,
     required this.accent,
     required this.trackColor,
