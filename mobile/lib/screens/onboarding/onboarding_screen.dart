@@ -2250,10 +2250,9 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
     final useShelf = card.tag == 'collections' && loader.shelfDeck.isNotEmpty;
     final useVersus = card.tag == 'together' && loader.togetherDeck.length >= 2;
     final useSwipe = card.tag == 'for you' && loader.forYouDeck.length >= 3;
+    final useDeck = card.tag == 'diary' && loader.primaryDeck.length >= 3;
 
-    // The tag/title/caption block every card ends with — pulled out so
-    // the diary card below can pin it to the card's bottom edge instead
-    // of leaving it wherever a centered Column happens to land it.
+    // The tag/title/caption block every card ends with.
     final caption = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -2274,33 +2273,6 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
       ],
     );
 
-    // The diary card's real logging-ritual recording (see
-    // _LoggingRitualDemo below) is the whole point of this specific
-    // card, so — unlike every other card here, which fits its art into
-    // a fixed 148pt box and centers the whole group in whatever room
-    // is left over — this one gives the video an Expanded slot that
-    // grows to fill however much vertical space this step's screen
-    // actually has, with the caption pinned directly underneath it
-    // rather than floating centered with empty space on both sides.
-    if (card.tag == 'diary') {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.045),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
-        ),
-        child: Column(
-          children: [
-            Expanded(child: Center(child: const _LoggingRitualDemo())),
-            const SizedBox(height: 14),
-            caption,
-          ],
-        ),
-      );
-    }
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 6),
       padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 16),
@@ -2319,8 +2291,7 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
             // together from one place rather than re-tuning each art
             // widget's own internal constants. Keeps every card reading
             // noticeably bigger and easier to actually see while
-            // swiping past. (The diary card no longer goes through this
-            // path — see the early return above.)
+            // swiping past.
             child: Transform.scale(
               scale: 1.12,
               child: useShelf
@@ -2329,7 +2300,12 @@ class _FeatureCardViewState extends State<_FeatureCardView> {
                       ? _VersusArt(a: loader.togetherDeck[0], b: loader.togetherDeck[1])
                       : useSwipe
                           ? _SwipeStackArt(posters: loader.forYouDeck)
-                          : Stack(alignment: Alignment.center, children: _artFor(card)),
+                          : useDeck
+                              ? _PosterDeckArt(
+                                  primary: loader.primaryDeck,
+                                  secondary: loader.secondaryDeck,
+                                )
+                              : Stack(alignment: Alignment.center, children: _artFor(card)),
             ),
           ),
           const SizedBox(height: 16),
@@ -3277,192 +3253,6 @@ class _FlowingDotState extends State<_FlowingDot> with SingleTickerProviderState
         width: 4,
         height: 4,
         decoration: BoxDecoration(shape: BoxShape.circle, color: widget.color.withOpacity(0.7)),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------
-// The "diary" card's hero — a real, muted, looping screen recording of
-// the actual logging ritual (rate the evening with hearts, note who it
-// was watched with, tear the ticket) standing in for the abstract
-// glow-and-orbit illustration this card used to lean on. It's the
-// literal payload behind "...with a little ritual to close it out." in
-// the copy just below it — showing the thing itself rather than
-// describing it, the same instinct every other live-data card in this
-// tour already follows with real poster art.
-//
-// Framed as a small floating screen rather than stretched to fill the
-// card, so the night sky behind every step — and this step's own
-// title and caption — stay exactly as visible as they are on every
-// other card; nothing here ever covers text or blacks out the
-// backdrop, and BoxFit.cover on a source that's already a 9:16 crop
-// means the footage is never cropped either — what's on screen in the
-// recording is what's visible here. The soft coral glow behind it
-// isn't an arbitrary accent: it's the same colour this card (see
-// _kFeatures above) and the real "ticket" ritual world (see _kWorlds)
-// already share, so it reads as "a screen lighting up in the dark,"
-// not a rectangle of video pasted onto the card.
-//
-// Rises gently into place the instant it mounts — fade, a short
-// upward slide, a small scale-in from a hair smaller than rest — the
-// same unhurried "arrives, doesn't snap" entrance every other live
-// element in this tour already uses (see _LiveDeckCard/_ShelfBook
-// above). While the bundled asset is still decoding it holds on the
-// same calm glow-and-orbit this card always showed (see _artFor's
-// 'diary' case), so there's never a blank gap to sit through — only a
-// short crossfade once the first frame is ready. Idles with a slow
-// independent bob once settled, matching the shared "nothing in this
-// flow sits dead still" rule.
-// ---------------------------------------------------------------------
-
-class _LoggingRitualDemo extends StatefulWidget {
-  const _LoggingRitualDemo();
-
-  @override
-  State<_LoggingRitualDemo> createState() => _LoggingRitualDemoState();
-}
-
-class _LoggingRitualDemoState extends State<_LoggingRitualDemo> with TickerProviderStateMixin {
-  late final VideoPlayerController _controller;
-  bool _ready = false;
-
-  // Separate from `_ready` — this is purely the mount entrance (fade +
-  // slide + scale), the same "paint closed once, then open" trick used
-  // throughout this file (see _LiveDeckCard/_ShelfBook above), so
-  // there's an actual transition to animate rather than the screen
-  // just appearing already in place.
-  bool _show = false;
-
-  late final AnimationController _idle = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 3400),
-  )..repeat(reverse: true);
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.asset('assets/onboarding/logging_demo.mp4')
-      ..setLooping(true)
-      ..setVolume(0)
-      ..initialize().then((_) {
-        if (!mounted) return;
-        setState(() => _ready = true);
-        _controller.play();
-      });
-    // A post-frame callback, same reasoning as every other "paint
-    // closed, then open" entrance in this file — the very first frame
-    // has to render in the pre-entrance state or there's nothing for
-    // the implicit animations below to actually animate away from.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _show = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _idle.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final showVideo = _ready && _controller.value.size.width > 0;
-    return AnimatedOpacity(
-      opacity: _show ? 1 : 0,
-      duration: const Duration(milliseconds: 460),
-      curve: Curves.easeOutCubic,
-      child: AnimatedSlide(
-        offset: _show ? Offset.zero : const Offset(0, 0.30),
-        duration: const Duration(milliseconds: 460),
-        curve: Curves.easeOutCubic,
-        child: AnimatedScale(
-          scale: _show ? 1 : 0.88,
-          duration: const Duration(milliseconds: 460),
-          curve: Curves.easeOutCubic,
-          child: AnimatedBuilder(
-            animation: _idle,
-            builder: (context, child) {
-              final t = Curves.easeInOut.transform(_idle.value);
-              // A slow single-pixel-scale breathing lift rather than a
-              // real bob offset — the screen is framed tightly enough
-              // (see the glow/shadow below) that a visible vertical
-              // drift would start clipping its own glow at the edges.
-              return Transform.translate(offset: Offset(0, -t * 3), child: child);
-            },
-            child: AspectRatio(
-              // No fixed width/height here anymore — this card now gives
-              // the recording an Expanded slot (see _FeatureCardViewState
-              // above) instead of the fixed art-height box every other
-              // card still uses, so the biggest 9:16 rectangle that fits
-              // whatever room that leaves is exactly what AspectRatio
-              // computes for itself; hardcoding a size here would just
-              // fight it.
-              aspectRatio: 9 / 16,
-              child: DecoratedBox(
-                // The "frame" itself: a warm paper mat around the
-                // recording rather than the video's bare rounded corners
-                // sitting straight on the night sky. Same paper tone
-                // every card's own title already sits on (_onboardingPaper),
-                // so this reads as this app's own material — a print in
-                // a mat, not a video player's chrome — with the coral
-                // glow underneath doing the same "this card, this world"
-                // job it always did.
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(26),
-                  color: _onboardingPaper.withOpacity(0.94),
-                  boxShadow: [
-                    BoxShadow(color: SeenlyPalette.coral.withOpacity(0.34), blurRadius: 34, spreadRadius: -6),
-                    BoxShadow(color: Colors.black.withOpacity(0.32), blurRadius: 20, offset: const Offset(0, 12)),
-                  ],
-                ),
-                child: Padding(
-                  // The mat's own width — kept thin enough that the
-                  // recording still reads as the big, obvious thing on
-                  // this card, not a small window inside a picture frame.
-                  padding: const EdgeInsets.all(8),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Container(
-                      // A hairline of shadow between mat and recording —
-                      // the same quiet inset a real print gets pressed
-                      // into its mat — rather than the video's edge
-                      // sitting flush with no separation at all.
-                      decoration: BoxDecoration(border: Border.all(color: Colors.black.withOpacity(0.12), width: 1)),
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 380),
-                        child: showVideo
-                            ? SizedBox.expand(
-                                key: const ValueKey('playing'),
-                                child: FittedBox(
-                                  fit: BoxFit.cover,
-                                  child: SizedBox(
-                                    width: _controller.value.size.width,
-                                    height: _controller.value.size.height,
-                                    child: VideoPlayer(_controller),
-                                  ),
-                                ),
-                              )
-                            : ColoredBox(
-                                key: const ValueKey('loading'),
-                                color: _OnboardingScreenState._nightColor,
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    _GlowOrb(size: 70, color: SeenlyPalette.coral),
-                                    const _OrbitSpark(radius: 34, color: _onboardingPaper, duration: Duration(seconds: 5)),
-                                  ],
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
