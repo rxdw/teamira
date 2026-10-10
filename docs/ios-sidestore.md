@@ -36,6 +36,10 @@ python3 mobile/tools/ios/make_altstore_source.py Seenly-0.1.0-3.ipa \
 
 Тесты скрипта: `cd mobile && python3 -m unittest discover -s tools/ios`.
 
+## Ошибка «requires a selected Development Team» в Codemagic
+
+Сборка проходит («Xcode build done»), а потом падает с «Building a deployable iOS app requires a selected Development Team with a Provisioning Profile». Это не ошибка кода: Codemagic собирает под устройство как для App Store и требует подпись, а для SideStore она не нужна (приложение подписывает сам SideStore). Решение — собирать с флагом `--no-codesign` и упаковывать `.ipa` вручную; готовый workflow лежит в `codemagic.yaml` в корне репозитория (подключается в настройках приложения: способ настройки «codemagic.yaml»). В нём уже стоит адрес домашнего сервера `http://192.168.1.33:8000` (работает только в вашей Wi-Fi сети); когда бэкенд переедет на домен, замените `SEENLY_API_BASE_URL`.
+
 ## Ограничения бесплатного Apple ID
 
 - не больше трёх активных приложений;

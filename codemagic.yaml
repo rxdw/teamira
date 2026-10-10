@@ -1,0 +1,53 @@
+# Codemagic: неподписанный .ipa для SideStore.
+#
+# SideStore подписывает приложение сам (вашим Apple ID), поэтому Codemagic'у
+# подпись не нужна и не должна требоваться. Ошибка
+#   "Building a deployable iOS app requires a selected Development Team..."
+# появляется, когда сборка идёт командой `flutter build ios --release`
+# БЕЗ флага --no-codesign. Здесь флаг стоит, а .ipa собирается вручную из
+# Runner.app (это обычный zip с папкой Payload).
+#
+# Как подключить: Codemagic -> ваше приложение -> Settings -> смените способ
+# настройки на "codemagic.yaml" и выберите этот workflow. Файл должен лежать
+# в корне репозитория (рядом с папками backend/ и mobile/) в нужной ветке.
+
+workflows:
+  ios-sidestore:
+    name: iOS .ipa без подписи (SideStore)
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        # Адрес бэкенда без "/" в конце. Сейчас это домашний сервер
+        # (тот же, что PUBLIC_API_BASE_URL в backend/.env): работает, пока
+        # телефон в той же Wi-Fi сети, что и компьютер с запущенным
+        # docker compose. iOS пропускает его по http, потому что в
+        # mobile/ios/Runner/Info.plist для 192.168.1.33 есть исключение ATS.
+        # Когда бэкенд переедет на домен, замените на https://ваш-домен.
+        SEENLY_API_BASE_URL: "http://192.168.1.33:8000"
+        # Метка для аналитики (в --build-name её подставлять нельзя).
+        SEENLY_APP_VERSION: "0.1.0"
+    scripts:
+      - name: Flutter packages
+        working_directory: mobile
+        script: flutter pub get
+      - name: Сборка iOS без подписи
+        working_directory: mobile
+        script: |
+          flutter build ios --release --no-codesign \
+            --dart-define=SEENLY_API_BASE_URL=$SEENLY_API_BASE_URL \
+            --dart-define=SEENLY_APP_VERSION=$SEENLY_APP_VERSION \
+            --build-number=$BUILD_NUMBER
+      - name: Упаковать .ipa
+        working_directory: mobile
+        script: |
+          rm -rf Payload
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry "Seenly-$SEENLY_APP_VERSION-$BUILD_NUMBER.ipa" Payload
+          ls -la *.ipa
+    artifacts:
+      - mobile/*.ipa
