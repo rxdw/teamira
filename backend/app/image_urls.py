@@ -99,10 +99,32 @@ def _proxied(url: str) -> str:
 
 _TMDB_IMAGE_HOST = "image.tmdb.org"
 
+# Google Books covers (books.google.com/books/content?id=...). The browser
+# (Flutter web loads Image.network through XHR) rejects them with a CORS
+# error because Google sends no Access-Control-Allow-Origin for these, so
+# they have to go through /media/image-proxy like TMDB posters do. Native
+# apps aren't affected by CORS, but proxying is harmless there too.
+_GOOGLE_BOOKS_HOSTS = {"books.google.com", "books.googleusercontent.com"}
+
+
+def _is_proxiable_source(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme != "https":
+        return False
+    if parsed.netloc == _TMDB_IMAGE_HOST:
+        return True
+    if parsed.netloc == "books.google.com":
+        return parsed.path.startswith("/books/content")
+    return parsed.netloc in _GOOGLE_BOOKS_HOSTS
+
 
 def _tmdb_source_url(value: str) -> Optional[str]:
-    """If `value` is a *legacy* baked-in reference to a TMDB image, returns
-    the plain `https://image.tmdb.org/...` URL underneath it; otherwise None.
+    """If `value` is a *legacy* baked-in reference to a proxiable image
+    (TMDB, or a Google Books cover), returns the plain upstream URL
+    underneath it; otherwise None.
 
     Two shapes get baked into old rows (diary/watchlist/lists, the forever
     caches and the daily feed snapshots written before bare paths were
@@ -118,24 +140,24 @@ def _tmdb_source_url(value: str) -> Optional[str]:
          week, after which the proxy refuses it).
 
     Both are unwrapped here so they can be re-issued against the *current*
-    setting, exactly like a freshly stored bare path. Anything that isn't
-    TMDB's own (IGDB/Open Library/YouTube covers, user uploads) returns None
-    and is left alone."""
+    setting, exactly like a freshly stored bare path. Anything else
+    (IGDB/Open Library/YouTube covers, user uploads) returns None and is
+    left alone.
+
+    Old Google Books rows may hold an http:// link; it is upgraded to
+    https:// here, since the proxy only fetches https."""
+    if value.startswith("http://books.google.com/books/content"):
+        value = "https://" + value[len("http://"):]
+    if _is_proxiable_source(value):
+        return value
     try:
         parsed = urlparse(value)
     except ValueError:
         return None
-    if parsed.scheme == "https" and parsed.netloc == _TMDB_IMAGE_HOST:
-        return value
     if parsed.path.endswith("/media/image-proxy"):
         inner = parse_qs(parsed.query).get("url", [""])[0]
-        if inner:
-            try:
-                inner_parsed = urlparse(inner)
-            except ValueError:
-                return None
-            if inner_parsed.scheme == "https" and inner_parsed.netloc == _TMDB_IMAGE_HOST:
-                return inner
+        if inner and _is_proxiable_source(inner):
+            return inner
     return None
 
 

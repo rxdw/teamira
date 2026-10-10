@@ -331,7 +331,9 @@ class _IntegrationsScreenState extends State<IntegrationsScreen> {
 /// means, so someone can tell at a glance whether it's worth the two
 /// minutes before they hit the technical steps in the cards below.
 class _HowItWorksStrip extends StatelessWidget {
-  static const _steps = [
+  // Getter, not a const/final field: `.tr` is a runtime lookup, so the list
+  // has to be rebuilt per access to follow the current language.
+  static List<(String, String, String)> get _steps => [
     ('1', 'pick what you use'.tr, 'a media server, Kodi, or just a normal browser — see below'.tr),
     ('2', 'paste one link (and maybe a code)'.tr, "it's already filled in for you — just copy and paste".tr),
     ('3', 'watch things like normal'.tr, "finishing something logs it here automatically from then on".tr),

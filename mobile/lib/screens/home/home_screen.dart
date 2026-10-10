@@ -476,15 +476,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final freshEntries = data.diary.take(6).toList();
         final today = DateTime.now();
         final onThisDay = _onThisDayMatches(data.diary, today);
-        final watchCollections = data.collections
-            .where((c) => c.items.isNotEmpty && c.items.first.mediaType != 'game')
-            .toList();
-        final gameCollections = data.collections
-            .where((c) => c.items.isNotEmpty && c.items.first.mediaType == 'game')
-            .toList();
-        final pickedCollection = watchCollections.isNotEmpty ? watchCollections.first : null;
-        final pickedGameCollection = gameCollections.isNotEmpty ? gameCollections.first : null;
-
         // What's actually playing right now, for the "watching now" strip
         // above ask teamira — same two sources, combined the same way, as
         // ProfileScreen's own "watching now" tab (see profile_screen.dart):
@@ -498,14 +489,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             .where((e) => !watchingNowJourneyKeys.contains('${e.source}:${e.mediaId}'))
             .toList();
 
-        // Everything the two "tonight" banners above didn't use, flattened
-        // into one deduplicated list — this is the vertical feed below,
-        // deliberately not another horizontal shelf (Collections already
-        // browses by category; Home just needs a few honest suggestions).
-        final usedCollections = {
-          if (pickedCollection != null) pickedCollection,
-          if (pickedGameCollection != null) pickedGameCollection,
-        };
+        // The vertical "more for tonight" feed below: every collection
+        // flattened into one deduplicated list — deliberately not another
+        // horizontal shelf (Collections already browses by category; Home
+        // just needs a few honest suggestions).
         // Round-robins one item at a time across every remaining shelf
         // (movies, series, anime, genre shelves, ...) instead of draining
         // the first shelf entirely before touching the next. Previously
@@ -518,7 +505,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         final feedItems = <MediaItem>[];
         final seenKeys = <String>{};
         final pools = data.collections
-            .where((c) => !usedCollections.contains(c))
             .map((c) => List<MediaItem>.from(c.items))
             .where((p) => p.isNotEmpty)
             .toList();
@@ -1070,46 +1056,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         ),
                       ],
                       ),
-                    ),
-                  ),
-                ),
-              if (pickedCollection != null)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                  sliver: SliverToBoxAdapter(
-                    child: ScrollReveal(
-                      delay: nextStagger(),
-                      child: pickedGameCollection != null
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _TonightBanner(
-                                    label: 'picked for tonight'.tr,
-                                    collection: pickedCollection,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: _TonightBanner(
-                                    label: 'game of the evening'.tr,
-                                    collection: pickedGameCollection,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : _TonightBanner(
-                              label: 'picked for tonight'.tr, collection: pickedCollection),
-                    ),
-                  ),
-                )
-              else if (data.collectionsFailed)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
-                  sliver: SliverToBoxAdapter(
-                    child: Text(
-                      "couldn't reach the catalog for tonight's pick — the rest of your diary loaded fine".tr,
-                      style: SeenlyText.mono(size: 10, color: SeenlyPalette.inkFaint),
                     ),
                   ),
                 ),
@@ -2757,81 +2703,6 @@ class _NewReleaseTile extends StatelessWidget {
                         color: item.isOut ? SeenlyPalette.accentOnAccent : SeenlyPalette.paperOnDark,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TonightBanner extends StatelessWidget {
-  final String label;
-  final SeenlyCollection collection;
-  const _TonightBanner({required this.label, required this.collection});
-
-  @override
-  Widget build(BuildContext context) {
-    final firstItem = collection.items.first;
-    final heroTag = _homePosterHeroTag('tonight', firstItem.source, firstItem.id);
-    return PressScale(
-      scaleTo: 0.97,
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TitleDetailScreen(
-            mediaId: firstItem.id,
-            source: firstItem.source,
-            mediaType: firstItem.mediaType,
-            seedTitle: firstItem.title.display,
-            seedPosterUrl: firstItem.posterUrl,
-            heroTag: heroTag,
-          ),
-        ),
-      ),
-      child: Container(
-        height: 150,
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: SeenlyPalette.accent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        // Used to be a single DecorationImage (with its darkening
-        // colorFilter) on the Container itself — but a Hero needs an
-        // actual Image *widget* to fly, not a decoration, so the tinted
-        // poster and the text now sit in their own Stack layers instead.
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (firstItem.posterUrl != null)
-              Hero(
-                tag: heroTag,
-                child: Image.network(
-                  firstItem.posterUrl!,
-                  fit: BoxFit.cover,
-                  color: Colors.black.withOpacity(0.35),
-                  colorBlendMode: BlendMode.darken,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(label,
-                        style: SeenlyText.mono(size: 9, color: SeenlyPalette.accentOnAccent)),
-                    const SizedBox(height: 4),
-                    Text(collection.displayTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: SeenlyText.serif(
-                            italic: true, size: 15, color: SeenlyPalette.paper)),
                   ],
                 ),
               ),

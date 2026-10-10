@@ -125,6 +125,29 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
     },
   };
 
+  // On the "anime" tab, a general *series* shelf (TMDB's weekly trending
+  // list, top-rated, premieres, ...) filtered down to anime survives as a
+  // second, tiny shelf — e.g. "Популярные сериалы недели" with just the 4
+  // anime that happen to be in that week's overall TV chart, sitting next
+  // to the real "Популярное аниме недели" shelf. Those anime ARE genuinely
+  // trending, so rather than hiding them they're folded into the matching
+  // dedicated anime shelf: same title, so the merge step below combines
+  // them (deduped by id, the trending ones first).
+  static const Map<String, String> _animeShelfAliasRu = {
+    'Лучшие сериалы': 'Лучшее аниме',
+    'Лучшие сериалы этого года': 'Лучшее аниме этого года',
+    'Премьеры сериалов': 'Премьеры аниме',
+    'Скоро: сериалы': 'Скоро: аниме',
+    'Популярные сериалы недели': 'Популярное аниме недели',
+  };
+  static const Map<String, String> _animeShelfAliasEn = {
+    'Top Series': 'Top Anime',
+    'Top Series This Year': 'Top Anime This Year',
+    'New Series Premieres': 'New Anime Premieres',
+    'Coming Soon: Series': 'Coming Soon: Anime',
+    'Popular Series This Week': 'Popular Anime This Week',
+  };
+
   /// Looks up the tab-aware short title for [title] under [filter];
   /// returns [title] unchanged when nothing in the table matches (the
   /// common case — most shelf names never repeated the type at all).
@@ -425,11 +448,18 @@ class _CollectionsScreenState extends State<CollectionsScreen> {
                 final onlyThisType =
                     c.items.where((it) => it.mediaType == _filter).toList();
                 if (onlyThisType.length < minShelfSize) continue;
+                final isAnimeTab = _filter == 'anime';
+                final ruTitle =
+                    isAnimeTab ? (_animeShelfAliasRu[c.title] ?? c.title) : c.title;
+                final enTitle = c.titleEn == null
+                    ? null
+                    : (isAnimeTab
+                        ? (_animeShelfAliasEn[c.titleEn!] ?? c.titleEn!)
+                        : c.titleEn!);
                 collections.add(SeenlyCollection(
-                  title: _shortTitle(_filter, c.title, en: false),
-                  titleEn: c.titleEn == null
-                      ? null
-                      : _shortTitle(_filter, c.titleEn!, en: true),
+                  title: _shortTitle(_filter, ruTitle, en: false),
+                  titleEn:
+                      enTitle == null ? null : _shortTitle(_filter, enTitle, en: true),
                   items: onlyThisType,
                   isFranchise: c.isFranchise,
                   description: c.description,

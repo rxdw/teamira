@@ -1263,26 +1263,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yourStandingDiscountApplied => 'your standing discount applied';
 
   @override
-  String get yourPartnerTier => 'your partner tier';
-
-  @override
-  String get youHaveStanding => 'you have a standing';
-
-  @override
-  String get discountOwnPremiumAppliedAutomaticallyNo =>
-      'discount on your own premium — applied automatically, no code needed';
-
-  @override
-  String get keepInvitingOwnPermanentDiscountUnlocks =>
-      'keep inviting — your own permanent discount unlocks at';
-
-  @override
-  String get confirmedInvites => 'confirmed invites';
-
-  @override
-  String get nextTier => 'next tier';
-
-  @override
   String get justHandfulNotEverythingVeEver =>
       'just a handful — not everything you\'ve ever watched, that part ';
 
@@ -3208,6 +3188,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get watchingNow => 'watching now';
 
   @override
+  String get newEpisodesHome => 'new episodes';
+
+  @override
+  String get releaseCalendarHome => 'release calendar';
+
+  @override
+  String get justOutBadge => 'just out';
+
+  @override
+  String get nextUpRelease => 'next up';
+
+  @override
   String get withLabel => 'with';
 
   @override
@@ -4705,6 +4697,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String nReleases(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count releases',
+      one: '$count release',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String nFriends(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -4892,14 +4895,14 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String friendsJoinedWithCode(int count, int points) {
+  String friendsJoinedWithCode(int count, int xp) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
       other: '$count friends have joined with your code',
       one: '$count friend has joined with your code',
     );
-    return '$_temp0 — +$points so far';
+    return '$_temp0 — +$xp so far';
   }
 
   @override
@@ -5234,4 +5237,3093 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get email => 'email';
+
+  @override
+  String get timeBudget40Min => '40 min';
+
+  @override
+  String get timeBudgetHour => '1 hour';
+
+  @override
+  String get timeBudgetHourAndHalf => '1½ hours';
+
+  @override
+  String get timeBudgetWholeEvening => 'all evening';
+
+  @override
+  String get timeBannerGotItYouHave => 'got it — you have';
+
+  @override
+  String get timeBannerYouHave => 'you have';
+
+  @override
+  String get timeShapeEpisodeOrTwo => 'enough for an episode or two';
+
+  @override
+  String get timeShapeWholeFilm => 'enough for a whole film';
+
+  @override
+  String get timeShapeEpisodeOrShortFilm => 'an episode or a short film';
+
+  @override
+  String get timeRelaxedNothingThatShort =>
+      'nothing that short turned up — showing the best there is';
+
+  @override
+  String get taneIsThinking => 'tanè is thinking';
+
+  @override
+  String get taneThinkReadingWhatYouWrote => 'reading what you wrote';
+
+  @override
+  String get taneThinkCatchingTheMood => 'catching the mood';
+
+  @override
+  String get taneThinkThinkingItOver => 'thinking it over';
+
+  @override
+  String get taneThinkHmmLetMeThink => 'hmm, let me think';
+
+  @override
+  String get taneThinkGardenInBloom => 'looking for what\'s in bloom';
+
+  @override
+  String get taneThinkCoachTimetable => 'checking the timetable';
+
+  @override
+  String get taneThinkTicketTearOff => 'tearing off the right ticket';
+
+  @override
+  String get taneThinkShuttleOrbit => 'scanning the orbit';
+
+  @override
+  String get taneThinkCountingMinutes => 'counting the minutes';
+
+  @override
+  String get taneThinkCheckingRuntimes => 'checking runtimes';
+
+  @override
+  String get taneThinkWeighingCandidates => 'weighing the candidates';
+
+  @override
+  String get taneThinkPickingBestFew => 'picking the best few';
+
+  @override
+  String get taneThinkStillLooking => 'still looking';
+
+  @override
+  String get taneThinkGoodOnesTakeAMoment => 'good ones take a moment';
+
+  @override
+  String get taneThinkHereYouGo => 'here you go';
+
+  @override
+  String get planWhen => 'when?';
+
+  @override
+  String get planGetYourTicket => 'get your ticket';
+
+  @override
+  String get planNoExactTime => 'no exact time — tap to pick one';
+
+  @override
+  String get planCodesAre6Characters => 'codes are 6 characters';
+
+  @override
+  String get inviteAction => 'invite';
+
+  @override
+  String get togetherGatheringCards => 'gathering cards…';
+
+  @override
+  String get togetherSettingUpSession => 'setting up a session…';
+
+  @override
+  String get togetherItsAMatch => 'it\'s a match!';
+
+  @override
+  String get togetherPartnerIsHere => 'is here';
+
+  @override
+  String get togetherLetsSwipe => 'let\'s swipe together';
+
+  @override
+  String get voteYouBothSaidYes => 'you both said yes';
+
+  @override
+  String get voteEveryoneSaidYes => 'everyone said yes';
+
+  @override
+  String get voteYouBothSaidYesPlanned =>
+      'you both said yes — it\'s on your planned together list now.';
+
+  @override
+  String get voteEveryoneSaidYesPlanned =>
+      'everyone said yes — it\'s on your planned together list now.';
+
+  @override
+  String get importErrorMatch =>
+      'couldn\'t match those just now — try again in a moment';
+
+  @override
+  String get importErrorSave => 'couldn\'t save those just now — try again';
+
+  @override
+  String get importReadingList => 'reading your list';
+
+  @override
+  String get importMatchingEach => 'matching each title';
+
+  @override
+  String get importSortingShelves => 'sorting them onto the right shelves';
+
+  @override
+  String get importBigLists => 'big lists take a moment';
+
+  @override
+  String get importStillMatching => 'still matching';
+
+  @override
+  String get anonymousUsageStatistics => 'anonymous usage statistics';
+
+  @override
+  String get anonymousUsageStatisticsHint =>
+      'helps us see which screens get used and which ones confuse people. only what happened is sent — never titles, notes, what you search for, or anything you type. turning it off also forgets this device.';
+
+  @override
+  String get rouletteReadyWhenYouAre => 'ready when you are';
+
+  @override
+  String get savedInYourDiary => 'in your diary';
+
+  @override
+  String get savedLoggedTogether => 'logged together';
+
+  @override
+  String get savedOnYourList => 'on your list';
+
+  @override
+  String get savedPlannedTogether => 'planned together';
+
+  @override
+  String get couldntAcceptJustNow =>
+      'couldn\'t accept that just now — try again';
+
+  @override
+  String get searchStartTyping =>
+      'or start typing to look through tanè\'s catalog';
+
+  @override
+  String get searchNothingInCatalog =>
+      'nothing turned up for that in the catalog itself';
+
+  @override
+  String get threeMonths => 'three months';
+
+  @override
+  String get restorePurchases => 'restore purchases';
+
+  @override
+  String get privacyPolicy => 'privacy policy';
+
+  @override
+  String get startYourFreeTrial => 'start your free trial';
+
+  @override
+  String get freeDaysChip => 'free days';
+
+  @override
+  String get unlimitedAsksEveryNight => 'unlimited asks, every night';
+
+  @override
+  String get unlimitedAsksTogether => 'unlimited asks, together';
+
+  @override
+  String get unlimitedAsksFromDayOne => 'unlimited asks, from day one';
+
+  @override
+  String get unlimitedAsksTogetherFromDayOne =>
+      'unlimited asks, together, from day one';
+
+  @override
+  String get yourFreeTrialStarted => 'your free trial has started';
+
+  @override
+  String get trialDaysNoCardCancelAnytime =>
+      'days · no card needed · cancel anytime';
+
+  @override
+  String get thenPlanAboveNoCardNow =>
+      'for the plan above · no card needed now';
+
+  @override
+  String get premiumRestored => 'premium restored';
+
+  @override
+  String get youreAlreadyAllSet => 'you\'re already all set';
+
+  @override
+  String get nothingToRestore => 'nothing to restore on this account';
+
+  @override
+  String get couldntCheckRightNow =>
+      'couldn\'t check right now — try again in a moment';
+
+  @override
+  String get trailerOnYourPlan => 'on your plan';
+
+  @override
+  String get peopleSimilarTaste => 'people with a similar taste';
+
+  @override
+  String get basedWhatJustPickedSayHi =>
+      'based on what you just picked — say hi now, or find them later on the friends screen.';
+
+  @override
+  String get notEnoughGoYetPickFavorite =>
+      'not enough to go on yet — pick a favorite or two above, or check the friends screen again later';
+
+  @override
+  String get eveningsWatchedTogether => 'evenings watched together';
+
+  @override
+  String get challengesCollected => 'challenges collected';
+
+  @override
+  String get cardsShared => 'cards shared';
+
+  @override
+  String get collected => 'collected';
+
+  @override
+  String get sharedCount => 'shared';
+
+  @override
+  String get cardShareXpHint =>
+      'a card earns xp the first time it\'s shared — and only a couple of cards a day count';
+
+  @override
+  String get poolQueuedTitle => 'what you each queued';
+
+  @override
+  String get poolQueuedBlurb =>
+      'the titles on each of your plan-to-watch shelves';
+
+  @override
+  String get poolAgreedTitle => 'already agreed together';
+
+  @override
+  String get poolAgreedBlurb => 'what\'s already on your shared list';
+
+  @override
+  String get poolBothTitle => 'both of those';
+
+  @override
+  String get poolBothBlurb => 'your shelves and your shared list, together';
+
+  @override
+  String get poolCatalogTitle => 'everything';
+
+  @override
+  String get poolCatalogBlurb =>
+      'the whole catalog — even what nobody\'s queued yet';
+
+  @override
+  String get addAStatus => 'add a status';
+
+  @override
+  String get reached => 'reached';
+
+  @override
+  String get badgeUnlocked => 'badge unlocked';
+
+  @override
+  String get unlocksABadge => 'unlocks a badge';
+
+  @override
+  String get ratingShownAsLocked => 'rating shown as locked?';
+
+  @override
+  String get ratingHiddenExplainer =>
+      'Your partner already rated it, but that rating stays hidden from you until you rate it too — so their opinion never colors yours. Curious sooner? Tap the lock to reveal it early for a few sincerity points.';
+
+  @override
+  String get youReLinkedGoUnlimitedTogether =>
+      'you\'re linked — go unlimited together';
+
+  @override
+  String get sharedWatchListNoLimitForBoth =>
+      'when one of you has premium, your shared watch list has no limit — for both of you';
+
+  @override
+  String get trialFreePeriod => 'free period';
+
+  @override
+  String get trialHoursLeft => 'h left';
+
+  @override
+  String get trialDaysLeft => 'd left';
+
+  @override
+  String get trialLessThanHourLeft => 'less than an hour left';
+
+  @override
+  String get trialBringUnlimitedBack =>
+      'bring unlimited back whenever you like';
+
+  @override
+  String get trialKeepUnlimited => 'keep everything unlimited';
+
+  @override
+  String get trialEnded => 'your free period has ended';
+
+  @override
+  String get trialAlmostOver => 'your free period is almost over';
+
+  @override
+  String get trialEndedSub =>
+      'your entries and lists are safe — only the limits are back. bring unlimited back whenever you like';
+
+  @override
+  String get trialAlmostOverSub =>
+      'no card was linked, so nothing is charged on its own — pick a plan to keep everything unlimited';
+
+  @override
+  String get trialNoCardNoCharge =>
+      'no card is linked — nothing is charged by itself';
+
+  @override
+  String get trialBackOnFree => 'back on the free plan';
+
+  @override
+  String get trialWhenItEnds => 'when it ends, you\'re on the free plan';
+
+  @override
+  String get trialLimitAsks => 'Teamira questions a month';
+
+  @override
+  String get trialLimitFavorites => 'favorite titles kept on the free plan';
+
+  @override
+  String get trialLimitLists => 'custom lists';
+
+  @override
+  String get trialEntriesStay =>
+      'your entries, ratings and lists stay exactly as they are';
+
+  @override
+  String get trialThingsDone => 'things you did during the free period';
+
+  @override
+  String get trialSettingsOn => 'free period is on';
+
+  @override
+  String get trialSettingsTap => 'tap to keep unlimited after it ends';
+
+  @override
+  String get familyUnlimitedNow =>
+      'your whole circle is unlimited now — enjoy watching together';
+
+  @override
+  String get switchToThisPlanFor => 'switch to this plan for';
+
+  @override
+  String get familyHeroSubtitle =>
+      'one plan for up to four of you — a shared evening with no limits for anyone';
+
+  @override
+  String get familyAndFriends => 'family & friends';
+
+  @override
+  String get familySubtitle => 'up to four of you, one plan';
+
+  @override
+  String get upToFourBadge => 'up to 4';
+
+  @override
+  String get planCoversTwo => 'your plan covers two';
+
+  @override
+  String get planCoversFour => 'your plan covers four';
+
+  @override
+  String get coupleOutgrownMessage =>
+      'add a third person and the couple plan stops covering the other one — the family plan covers up to four';
+
+  @override
+  String get familyOutgrownMessage =>
+      'add another person and the family plan stops covering the others — until someone leaves, only you keep premium';
+
+  @override
+  String get seeFamilyPlan => 'see the family plan';
+
+  @override
+  String get keepCircleAsIs => 'keep the circle as it is';
+
+  @override
+  String get addAnyway => 'add anyway';
+
+  @override
+  String get yourSubscription => 'your subscription';
+
+  @override
+  String get welcomeBackOffer => 'welcome back offer';
+
+  @override
+  String get yourEntriesSafe => 'your entries are safe';
+
+  @override
+  String get pausedSeeSoon => 'paused — see you soon';
+
+  @override
+  String get subscriptionCancelled => 'subscription cancelled';
+
+  @override
+  String get welcomeBackYoursAgain => 'welcome back — it is yours again';
+
+  @override
+  String get premiumBack => 'premium is back';
+
+  @override
+  String get resumeNow => 'resume now';
+
+  @override
+  String get theUnusedDaysBreakComeBack =>
+      'the unused days of the break come back to you, nothing is lost';
+
+  @override
+  String get cancelSubscription => 'cancel subscription';
+
+  @override
+  String get onCouplePlanPartnerSSeat =>
+      'on a couple plan your partner’s seat follows yours';
+
+  @override
+  String get onFamilyPlanOtherSeatsFollow =>
+      'on a family plan the other seats follow yours';
+
+  @override
+  String get theOtherSeatsEndTogetherYours =>
+      'the other seats end together with yours';
+
+  @override
+  String get onBreak => 'on a break';
+
+  @override
+  String get back3 => 'back on';
+
+  @override
+  String get cancelled => 'cancelled';
+
+  @override
+  String get premiumWorksUntil => 'premium works until';
+
+  @override
+  String get renews => 'renews on';
+
+  @override
+  String get needBreather => 'need a breather?';
+
+  @override
+  String get freeze => 'freeze it for';
+
+  @override
+  String get noPaymentTimeComesBackBy =>
+      'no payment for that time, it comes back by itself';
+
+  @override
+  String get pauseMonth => 'pause for a month';
+
+  @override
+  String get changedMind => 'changed your mind?';
+
+  @override
+  String get keepSubscriptionNothingChargedNow =>
+      'keep the subscription — nothing is charged now';
+
+  @override
+  String get keepMySubscription => 'keep my subscription';
+
+  @override
+  String get beforeGo => 'before you go';
+
+  @override
+  String get premiumKeepsWorkingUntilEndPeriod =>
+      'premium keeps working until the end of the period you paid for';
+
+  @override
+  String get whatMadeDecideOptional => 'what made you decide? (optional)';
+
+  @override
+  String get tooExpensive => 'too expensive';
+
+  @override
+  String get notUsingEnough => 'not using it enough';
+
+  @override
+  String get missingSomething => 'missing something';
+
+  @override
+  String get justBreak => 'just a break';
+
+  @override
+  String get other => 'other';
+
+  @override
+  String get yourPartnerSSeatEndsTogether =>
+      'your partner’s seat ends together with yours';
+
+  @override
+  String get cancelEndPeriod => 'cancel at the end of the period';
+
+  @override
+  String get pauseInstead => 'pause instead';
+
+  @override
+  String get noPaymentComesBackByItself => 'no payment, comes back by itself';
+
+  @override
+  String get welcomeBack => 'welcome back';
+
+  @override
+  String get yourEntriesListsSafePersonalOffer =>
+      'your entries and lists are safe — a personal offer just for you, until';
+
+  @override
+  String get manageSubscription => 'manage subscription';
+
+  @override
+  String get personalOffer => 'personal offer';
+
+  @override
+  String get appliedAutomatically => 'applied automatically';
+
+  @override
+  String get welcomeBackOfferApplied => 'welcome back offer applied';
+
+  @override
+  String get premiumBreak => 'premium is on a break';
+
+  @override
+  String get subscriptionEndsSoon => 'subscription ends soon';
+
+  @override
+  String get pauseCancelChangePlan => 'pause, cancel or change the plan';
+
+  @override
+  String get aPersonalDiscountFewDaysOnly =>
+      'a personal discount, for a few days only';
+
+  @override
+  String get kinopoiskLabel => 'kinopoisk';
+
+  @override
+  String get kinopoiskName => 'Kinopoisk';
+
+  @override
+  String get tonePositive => 'positive';
+
+  @override
+  String get toneNegative => 'negative';
+
+  @override
+  String get toneNeutral => 'neutral';
+
+  @override
+  String get readInFullOn => 'read in full on';
+
+  @override
+  String get reviewsOnHardcover => 'reviews on Hardcover';
+
+  @override
+  String get reviewsProvidedByTmdbTraktKinopoisk =>
+      'Reviews provided by TMDB, Trakt and Kinopoisk (via PoiskKino)';
+
+  @override
+  String get forExactlyHowYourPointsAdd =>
+      'for exactly how your points add up, see your sincerity history';
+
+  @override
+  String get yourActivity => 'your activity';
+
+  @override
+  String get pointsComeFromTheMilesYou =>
+      'points come from the miles you\'ve actually driven — logged evenings, reviews, rewatches, streaks, and genres explored';
+
+  @override
+  String get pointsComeFromWhatSActually =>
+      'points come from what\'s actually played on the reel — logged evenings, reviews, rewatches, streaks, and genres explored';
+
+  @override
+  String get pointsComeFromWhatYouVe =>
+      'points come from what you\'ve actually launched — logged evenings, reviews, rewatches, streaks, and genres explored';
+
+  @override
+  String get pointsGrowFromWhatYouActually =>
+      'points grow from what you actually plant here — logged evenings, reviews, rewatches, streaks, and genres explored';
+
+  @override
+  String get pointsLabel => 'points';
+
+  @override
+  String get theFirstOne => 'the first one';
+
+  @override
+  String get loggedYourFirstEveningTogether =>
+      'logged your first evening together';
+
+  @override
+  String get intoAHabit => 'into a habit';
+
+  @override
+  String get tenEveningsTogether => '10 evenings together';
+
+  @override
+  String get quarterCentury => 'quarter century';
+
+  @override
+  String get twentyFiveEveningsTogether => '25 evenings together';
+
+  @override
+  String get halfAHundred => 'half a hundred';
+
+  @override
+  String get fiftyEveningsTogether => '50 evenings together';
+
+  @override
+  String get aHundredNights => 'a hundred nights';
+
+  @override
+  String get hundredEveningsTogether => '100 evenings together';
+
+  @override
+  String get wellRounded => 'well-rounded';
+
+  @override
+  String get watchedTogetherAcross5DifferentGenres =>
+      'watched together across 5+ different genres';
+
+  @override
+  String get threeInARow => 'three in a row';
+
+  @override
+  String get a3DayStreakTogether => 'a 3-day streak together';
+
+  @override
+  String get aWeekStraight => 'a week straight';
+
+  @override
+  String get a7DayStreakTogether => 'a 7-day streak together';
+
+  @override
+  String get oneMonthIn => 'one month in';
+
+  @override
+  String get thirtyDaysLinked => '30 days linked';
+
+  @override
+  String get aHundredDaysLinked => 'a hundred days linked';
+
+  @override
+  String get hundredDaysLinked => '100 days linked';
+
+  @override
+  String get aFullYear => 'a full year';
+
+  @override
+  String get aFullYearLinked => 'a full year linked';
+
+  @override
+  String get coupleWhenYouWatch => 'when you watch';
+
+  @override
+  String get coupleYourMovieHour => 'your movie hour';
+
+  @override
+  String get coupleYourFilmReel => 'your film reel';
+
+  @override
+  String get coupleWhatEraYourMoviesAreFrom => 'what era your movies are from';
+
+  @override
+  String get whichDayIsYours => 'which day is yours';
+
+  @override
+  String get yourArchetypeTogether => 'your archetype, together';
+
+  @override
+  String get coupleYourReviews => 'your reviews';
+
+  @override
+  String get coViewRevealRatingTitle => 'reveal the rating?';
+
+  @override
+  String get coViewRevealRatingBody =>
+      'already rated this title. take a look now — or rate it yourself first and earn points for your own opinion?';
+
+  @override
+  String get coViewNudgePlanTitle => 'remind about the plan?';
+
+  @override
+  String get coViewNudgePlanBody =>
+      'has been sitting untouched in your shared plans. send everyone one push reminder?';
+
+  @override
+  String get coViewNudgeConfirm => 'remind';
+
+  @override
+  String get showcaseExtraSlot => 'extra slot';
+
+  @override
+  String get showcaseExtraSlotTitle => 'another slot in the showcase?';
+
+  @override
+  String get showcaseExtraSlotBodyStart =>
+      'one-time and forever — you\'ll be able to show';
+
+  @override
+  String get showcaseExtraSlotBodyMid => 'awards instead of';
+
+  @override
+  String get showcaseBuy => 'buy';
+
+  @override
+  String get sincerityExplainReturnDropped =>
+      'come back to something you dropped and finish it after all';
+
+  @override
+  String get sincerityExplainRateOwnFirst =>
+      'rate a shared title yourself — without peeking at your partner\'s rating';
+
+  @override
+  String get sincerityExplainPeekEarly =>
+      'open your partner\'s rating before rating the title yourself';
+
+  @override
+  String get sincerityExplainPayOnce =>
+      'pay once — and a title in your plans never drains your points again';
+
+  @override
+  String get sincerityExplainBuySlot =>
+      'buy one more slot in your profile\'s awards showcase';
+
+  @override
+  String get sincerityExplainNudgePartner =>
+      'remind your partner about a plan that\'s stalled';
+
+  @override
+  String get sincerityNoPointsForVolume =>
+      'there are no points for how many entries, ratings, or notes you write — only for honest choices. but what you\'ve collected isn\'t just a number: you can really spend it, right on this screen and in the shared diary.';
+
+  @override
+  String get sincerityPayOffDebtTitle => 'pay off the debt?';
+
+  @override
+  String get sincerityPayOffDebtBody =>
+      'has been sitting in your plans untouched for too long. pay once — and it will never drain your points again.';
+
+  @override
+  String get sincerityPayOffConfirm => 'pay off';
+
+  @override
+  String get sincerityDebtBuildingUp => 'debt is building up';
+
+  @override
+  String get sincerityDebtBuildingUpHint =>
+      'these titles have sat in your plans untouched for too long — pay them off once and forget about it';
+
+  @override
+  String get sincerityInPlansFor => 'in your plans for';
+
+  @override
+  String get sincerityStakesInPlay => 'stakes in play';
+
+  @override
+  String get sincerityStakeSettlesItself =>
+      'settles on its own once your friend rates the title';
+
+  @override
+  String get sincerityYouStakedOn => 'you staked on';
+
+  @override
+  String get sincerityStakedOnYou => 'staked on you';
+
+  @override
+  String get sincerityHistorySecondChance =>
+      'gave it a second chance — and finished it';
+
+  @override
+  String get sincerityHistoryRatedOwn => 'rated it yourself, no peeking';
+
+  @override
+  String get sincerityHistoryStakeReturned =>
+      'stake didn\'t play out — returned';
+
+  @override
+  String get sincerityHistoryPeekedEarly =>
+      'opened your partner\'s rating early';
+
+  @override
+  String get sincerityHistoryDebtPaidForGood => 'paid off the debt for good';
+
+  @override
+  String get sincerityHistoryBoughtSlot =>
+      'bought a slot in the awards showcase';
+
+  @override
+  String get sincerityHistoryNudgedPlan => 'reminded about a shared plan';
+
+  @override
+  String get recommendStakePlacedLead => 'stake placed —';
+
+  @override
+  String get recommendStakePlacedTail =>
+      'will find out when they rate the title';
+
+  @override
+  String get recommendStakeTitle => 'stake on a recommendation';
+
+  @override
+  String get recommendStakeSubtitle =>
+      'predict how your friend will rate it, and stake points on being right';
+
+  @override
+  String get recommendTo => 'recommend to';
+
+  @override
+  String get recommendNoFriendsYet =>
+      'no one to stake with yet — add friends to place stakes';
+
+  @override
+  String get recommendPredictedRating => 'predicted rating';
+
+  @override
+  String get recommendYourStake => 'your stake';
+
+  @override
+  String get recommendPlaceStake => 'stake';
+
+  @override
+  String get spendConfirmDefault => 'spend';
+
+  @override
+  String get spendNotEnoughSincerity => 'not enough sincerity points';
+
+  @override
+  String get homeRandomReelOrSwipe => 'random, reel or swipe';
+
+  @override
+  String get skinClayLabel => 'clay';
+
+  @override
+  String get skinClaySubtitle => 'puffy pastel';
+
+  @override
+  String get skinLightOrangeStrawberryNote =>
+      'orange and strawberry are always light — that\'s the whole point, not a bug';
+
+  @override
+  String get profileChallengesTitle => 'challenges';
+
+  @override
+  String get challengesCouldntLoad => 'couldn\'t load challenges right now';
+
+  @override
+  String get challengesNewOnTheWay => 'new challenges are on their way';
+
+  @override
+  String get challengeCollect => 'collect';
+
+  @override
+  String get compactHoursLabel => 'hrs';
+
+  @override
+  String get compactStreakLabel => 'streak';
+
+  @override
+  String get wrappedTeaserNothingYet => 'nothing logged yet this month';
+
+  @override
+  String get reviewsProvidedBySteam => 'Reviews provided by Steam';
+
+  @override
+  String get reviewsProvidedByAniList => 'Reviews provided by AniList';
+
+  @override
+  String get toneRecommends => 'recommends';
+
+  @override
+  String get toneDoesNotRecommend => 'doesn\'t recommend';
+
+  @override
+  String get playtimeHoursInGame => 'h in game';
+
+  @override
+  String get ratingSteamPositive => 'steam · positive';
+
+  @override
+  String get extrasMetacritic => 'Metacritic';
+
+  @override
+  String get extrasAboutTheAuthorFromOpenLibrary =>
+      'about the author from Open Library';
+
+  @override
+  String get extrasAchievements => 'achievements';
+
+  @override
+  String get extrasAlsoKnownAs => 'also known as';
+
+  @override
+  String get extrasAuthor => 'author';
+
+  @override
+  String get extrasAuthors => 'authors';
+
+  @override
+  String get extrasCharacters => 'characters';
+
+  @override
+  String get extrasCompletionist => 'completionist';
+
+  @override
+  String get extrasConnectedWorks => 'connected works';
+
+  @override
+  String get extrasCouldnTFindThatTitle => 'couldn\'t find that title';
+
+  @override
+  String get extrasCreators => 'creators';
+
+  @override
+  String get extrasCritics => 'critics';
+
+  @override
+  String get extrasEpisodes => 'episodes';
+
+  @override
+  String get extrasFirstLine => 'first line';
+
+  @override
+  String get extrasFreeToPlay => 'free to play';
+
+  @override
+  String get extrasHaveRead => 'have read';
+
+  @override
+  String get extrasInterface => 'interface';
+
+  @override
+  String get extrasLanguages => 'languages';
+
+  @override
+  String get extrasMoreFromThisAuthor => 'more from this author';
+
+  @override
+  String get extrasNextEpisode => 'next episode';
+
+  @override
+  String get extrasNoRussianVersion => 'no Russian version';
+
+  @override
+  String get extrasOngoing => 'ongoing';
+
+  @override
+  String get extrasPages => 'pages';
+
+  @override
+  String get extrasPlayers => 'players';
+
+  @override
+  String get extrasReadMore => 'read more';
+
+  @override
+  String get extrasReadOrBuy => 'read or buy';
+
+  @override
+  String get extrasReaderCountsFromOpenLibrary =>
+      'reader counts from Open Library';
+
+  @override
+  String get extrasReaders => 'readers';
+
+  @override
+  String get extrasReading => 'reading';
+
+  @override
+  String get extrasScreenshots => 'screenshots';
+
+  @override
+  String get extrasShowLess => 'show less';
+
+  @override
+  String get extrasStory => 'story';
+
+  @override
+  String get extrasStoryPlusExtras => 'story + extras';
+
+  @override
+  String get extrasStoryline => 'storyline';
+
+  @override
+  String get extrasSubtitles => 'subtitles';
+
+  @override
+  String get extrasThemes => 'themes';
+
+  @override
+  String get extrasTimeToBeat => 'time to beat';
+
+  @override
+  String get extrasToRead => 'to read';
+
+  @override
+  String get extrasVoiceOver => 'voice-over';
+
+  @override
+  String get extrasWantToRead => 'want to read';
+
+  @override
+  String get extrasWhereToPlay => 'where to play';
+
+  @override
+  String get extrasWhereToRead => 'where to read';
+
+  @override
+  String get extrasBasedOn => 'based on';
+
+  @override
+  String get extrasInLists => 'in lists';
+
+  @override
+  String get extrasRussian => 'Russian';
+
+  @override
+  String get extrasEnglish => 'English';
+
+  @override
+  String get extrasGerman => 'German';
+
+  @override
+  String get extrasFrench => 'French';
+
+  @override
+  String get extrasSpanish => 'Spanish';
+
+  @override
+  String get extrasItalian => 'Italian';
+
+  @override
+  String get extrasPortuguese => 'Portuguese';
+
+  @override
+  String get extrasJapanese => 'Japanese';
+
+  @override
+  String get extrasKorean => 'Korean';
+
+  @override
+  String get extrasChinese => 'Chinese';
+
+  @override
+  String get extrasPolish => 'Polish';
+
+  @override
+  String get extrasTurkish => 'Turkish';
+
+  @override
+  String get extrasUkrainian => 'Ukrainian';
+
+  @override
+  String get extrasCzech => 'Czech';
+
+  @override
+  String get extrasDutch => 'Dutch';
+
+  @override
+  String get extrasArabic => 'Arabic';
+
+  @override
+  String get extrasSwedish => 'Swedish';
+
+  @override
+  String get extrasFinnish => 'Finnish';
+
+  @override
+  String get extrasNorwegian => 'Norwegian';
+
+  @override
+  String get extrasDanish => 'Danish';
+
+  @override
+  String get extrasHungarian => 'Hungarian';
+
+  @override
+  String get extrasRomanian => 'Romanian';
+
+  @override
+  String get extrasThai => 'Thai';
+
+  @override
+  String get extrasHebrew => 'Hebrew';
+
+  @override
+  String get extrasGreek => 'Greek';
+
+  @override
+  String get extrasBulgarian => 'Bulgarian';
+
+  @override
+  String get extrasVietnamese => 'Vietnamese';
+
+  @override
+  String get extrasHindi => 'Hindi';
+
+  @override
+  String get extrasIndonesian => 'Indonesian';
+
+  @override
+  String get extrasSimplifiedChinese => 'Simplified Chinese';
+
+  @override
+  String get extrasTraditionalChinese => 'Traditional Chinese';
+
+  @override
+  String get extrasAuthor2 => 'Author';
+
+  @override
+  String get extrasStory2 => 'Story';
+
+  @override
+  String get extrasArt => 'Art';
+
+  @override
+  String get extrasStoryAndArt => 'Story & Art';
+
+  @override
+  String get extrasDirector => 'Director';
+
+  @override
+  String get extrasOriginalCreator => 'Original Creator';
+
+  @override
+  String get extrasSeriesComposition => 'Series Composition';
+
+  @override
+  String get extrasScript => 'Script';
+
+  @override
+  String get extrasCharacterDesign => 'Character Design';
+
+  @override
+  String get extrasMusic => 'Music';
+
+  @override
+  String get extrasMain => 'Main';
+
+  @override
+  String get extrasSupporting => 'Supporting';
+
+  @override
+  String get extrasOriginal => 'Original';
+
+  @override
+  String get extrasManga => 'Manga';
+
+  @override
+  String get extrasLightNovel => 'Light novel';
+
+  @override
+  String get extrasNovel => 'Novel';
+
+  @override
+  String get extrasWebNovel => 'Web novel';
+
+  @override
+  String get extrasVisualNovel => 'Visual novel';
+
+  @override
+  String get extrasVideoGame => 'Video game';
+
+  @override
+  String get extrasDoujinshi => 'Doujinshi';
+
+  @override
+  String get extrasComic => 'Comic';
+
+  @override
+  String get extrasLiveAction => 'Live action';
+
+  @override
+  String get extrasAnime => 'Anime';
+
+  @override
+  String get extrasAdaptation => 'Adaptation';
+
+  @override
+  String get extrasPrequel => 'Prequel';
+
+  @override
+  String get extrasSequel => 'Sequel';
+
+  @override
+  String get extrasParentStory => 'Parent Story';
+
+  @override
+  String get extrasSideStory => 'Side Story';
+
+  @override
+  String get extrasSpinOff => 'Spin-off';
+
+  @override
+  String get extrasAlternativeVersion => 'Alternative Version';
+
+  @override
+  String get extrasAlternativeSetting => 'Alternative Setting';
+
+  @override
+  String get extrasSummary => 'Summary';
+
+  @override
+  String get extrasBaseGame => 'Base game';
+
+  @override
+  String get extrasSameSeries => 'Same series';
+
+  @override
+  String get extrasDLC => 'DLC';
+
+  @override
+  String get extrasExpansion => 'Expansion';
+
+  @override
+  String get extrasRemake => 'Remake';
+
+  @override
+  String get extrasRemaster => 'Remaster';
+
+  @override
+  String get extrasOther => 'Other';
+
+  @override
+  String get extrasCharacter => 'Character';
+
+  @override
+  String get extrasOfficialSite => 'Official site';
+
+  @override
+  String get extrasWikipedia => 'Wikipedia';
+
+  @override
+  String get extrasReadASample => 'Read a sample';
+
+  @override
+  String get extrasFullControllerSupport => 'Full controller support';
+
+  @override
+  String get extrasPartialControllerSupport => 'Partial controller support';
+
+  @override
+  String get extrasSteamCloud => 'Steam Cloud';
+
+  @override
+  String get extrasFirstPerson => 'First person';
+
+  @override
+  String get extrasThirdPerson => 'Third person';
+
+  @override
+  String get extrasBirdViewIsometric => 'Bird view / Isometric';
+
+  @override
+  String get extrasSideView => 'Side view';
+
+  @override
+  String get extrasText => 'Text';
+
+  @override
+  String get extrasAuditory => 'Auditory';
+
+  @override
+  String get extrasVirtualReality => 'Virtual Reality';
+
+  @override
+  String get extrasFantasy => 'Fantasy';
+
+  @override
+  String get extrasScienceFiction => 'Science fiction';
+
+  @override
+  String get extrasHorror => 'Horror';
+
+  @override
+  String get extrasThriller => 'Thriller';
+
+  @override
+  String get extrasSurvival => 'Survival';
+
+  @override
+  String get extrasHistorical => 'Historical';
+
+  @override
+  String get extrasStealth => 'Stealth';
+
+  @override
+  String get extrasComedy => 'Comedy';
+
+  @override
+  String get extrasBusiness => 'Business';
+
+  @override
+  String get extrasDrama => 'Drama';
+
+  @override
+  String get extrasNonFiction => 'Non-fiction';
+
+  @override
+  String get extrasSandbox => 'Sandbox';
+
+  @override
+  String get extrasEducational => 'Educational';
+
+  @override
+  String get extrasKids => 'Kids';
+
+  @override
+  String get extrasOpenWorld => 'Open world';
+
+  @override
+  String get extrasWarfare => 'Warfare';
+
+  @override
+  String get extrasParty => 'Party';
+
+  @override
+  String get extras4X => '4X';
+
+  @override
+  String get extrasMystery => 'Mystery';
+
+  @override
+  String get extrasRomance => 'Romance';
+
+  @override
+  String get extrasAction => 'Action';
+
+  @override
+  String get extrasSteamDeckVerified => 'Steam Deck verified';
+
+  @override
+  String get extrasSteamDeckPlayable => 'Steam Deck playable';
+
+  @override
+  String get extrasSteamDeckUnsupported => 'Steam Deck unsupported';
+
+  @override
+  String get extrasSteamDeckVerifiedPlaysGreatOutOfTheBox =>
+      'Steam Deck verified — plays great out of the box';
+
+  @override
+  String get extrasSteamDeckPlayableMayNeedAFewTweaks =>
+      'Steam Deck playable — may need a few tweaks';
+
+  @override
+  String get extrasSteamDeckUnsupportedValveSaysItWonTRunWell =>
+      'Steam Deck unsupported — Valve says it won\'t run well';
+
+  @override
+  String get extrasChapter => 'chapter';
+
+  @override
+  String get extrasChapterYouAreOn => 'chapter you are on';
+
+  @override
+  String get extrasCouldnTSaveProgressJustNow =>
+      'couldn\'t save progress just now';
+
+  @override
+  String get extrasLogItInYourDiary => 'log it in your diary';
+
+  @override
+  String get extrasMinimum => 'minimum';
+
+  @override
+  String get extrasRecommended => 'recommended';
+
+  @override
+  String get extrasPage => 'page';
+
+  @override
+  String get extrasPageYouAreOn => 'page you are on';
+
+  @override
+  String get extrasProgressCleared => 'progress cleared';
+
+  @override
+  String get extrasReadingProgress => 'reading progress';
+
+  @override
+  String get extrasStartOver => 'start over';
+
+  @override
+  String get extrasSystemRequirements => 'system requirements';
+
+  @override
+  String get extrasTapToSet => 'tap to set';
+
+  @override
+  String get extrasToGo => 'to go';
+
+  @override
+  String get extrasUndo => 'undo';
+
+  @override
+  String get extrasVolume => 'volume';
+
+  @override
+  String get extrasVolumeYouAreOn => 'volume you are on';
+
+  @override
+  String get extrasYouReachedTheEnd => 'you reached the end';
+
+  @override
+  String get extrasOS => 'OS';
+
+  @override
+  String get extrasProcessor => 'Processor';
+
+  @override
+  String get extrasMemory => 'Memory';
+
+  @override
+  String get extrasGraphics => 'Graphics';
+
+  @override
+  String get extrasDirectX => 'DirectX';
+
+  @override
+  String get extrasStorage => 'Storage';
+
+  @override
+  String get extrasSoundCard => 'Sound card';
+
+  @override
+  String get extrasNetwork => 'Network';
+
+  @override
+  String get extrasAdditionalNotes => 'Additional notes';
+
+  @override
+  String nVolumes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count volumes',
+      one: '$count volume',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String nChapters(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count chapters',
+      one: '$count chapter',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String nPages(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count pages',
+      one: '$count page',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get coViewLoggedItButCouldnTRemove =>
+      'logged it, but couldn\'t remove it from \"planned\" — try again';
+
+  @override
+  String get coViewABiggerCircleIsPremium => 'a bigger circle needs premium';
+
+  @override
+  String get coViewAPairIsAlwaysFreeWith =>
+      'a pair is always free — with premium you can watch together as a group, three or more';
+
+  @override
+  String get coViewThisEndsCoViewingBetweenYou =>
+      'this ends co-viewing between you two — what\'s already in each of your diaries stays where it is.';
+
+  @override
+  String get coViewCouldnTEndTheLinkTry => 'couldn\'t end the link — try again';
+
+  @override
+  String get coViewUs => 'us';
+
+  @override
+  String get coViewNothingHereYetAddSomethingWith =>
+      'nothing here yet — add something with the heart on a movie\'s page';
+
+  @override
+  String get coViewYourSharedEveningsWillLiveHere =>
+      'your shared evenings will live here';
+
+  @override
+  String get coViewMarkSomethingAsWatchedTogetherOr =>
+      'mark something as watched together — or turn on \"log my evenings to the shared diary\" in settings';
+
+  @override
+  String get coViewShowMore => 'show more';
+
+  @override
+  String get coViewStatsWillAppearAfterYourFirst =>
+      'stats will appear after your first shared evening';
+
+  @override
+  String get coViewWatchingTogether => 'watching together';
+
+  @override
+  String get coViewCanTChoose => 'can\'t choose';
+
+  @override
+  String get coViewAVoteARouletteOrAsk => 'a vote, a roulette, or ask tanè';
+
+  @override
+  String get coViewUnlimited => 'unlimited';
+
+  @override
+  String get coViewWatchedTogether => 'watched together';
+
+  @override
+  String get coViewWatchedAlone => 'watched alone';
+
+  @override
+  String get coViewYou => 'you';
+
+  @override
+  String get coViewHoursSideBySide => 'hours side by side';
+
+  @override
+  String get coViewSharedEntries => 'shared entries';
+
+  @override
+  String get coViewWhoRatesMoreGenerously => 'who rates more generously';
+
+  @override
+  String get coViewWhoSuggestsMoreOften => 'who suggests more often';
+
+  @override
+  String get coViewYourGenres => 'your genres';
+
+  @override
+  String get coViewSharedLove => 'shared love';
+
+  @override
+  String get coViewYouBothLikedIt => 'you both liked it';
+
+  @override
+  String get coViewWhereYouDidnTAgree => 'where you didn\'t agree';
+
+  @override
+  String get coViewYou2 => 'you';
+
+  @override
+  String get coViewOurMilestones => 'our milestones';
+
+  @override
+  String get coViewOurWrapped => 'our wrapped';
+
+  @override
+  String get coViewYourMovieEveningsJustTheTwo =>
+      'your movie evenings, just the two of you';
+
+  @override
+  String get coViewCouldnTLoadFriendsTryAgain =>
+      'couldn\'t load friends — try again';
+
+  @override
+  String get coViewCouldnTSendTheInvitationTry =>
+      'couldn\'t send the invitation — try again';
+
+  @override
+  String get coViewAddToYourCircle => 'add them to your circle';
+
+  @override
+  String get coViewTheyLlJoinAsSoonAs =>
+      'they\'ll join as soon as they accept — like any other co-viewing invitation.';
+
+  @override
+  String get coViewAllYourFriendsAreAlreadyHere =>
+      'all your friends are already here — add new ones first, then invite them from here.';
+
+  @override
+  String get coViewYourSharedDiaryWillLiveHere =>
+      'your shared diary will live here';
+
+  @override
+  String get coViewLinkUpWithThePersonYou =>
+      'link up with the person you watch with — and your evenings, ratings and stats become shared';
+
+  @override
+  String get coViewLinkUp => 'get connected';
+
+  @override
+  String get challengesChallengesAreComingSoon => 'challenges are coming soon';
+
+  @override
+  String get challengesThisWeek => 'this week';
+
+  @override
+  String get challengesAllYear => 'all year';
+
+  @override
+  String get challengesHowItSCounted => 'how it\'s counted';
+
+  @override
+  String get challengesSmallGoalsForTheWeekAnd =>
+      'small goals for the week and the year. didn\'t get to them — they simply roll over to new ones';
+
+  @override
+  String get settingsNotifications => 'notifications';
+
+  @override
+  String get settingsMatchesFriendsStreakAndLevels =>
+      'matches, friends, streak and levels';
+
+  @override
+  String get settingsLogMyEveningsToTheShared =>
+      'log my evenings to the shared diary';
+
+  @override
+  String get settingsAnEveningYouWatchedTogetherStill =>
+      'an evening you watched together still lands in the shared diary — this switch is only about what gets logged from your own evenings';
+
+  @override
+  String get settingsShowMyRating => 'show my rating';
+
+  @override
+  String get settingsShowMyNotes => 'show my notes';
+
+  @override
+  String get settingsNotesAreTheMostPersonalThing =>
+      'notes are the most personal thing in a diary, so they\'re hidden by default';
+
+  @override
+  String get notifSettingsCouldnTLoadSettingsTryAgain =>
+      'couldn\'t load settings — try again';
+
+  @override
+  String get notifSettingsCouldnTSaveTryAgain => 'couldn\'t save — try again';
+
+  @override
+  String get notifSettingsWhichPushesYouDLikeTo =>
+      'which pushes you\'d like to get — the rest simply won\'t be sent.';
+
+  @override
+  String get coViewYouLlLeaveTheCircleThe =>
+      'you\'ll leave the circle — the others carry on, and what\'s already in your own diary stays where it is.';
+
+  @override
+  String get coViewButThePairSAlbumNotes =>
+      'but the pair\'s album — notes, capsules and the anniversary date — will disappear for both of you, and can\'t be brought back.';
+
+  @override
+  String get coViewLeave => 'leave';
+
+  @override
+  String get coViewEndLink => 'end link';
+
+  @override
+  String get coViewLeaveThisCircle => 'leave this circle';
+
+  @override
+  String get coViewSuggestedToYou => 'suggested to you';
+
+  @override
+  String get coViewYourSharedDiary => 'your shared diary';
+
+  @override
+  String get coViewSuggested => 'suggested by';
+
+  @override
+  String get coViewTheListIsFullMarkSomething =>
+      'the list is full — mark something as watched to free up room';
+
+  @override
+  String get coViewUnlimitedSharedList => 'unlimited shared list';
+
+  @override
+  String get interestsWhatShouldWeGatherForYou =>
+      'what should we gather for you?';
+
+  @override
+  String get interestsYourInterests => 'your interests';
+
+  @override
+  String get interestsPickAFewThingsYouRe =>
+      'pick a few things you\'re into — collections will lead with those. you can always change your mind later.';
+
+  @override
+  String get interestsChangeWhatCollectionsLeadsWithAny =>
+      'change what collections leads with, any time.';
+
+  @override
+  String get interestsChangeWhatTheReleaseCalendarShows =>
+      'change what the release calendar shows, any time.';
+
+  @override
+  String get chChallengeComplete => 'challenge complete';
+
+  @override
+  String get chChallenge => 'challenge';
+
+  @override
+  String get moreFriendsOnly => 'friends only';
+
+  @override
+  String get moreTrailersAreStillRunningPlentyOf =>
+      'trailers are still running — plenty of time';
+
+  @override
+  String get moreSomeoneTwoRowsBackJustSettled =>
+      'someone two rows back just settled in with popcorn';
+
+  @override
+  String get moreTheCurtainHasnTPulledBack =>
+      'the curtain hasn\'t pulled back yet';
+
+  @override
+  String get moreHouseLightsAreOnlyHalfDown =>
+      'house lights are only half down so far';
+
+  @override
+  String get moreAFewSeatsAreStillFilling =>
+      'a few seats are still filling in around you';
+
+  @override
+  String get moreItSThatHushRightBefore =>
+      'it\'s that hush right before the reel starts';
+
+  @override
+  String get moreTonightSLittleScreening => 'tonight\'s little screening';
+
+  @override
+  String get moreRoughRide => 'rough ride';
+
+  @override
+  String get moreBumpyGoing => 'bumpy going';
+
+  @override
+  String get moreGladThatSOver => 'glad that\'s over';
+
+  @override
+  String get moreFineRide => 'fine ride';
+
+  @override
+  String get moreDecentTrip => 'decent trip';
+
+  @override
+  String get moreSmoothGoing => 'smooth going';
+
+  @override
+  String get moreReallyGoodRide => 'really good ride';
+
+  @override
+  String get moreLovedThisRoute => 'loved this route';
+
+  @override
+  String get moreOneForTheRegulars => 'one for the regulars';
+
+  @override
+  String get morePerfectJourney => 'perfect journey';
+
+  @override
+  String get moreDriverJustToppedOffTheirCoffee =>
+      'driver just topped off their coffee — no rush yet';
+
+  @override
+  String get moreSomeoneUpFrontIsAlreadyHalf =>
+      'someone up front is already half asleep';
+
+  @override
+  String get moreTheWindowSeatIsWarmFrom =>
+      'the window seat is warm from the last bit of sun';
+
+  @override
+  String get moreRadioSDownLowJustEnough =>
+      'radio\'s down low, just enough to notice';
+
+  @override
+  String get moreAFewStragglersStillFindingTheir =>
+      'a few stragglers still finding their row';
+
+  @override
+  String get moreTheRoadAheadLooksQuietTonight =>
+      'the road ahead looks quiet tonight';
+
+  @override
+  String get moreTonightSRide => 'tonight\'s ride';
+
+  @override
+  String get moreTapToRateTheRide => 'tap to rate the ride';
+
+  @override
+  String get moreDidnTTakeRoot => 'didn\'t take root';
+
+  @override
+  String get moreWiltedEarly => 'wilted early';
+
+  @override
+  String get moreGladThatSDone => 'glad that\'s done';
+
+  @override
+  String get moreGrewOkay => 'grew okay';
+
+  @override
+  String get moreDecentLittleSprout => 'decent little sprout';
+
+  @override
+  String get moreGrewWell => 'grew well';
+
+  @override
+  String get moreInFullBloom => 'in full bloom';
+
+  @override
+  String get moreOneForTheGarden => 'one for the garden';
+
+  @override
+  String get morePerfectBloom => 'perfect bloom';
+
+  @override
+  String get moreTheSoilHereStillHoldsA =>
+      'the soil here still holds a bit of the day\'s warmth';
+
+  @override
+  String get moreAMothSBeenCirclingThe =>
+      'a moth\'s been circling the porch light all evening';
+
+  @override
+  String get moreDewHasnTSettledOnThe =>
+      'dew hasn\'t settled on the leaves yet — still early';
+
+  @override
+  String get moreSomethingNearbyJustStartedUpIts =>
+      'something nearby just started up its evening hum';
+
+  @override
+  String get moreTheAirSmellsLikeItRained =>
+      'the air smells like it rained not long ago';
+
+  @override
+  String get moreTheLastBitOfDuskIs =>
+      'the last bit of dusk is caught in the leaves';
+
+  @override
+  String get moreTonightSLittlePlanting => 'tonight\'s little planting';
+
+  @override
+  String get moreTapABudToRateIt => 'tap a bud to rate it';
+
+  @override
+  String get moreMainGate => 'main gate';
+
+  @override
+  String get moreInBloom => 'in bloom';
+
+  @override
+  String get moreThePad => 'the pad';
+
+  @override
+  String get moreAnyMomentNow => 'any moment now';
+
+  @override
+  String get morePausedTapUpTopToKeep => 'paused — tap ▶ up top to keep going';
+
+  @override
+  String get morePausedTapToKeepGoing => 'paused — tap ▶ to keep going';
+
+  @override
+  String get moreTheGateIsOpenChooseWhere =>
+      'the gate is open — choose where to wander tonight';
+
+  @override
+  String get moreKeplerReach => 'Kepler Reach';
+
+  @override
+  String get moreTheVelaCluster => 'the Vela Cluster';
+
+  @override
+  String get moreProximaDock => 'Proxima Dock';
+
+  @override
+  String get moreTheLyraBelt => 'the Lyra Belt';
+
+  @override
+  String get moreAuroraStation => 'Aurora Station';
+
+  @override
+  String get moreTheCoalsackGate => 'the Coalsack Gate';
+
+  @override
+  String get moreHalcyonOrbit => 'Halcyon Orbit';
+
+  @override
+  String get moreThePerseusRim => 'the Perseus Rim';
+
+  @override
+  String get moreGroundCrewSStillDoingOne =>
+      'ground crew\'s still doing one last check outside';
+
+  @override
+  String get moreSomeoneInTheNextBerthIs =>
+      'someone in the next berth is already half asleep';
+
+  @override
+  String get moreThePortholeIsWarmFromThe =>
+      'the porthole is warm from the launch lights';
+
+  @override
+  String get moreCommsAreDownLowJustEnough =>
+      'comms are down low, just enough to notice';
+
+  @override
+  String get moreAFewLateArrivalsStillFinding =>
+      'a few late arrivals still finding their berth';
+
+  @override
+  String get moreTheSkyOutsideLooksQuietTonight =>
+      'the sky outside looks quiet tonight';
+
+  @override
+  String get moreARouteChosenAndBoardedNow => 'a route, chosen and boarded now';
+
+  @override
+  String get moreACinemaFlownToAndPlaying =>
+      'a cinema, flown to and playing now';
+
+  @override
+  String get moreAGardenWalkedRightNow => 'a garden, walked right now';
+
+  @override
+  String get moreALaunchSiteClearedAndLifting =>
+      'a launch site, cleared and lifting off now';
+
+  @override
+  String get moreUsernameNeeds3CharactersPasswordNeeds =>
+      'username needs 3+ characters, password needs 6+';
+
+  @override
+  String get moreWhatSTheMoodTonight => 'what\'s the mood tonight?';
+
+  @override
+  String get moreAnyGenreInMind => 'any genre in mind?';
+
+  @override
+  String get moreAndRoughlyWhichEra => 'and roughly which era?';
+
+  @override
+  String get morePickOneOrMoreToStart => 'pick one or more to start narrowing';
+
+  @override
+  String get moreBasedOnWhatYouJustPicked => 'based on what you just picked';
+
+  @override
+  String get moreOrLeaveItWideOpen => 'or leave it wide open';
+
+  @override
+  String get moreYourDiaryIsWaiting => 'your diary is waiting';
+
+  @override
+  String get more2010sSciFiGame => '2010s sci-fi game';
+
+  @override
+  String get moreCoOpGameForTwo => 'co-op game for two';
+
+  @override
+  String get moreAYearAgoTodayYouWatched => 'a year ago today, you watched';
+
+  @override
+  String get moreAMonthAgoTodayYouWatched => 'a month ago today, you watched';
+
+  @override
+  String get moreLinkWithAPartnerThenSuggest =>
+      'link with a partner, then suggest titles with one tap';
+
+  @override
+  String get moreProposeIt => 'propose it';
+
+  @override
+  String get moreCouldnTStartAVoteJust =>
+      'couldn\'t start a vote just now — try again';
+
+  @override
+  String get moreSomethingWentWrong => 'something went wrong';
+
+  @override
+  String get moreEveryoneHasVoted => 'everyone has voted';
+
+  @override
+  String get moreWaitingOnTheOthers => 'waiting on the others';
+
+  @override
+  String get moreYouHavenTVotedYet => 'you haven\'t voted yet';
+
+  @override
+  String get moreItSDecided => 'it\'s decided';
+
+  @override
+  String get moreRoundClosed => 'round closed';
+
+  @override
+  String get moreNoJustTakeTheWholePool => 'no, just take the whole pool';
+
+  @override
+  String get moreCouldnTStartARoundCheck =>
+      'couldn\'t start a round — check your connection and try again';
+
+  @override
+  String get moreAddAFewTitlesToYour =>
+      'add a few titles to your plan-to-watch shelves, or plan something together first';
+
+  @override
+  String get moreAddAFewTitlesToYour2 =>
+      'add a few titles to your plan-to-watch shelves first, then come back to vote on them';
+
+  @override
+  String get moreTypeAMovieTitleToSearch => 'type a movie title to search';
+
+  @override
+  String get moreNoMoviesFound => 'no movies found';
+
+  @override
+  String get moreTapTheStarOnUpTo =>
+      'tap the star on up to 5 to build your profile banner';
+
+  @override
+  String get moreTapAStarToAddOr =>
+      'tap a star to add or remove it from your profile banner';
+
+  @override
+  String get moreInBanner => 'in banner';
+
+  @override
+  String get morePlexWebhookURL => 'Plex webhook URL';
+
+  @override
+  String get morePickWhatYouUse => 'pick what you use';
+
+  @override
+  String get moreAMediaServerKodiOrJust =>
+      'a media server, Kodi, or just a normal browser — see below';
+
+  @override
+  String get morePasteOneLinkAndMaybeA => 'paste one link (and maybe a code)';
+
+  @override
+  String get moreItSAlreadyFilledInFor =>
+      'it\'s already filled in for you — just copy and paste';
+
+  @override
+  String get moreWatchThingsLikeNormal => 'watch things like normal';
+
+  @override
+  String get moreFinishingSomethingLogsItHereAutomatically =>
+      'finishing something logs it here automatically from then on';
+
+  @override
+  String get moreNoTitle => '(no title)';
+
+  @override
+  String get moreNothingMarkedWatchedYet => 'nothing marked watched yet';
+
+  @override
+  String get moreNothingQueuedYetSearchToAdd =>
+      'nothing queued yet — search to add something';
+
+  @override
+  String get moreCouldnTLoadAchievementsRightNow =>
+      'couldn\'t load achievements right now';
+
+  @override
+  String get moreNothingUnlockedYetKeepLogging =>
+      'nothing unlocked yet — keep logging';
+
+  @override
+  String get moreNothingInProgressRightNow => 'nothing in progress right now';
+
+  @override
+  String get moreNothingQueuedYet => 'nothing queued yet';
+
+  @override
+  String get moreWatchedOnce => 'watched once';
+
+  @override
+  String get moreSeriesAnime => 'series & anime';
+
+  @override
+  String get moreTitlesYouBothSaidYesTo => 'titles you both said yes to';
+
+  @override
+  String get moreEachOnYourOwnPhoneWhatever =>
+      'each on your own phone — whatever you both say yes to gets tucked into your \"watch together\" list, ready for movie night.';
+
+  @override
+  String get morePassThePhoneOrJustLean =>
+      'pass the phone, or just lean in — whatever you both say yes to gets tucked into your \"watch together\" list, ready for movie night.';
+
+  @override
+  String get moreTuckedIntoYourWatchTogetherList =>
+      'tucked into your \"watch together\" list — pick tonight\'s from there.';
+
+  @override
+  String get moreHappensSometimesTryADifferentMood =>
+      'happens sometimes — try a different mood, or shuffle again.';
+
+  @override
+  String get moreTheRoseWalk => 'the rose walk';
+
+  @override
+  String get moreTheShadedPath => 'the shaded path';
+
+  @override
+  String get moreTheWaterGarden => 'the water garden';
+
+  @override
+  String get moreTheArboretumTrail => 'the arboretum trail';
+
+  @override
+  String get moreTheSunkenGarden => 'the sunken garden';
+
+  @override
+  String get moreTheOldOrchardRow => 'the old orchard row';
+
+  @override
+  String get moreNextShowingSameHall => 'next showing, same hall';
+
+  @override
+  String get moreUnpinFromProfile => 'unpin from profile';
+
+  @override
+  String get morePinToProfile => 'pin to profile';
+
+  @override
+  String get moreWipeTheWindowToSee => 'wipe the window to see';
+
+  @override
+  String get moreTearItAtTheGateOr => 'tear it at the gate — or just tap';
+
+  @override
+  String get moreChallengeClaimed => 'challenge claimed';
+
+  @override
+  String get moreASkylineWaitingToStart => 'a skyline, waiting to start';
+
+  @override
+  String get moreLogOneToSeeItRise => 'log one to see it rise';
+
+  @override
+  String get moreWalkTheStreetToSeeThem => 'walk the street to see them all';
+
+  @override
+  String get moreCozyThatOneSYours => 'cozy — that one\'s yours';
+
+  @override
+  String get moreTraceBackAnyEveningYouPassed =>
+      'trace back any evening you passed through';
+
+  @override
+  String get moreLogOneToPlantTheFirst => 'log one to plant the first seed';
+
+  @override
+  String get moreWalkTheWindowBoxToSee =>
+      'walk the window box to see every one';
+
+  @override
+  String get moreChooseASpotForTonight => 'choose a spot for tonight';
+
+  @override
+  String get moreTuckingItIntoTheBed => 'tucking it into the bed…';
+
+  @override
+  String get moreCollectionOfTheWeek => 'collection of the week';
+
+  @override
+  String get moreTheMusic => 'the music';
+
+  @override
+  String get moreTheEnding => 'the ending';
+
+  @override
+  String get moreTheAtmosphere => 'the atmosphere';
+
+  @override
+  String get moreThePerformances => 'the performances';
+
+  @override
+  String get moreTheVisuals => 'the visuals';
+
+  @override
+  String get moreTheStory => 'the story';
+
+  @override
+  String get moreTheHumor => 'the humor';
+
+  @override
+  String get moreThePacing => 'the pacing';
+
+  @override
+  String get moreSawItComing => 'saw it coming';
+
+  @override
+  String get moreFlatCharacters => 'flat characters';
+
+  @override
+  String get moreStyleOverSubstance => 'style over substance';
+
+  @override
+  String get moreRanTooLong => 'ran too long';
+
+  @override
+  String get moreTheTone => 'the tone';
+
+  @override
+  String get moreWhatFellShort => 'what fell short?';
+
+  @override
+  String get moreWhyDidYouLoveThis => 'why did you love this?';
+
+  @override
+  String get moreABlankPassportWaiting => 'a blank passport, waiting';
+
+  @override
+  String get moreLogOneToSeeItLand => 'log one to see it land';
+
+  @override
+  String get moreGiveItAFlipToSee => 'give it a flip to see them all';
+
+  @override
+  String get moreThereSaveItForTonight => 'there — save it for tonight';
+
+  @override
+  String get moreMarkAsWatched => 'mark as watched';
+
+  @override
+  String get moreStillOnYourPlanToWatch =>
+      'still on your plan to watch — mark it once you have';
+
+  @override
+  String get morePlanToWatchPreview => 'plan to watch preview';
+
+  @override
+  String get moreTheReview => 'the review';
+
+  @override
+  String get moreEveryWordOfIt => 'every word of it';
+
+  @override
+  String get moreAsLongAsYouWantNobody =>
+      'as long as you want — nobody\'s reading over your shoulder';
+
+  @override
+  String get moreABlankBoard => 'a blank board';
+
+  @override
+  String get moreLogOneToSeeItPosted => 'log one to see it posted';
+
+  @override
+  String get moreTapForTheFullManifest => 'tap for the full manifest';
+
+  @override
+  String get moreSomewhereInHere => 'somewhere in here…';
+
+  @override
+  String get moreSeriesPreview => 'series preview';
+
+  @override
+  String get moreCouldnTLoadEpisodesTryAgain =>
+      'couldn\'t load episodes — try again';
+
+  @override
+  String get moreNoEpisodeDataForThisOne => 'no episode data for this one yet';
+
+  @override
+  String get moreNoReviewLeftForThisOne => 'no review left for this one yet';
+
+  @override
+  String get moreMightGiveThingsAway => 'might give things away';
+
+  @override
+  String get moreLogOneToLightTheFirst => 'log one to light the first bulb';
+
+  @override
+  String get moreTapForTonightSFullProgramme =>
+      'tap for tonight\'s full programme';
+
+  @override
+  String get moreNotTheOne => 'not the one';
+
+  @override
+  String get moreRoughSit => 'rough sit';
+
+  @override
+  String get moreJustOkay => 'just okay';
+
+  @override
+  String get moreDecentWatch => 'decent watch';
+
+  @override
+  String get moreGenuinelyLikedIt => 'genuinely liked it';
+
+  @override
+  String get moreReallyGood => 'really good';
+
+  @override
+  String get moreLovedEveryMinute => 'loved every minute';
+
+  @override
+  String get moreOneForTheShelf => 'one for the shelf';
+
+  @override
+  String get morePerfectShow => 'perfect show';
+
+  @override
+  String get moreTapAHeartToRateIt => 'tap a heart to rate it';
+
+  @override
+  String get moreWatchComplete => 'watch complete';
+
+  @override
+  String get moreWatchedPreview => 'watched preview';
+
+  @override
+  String nYears(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count years',
+      one: '$count year',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String nMonths(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count months',
+      one: '$count month',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String nTimes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count times',
+      one: '$count time',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get moreNoMatchesThisRoundTryAgain =>
+      'no matches this round — try again with a different mood.';
+
+  @override
+  String get moreWatchAll => 'watch all →';
+
+  @override
+  String get moreTapToSeeOrSuggest => 'tap to see or suggest';
+
+  @override
+  String get moreTapToGetStarted => 'tap to get started';
+
+  @override
+  String get moreThisRemovesYourRatingReviewAnd =>
+      'this removes your rating, review, and episode progress for this show — it\'ll drop back to plan to watch.';
+
+  @override
+  String get moreThisRemovesYourRatingAndReview =>
+      'this removes your rating and review for this evening. if it\'s the only time you logged this title, it\'ll drop back to plan to watch.';
+
+  @override
+  String get moreWhoStoodOutPickUpTo => 'who stood out? pick up to 3';
+
+  @override
+  String get moreTheReelDrawsFromWhicheverPool =>
+      'the reel draws from whichever pool you pick, then everyone votes on where it lands.';
+
+  @override
+  String get moreOneTitleGetsDrawnFromWhichever =>
+      'one title gets drawn from whichever pool you pick, then everyone votes on it.';
+
+  @override
+  String get moreYourSessionHasEndedPleaseSign =>
+      'your session has ended — please sign in again';
+
+  @override
+  String get morePickUpTo3TotallyOptional => 'pick up to 3 — totally optional';
+
+  @override
+  String get moreFindingRoutes => 'finding routes…';
+
+  @override
+  String get moreAnythingAnyYear => 'anything, any year';
+
+  @override
+  String get moreThereBuildHere => 'there — build here';
+
+  @override
+  String get moreLogAnEveningToLayThe =>
+      'log an evening to lay the first stretch of road';
+
+  @override
+  String get moreJellyfinWebhookURL => 'Jellyfin webhook URL';
+
+  @override
+  String get moreServerURL => 'server URL';
+
+  @override
+  String get pushFriendsAreWatching => 'friends are watching';
+
+  @override
+  String get pushWhenAFriendRatesSomething =>
+      'when a friend rates something new';
+
+  @override
+  String get pushFriendRequests => 'friend requests';
+
+  @override
+  String get pushWhenSomeoneWantsToBe => 'when someone wants to be your friend';
+
+  @override
+  String get pushPartner => 'partner';
+
+  @override
+  String get pushActivityFromYourLinkedAccount =>
+      'activity from your linked account';
+
+  @override
+  String get pushMatches => 'matches';
+
+  @override
+  String get pushWhenYouBothPickedThe => 'when you both picked the same movie';
+
+  @override
+  String get pushLevels => 'levels';
+
+  @override
+  String get pushWhenYouReachANew => 'when you reach a new level';
+
+  @override
+  String get pushStreakReminders => 'streak reminders';
+
+  @override
+  String get pushInTheEveningIfYour =>
+      'in the evening, if your streak is at risk';
+
+  @override
+  String get pushMemories => 'memories';
+
+  @override
+  String get pushAYearAgoYouWatched => '“a year ago you watched…”';
+
+  @override
+  String get pushWhenAnEpisodeOrRelease =>
+      'when an episode or release comes out for something you track';
+
+  @override
+  String get pushSubscription => 'subscription';
+
+  @override
+  String get pushTheEndOfTheFree =>
+      'the end of the free period, pauses and subscription offers';
+
+  @override
+  String get pushOurAlbum => 'our album';
+
+  @override
+  String get pushNotesCapsulesAndAnniversariesFor =>
+      'notes, capsules and anniversaries for two';
+
+  @override
+  String get pushWhenYouReInvitedInto =>
+      'when you\'re invited into a co-viewing room';
+
+  @override
+  String get errCouldNotValidateCredentials => 'could not validate credentials';
+
+  @override
+  String get errSessionExpiredSignInAgain => 'session expired — sign in again';
+
+  @override
+  String get errAdminAccessRequired => 'admin access required';
+
+  @override
+  String get errTooManyRequestsTryAgain =>
+      'too many requests — try again in a bit';
+
+  @override
+  String get errUsernameAlreadyTaken => 'username already taken';
+
+  @override
+  String get errPasswordIsTooLong => 'password is too long';
+
+  @override
+  String get errInvalidUsernameOrPassword => 'invalid username or password';
+
+  @override
+  String get errCurrentPasswordIsIncorrect => 'current password is incorrect';
+
+  @override
+  String get errThatSThePasswordYou => 'that\'s the password you already have';
+
+  @override
+  String get errThatResetLinkHasExpired =>
+      'that reset link has expired — request a new one';
+
+  @override
+  String get errThatResetLinkWasAlready => 'that reset link was already used';
+
+  @override
+  String get errThatResetLinkIsNo => 'that reset link is no longer valid';
+
+  @override
+  String get errPasswordIsIncorrect => 'password is incorrect';
+
+  @override
+  String get errThatAddressIsAlreadyOn =>
+      'that address is already on another account';
+
+  @override
+  String get errThatLinkHasExpiredRequest =>
+      'that link has expired — request a new one';
+
+  @override
+  String get errThatAddressIsAlreadyConfirmed =>
+      'that address is already confirmed';
+
+  @override
+  String get errThatLinkIsNoLonger => 'that link is no longer valid';
+
+  @override
+  String get errThatLinkWasForA => 'that link was for a different address';
+
+  @override
+  String get errThatAccountIsnTScheduled =>
+      'that account isn\'t scheduled for deletion';
+
+  @override
+  String get errNoSuchChallengeRunningRight =>
+      'no such challenge running right now';
+
+  @override
+  String get errNotFinishedYet => 'not finished yet';
+
+  @override
+  String get errAlreadyCollected => 'already collected';
+
+  @override
+  String get errLinkWithAPartnerFirst => 'link with a partner first';
+
+  @override
+  String get errPollNotFound => 'poll not found';
+
+  @override
+  String get errNeedAtLeastTwoTitles =>
+      'need at least two titles queued to vote between';
+
+  @override
+  String get errThisPollIsAlreadyDone => 'this poll is already done';
+
+  @override
+  String get errThatSNotOneOf =>
+      'that\'s not one of this round\'s options anymore';
+
+  @override
+  String get errRoundNotFound => 'round not found';
+
+  @override
+  String get errNothingToPropose => 'nothing to propose';
+
+  @override
+  String get errThisRoundIsAlreadyDone => 'this round is already done';
+
+  @override
+  String get errDiaryEntryNotFound => 'diary entry not found';
+
+  @override
+  String get errThatSYourOwnUsername => 'that\'s your own username';
+
+  @override
+  String get errAlreadyFriends => 'already friends';
+
+  @override
+  String get errARequestIsAlreadyPending =>
+      'a request is already pending between you two';
+
+  @override
+  String get errRequestNotFound => 'request not found';
+
+  @override
+  String get errThatRequestWasAlreadyAnswered =>
+      'that request was already answered';
+
+  @override
+  String get errNotFriendsWithThatAccount => 'not friends with that account';
+
+  @override
+  String get errNoSuchAccount => 'no such account';
+
+  @override
+  String get errThatSYourOwnAccount => 'that\'s your own account';
+
+  @override
+  String get errNoSuchUser => 'no such user';
+
+  @override
+  String get errNotEnoughShelfDataOn =>
+      'not enough shelf data on one or both sides yet';
+
+  @override
+  String get errNothingToImportPasteOne =>
+      'nothing to import — paste one title per line, or a csv export';
+
+  @override
+  String get errNothingToImport => 'nothing to import';
+
+  @override
+  String get errUnknownIntegrationToken => 'unknown integration token';
+
+  @override
+  String get errListNotFound => 'list not found';
+
+  @override
+  String get errItemNotInThisList => 'item not in this list';
+
+  @override
+  String get errTitleNotFound => 'title not found';
+
+  @override
+  String get errPersonNotFound => 'person not found';
+
+  @override
+  String get errYouCanTBlockYourself => 'you can\'t block yourself';
+
+  @override
+  String get errThatAccountIsnTBlocked => 'that account isn\'t blocked';
+
+  @override
+  String get errUnknownReportTarget => 'unknown report target';
+
+  @override
+  String get errUnknownReportReason => 'unknown report reason';
+
+  @override
+  String get errYouCanTReportYourself => 'you can\'t report yourself';
+
+  @override
+  String get errNoSuchReport => 'no such report';
+
+  @override
+  String get errThatReportIsAlreadyResolved =>
+      'that report is already resolved';
+
+  @override
+  String get errNotFound => 'not found';
+
+  @override
+  String get errYouAlreadyHaveAPartner => 'you already have a partner linked';
+
+  @override
+  String get errThatCodeDoesnTMatch => 'that code doesn\'t match anything';
+
+  @override
+  String get errThatSYourOwnCode =>
+      'that\'s your own code — send it to them instead';
+
+  @override
+  String get errThatCodeHasAlreadyBeen => 'that code has already been used';
+
+  @override
+  String get errThatSYou => 'that\'s you';
+
+  @override
+  String get errNoSuchInvite => 'no such invite';
+
+  @override
+  String get errThatInviteIsnTPending => 'that invite isn\'t pending anymore';
+
+  @override
+  String get errLeaveYourCurrentCircleFirst =>
+      'leave your current circle first';
+
+  @override
+  String get errSuggestionNotFound => 'suggestion not found';
+
+  @override
+  String get errUnknownAvatarPreset => 'unknown avatar preset';
+
+  @override
+  String get errDuplicatePick => 'duplicate pick';
+
+  @override
+  String get errNotOneOfYourFavorite => 'not one of your favorite films';
+
+  @override
+  String get errUseAJpegPngOr => 'use a jpeg, png, or webp image';
+
+  @override
+  String get errImageIsLargerThan5 => 'image is larger than 5 mb';
+
+  @override
+  String get errFileContentDoesnTMatch =>
+      'file content doesn\'t match a jpeg, png, or webp image';
+
+  @override
+  String get errAlreadyAtTheMaximumNumber =>
+      'already at the maximum number of slots';
+
+  @override
+  String get errReadingProgressIsOnlyKept =>
+      'reading progress is only kept for books and manga';
+
+  @override
+  String get errCanTStakeARecommendation =>
+      'can\'t stake a recommendation to yourself';
+
+  @override
+  String get errNotFriendsWithThisPerson => 'not friends with this person';
+
+  @override
+  String get errFriendNotFound => 'friend not found';
+
+  @override
+  String get errAlreadyStakedOnThisTitle =>
+      'already staked on this title for this friend';
+
+  @override
+  String get errReferralNotFound => 'referral not found';
+
+  @override
+  String get errThisEveningWasWatchedTogether =>
+      'this evening was watched together — delete it instead of hiding it';
+
+  @override
+  String get errNothingToRevealHere => 'nothing to reveal here';
+
+  @override
+  String get errNotInYourSharedPlans => 'not in your shared plans';
+
+  @override
+  String get errTooSoonToNudgeAbout => 'too soon to nudge about this one';
+
+  @override
+  String get errAlreadyNudgedRecently => 'already nudged recently';
+
+  @override
+  String get errThatDoesnTLookLike =>
+      'that doesn\'t look like a youtube or twitch link';
+
+  @override
+  String get errPasteALinkFirst => 'paste a link first';
+
+  @override
+  String get errCollectionNotFound => 'collection not found';
+
+  @override
+  String get errItemNotFoundInThis => 'item not found in this collection';
+
+  @override
+  String get errThatTitleIsAlreadyIn =>
+      'that title is already in this collection';
+
+  @override
+  String get errSessionNotFound => 'session not found';
+
+  @override
+  String get errNotAParticipantInThis => 'not a participant in this session';
+
+  @override
+  String get errThatCodeDoesnTMatch2 => 'that code doesn\'t match a session';
+
+  @override
+  String get errThatSYourOwnCode2 =>
+      'that\'s your own code — send it to the other person';
+
+  @override
+  String get errThisSessionHasEnded => 'this session has ended';
+
+  @override
+  String get errSomeoneAlreadyJoinedThisSession =>
+      'someone already joined this session';
+
+  @override
+  String get errThisCodeHasExpiredAsk =>
+      'this code has expired — ask for a new one';
+
+  @override
+  String get errSessionIsnTActive => 'session isn\'t active';
+
+  @override
+  String get errNotOnYourWatchlist => 'not on your watchlist';
+
+  @override
+  String get errNothingToDropFromThis => 'nothing to drop from this status';
+
+  @override
+  String get errOnlyAPlannedItemCan => 'only a planned item can owe debt';
+
+  @override
+  String get errAlreadySettled => 'already settled';
+
+  @override
+  String get errNothingOwedOnThisOne => 'nothing owed on this one yet';
+
+  @override
+  String get errReviewNotFound => 'review not found';
+
+  @override
+  String get errTheBookOfYourEvenings =>
+      'the book of your evenings unlocks with a subscription';
+
+  @override
+  String get errYouWerenTAtThis => 'you weren\'t at this evening';
+
+  @override
+  String get errAddARatingTagsOr =>
+      'add a rating, tags or a few words — or skip';
+
+  @override
+  String get errTheReviewIsAlreadyOpen =>
+      'the review is already open — it can only be read';
+
+  @override
+  String get errRoomNotFound => 'room not found';
+
+  @override
+  String get errOnlyPeopleInTheCircle =>
+      'only people in the circle can do this';
+
+  @override
+  String get errJoinTheRoomFirst => 'join the room first';
+
+  @override
+  String get errUnknownMediaType => 'unknown media type';
+
+  @override
+  String get errUnknownRoomKind => 'unknown room kind';
+
+  @override
+  String get errBooksAndMangaCanBe => 'books and manga can be read together';
+
+  @override
+  String get errGamesCanBePlayedTogether => 'games can be played together';
+
+  @override
+  String get errARoomHoldsAtMost => 'a room holds at most four people';
+
+  @override
+  String get errCouldnTOpenTheRoom => 'couldn\'t open the room — try again';
+
+  @override
+  String get errTheViewingHasAlreadyEnded => 'the viewing has already ended';
+
+  @override
+  String get errUnknownAction => 'unknown action';
+
+  @override
+  String get errThereSNoPauseIn =>
+      'there\'s no pause in reading — just keep turning pages';
+
+  @override
+  String get errInAGameTimeRuns =>
+      'in a game time runs by itself — you can play or take a break';
+
+  @override
+  String get errUnknownEventType => 'unknown event type';
+
+  @override
+  String get errUnknownOption => 'unknown option';
+
+  @override
+  String get errNotesAndHighlightsExistOnly =>
+      'notes and highlights exist only in reading';
+
+  @override
+  String get errRoundsExistOnlyInGames => 'rounds exist only in games';
+
+  @override
+  String get errGamesHaveNoZenMode => 'games have no zen mode';
+
+  @override
+  String get errThisRoomHasNoSuch => 'this room has no such signal';
+
+  @override
+  String get errALotOfRoundsTime => 'a lot of rounds — time to wrap up';
+
+  @override
+  String get errZenIsForSubscribersOne =>
+      'zen is for subscribers: one subscription for two, and it\'s cheaper together';
+
+  @override
+  String get errSlowDownALittle => 'slow down a little';
+
+  @override
+  String get errThisIsAViewingRoom =>
+      'this is a viewing room, not a reading room';
+
+  @override
+  String get errTheReadingHasAlreadyEnded => 'the reading has already ended';
+
+  @override
+  String get errRightNowEveryoneReadsAt =>
+      'right now everyone reads at their own pace';
+
+  @override
+  String get errAReadyCheckExistsOnly => 'a ready check exists only in games';
+
+  @override
+  String get errTheGameHasAlreadyEnded => 'the game has already ended';
+
+  @override
+  String get errTheAlbumIsOnlyFor => 'the album is only for a pair';
+
+  @override
+  String get errThisEveningHasAlreadyPassed =>
+      'this evening has already passed';
+
+  @override
+  String get errTooManyUnopenedNotesWatch =>
+      'too many unopened notes — watch something together first';
+
+  @override
+  String get errCouldnTSaveTheQuote => 'couldn\'t save the quote — try again';
+
+  @override
+  String get errTheViewingHasnTStarted => 'the viewing hasn\'t started yet';
+
+  @override
+  String get errOnlyWhoeverOpenedTheRoom =>
+      'only whoever opened the room can close it';
+
+  @override
+  String get errUserNotFound => 'user not found';
+
+  @override
+  String get errThisPersonIsAlreadyIn =>
+      'this person is already in your circle';
+
+  @override
+  String get errYouCanOnlyInviteFriends => 'you can only invite friends';
+
+  @override
+  String get errThisPersonCanTJoin => 'this person can\'t join this room';
+
+  @override
+  String get errThisPersonDeclinedTheInvitation =>
+      'this person declined the invitation';
+
+  @override
+  String get errEnoughGuestsAlreadyNoMore =>
+      'enough guests already — no more seats';
+
+  @override
+  String get errVoiceIsnTSetUp => 'voice isn\'t set up on this server';
+
+  @override
+  String get errTheAnniversaryIsPartOf =>
+      'the anniversary is part of the pair\'s album — it unlocks with a subscription for two';
+
+  @override
+  String get errTheFreeNotesHaveRun =>
+      'the free notes have run out — with a subscription for two you can leave them without counting';
+
+  @override
+  String get errTheFreeCapsuleIsAlready =>
+      'the free capsule is already sealed — new capsules unlock with a subscription for two';
+
+  @override
+  String get errUnknownBadge => 'unknown badge';
+
+  @override
+  String get errThisEveningHasPassedPlan =>
+      'this evening has passed — plan it again to leave a note';
+
+  @override
+  String get errCouldnTSaveTheNote => 'couldn\'t save the note — try again';
+
+  @override
+  String get errTheNoteIsAlreadyOpen =>
+      'the note is already open — it can\'t be removed';
+
+  @override
+  String get errTheNoteIsStillSealed => 'the note is still sealed';
+
+  @override
+  String get errUnknownReaction => 'unknown reaction';
+
+  @override
+  String get errTheCapsuleHasAlreadyOpened =>
+      'the capsule has already opened — the letter didn\'t make it in';
+
+  @override
+  String get errYourLetterIsAlreadySealed =>
+      'your letter is already sealed in this capsule';
+
+  @override
+  String get errItSTooEarlyThe => 'it\'s too early — the capsule opens later';
+
+  @override
+  String get errOnlyWhoeverSealedTheCapsule =>
+      'only whoever sealed the capsule can remove it';
+
+  @override
+  String get errTheCapsuleHasAlreadyOpened2 => 'the capsule has already opened';
+
+  @override
+  String get errYourPartnerSLetterIs =>
+      'your partner\'s letter is already in the capsule — it can\'t be removed';
+
+  @override
+  String get errPromoCodeNotFound => 'promo code not found';
+
+  @override
+  String get errYouCanTUseYour => 'you can\'t use your own promo code';
+
+  @override
+  String get errThisPromoCodeHasAlready =>
+      'this promo code has already been used';
+
+  @override
+  String get errThePromoDiscountOnlyApplies =>
+      'the promo discount only applies to a first purchase';
+
+  @override
+  String get errThisPromoCodeIsnT =>
+      'this promo code isn\'t available for this account';
+
+  @override
+  String get errTheTrialIsNoLonger =>
+      'the trial is no longer available for this account';
+
+  @override
+  String get errEmptyMessage => 'empty message';
+
+  @override
+  String get errEmptyNote => 'empty note';
+
+  @override
+  String get errSomeoneIsReadingAloudRight =>
+      'someone is reading aloud right now';
 }

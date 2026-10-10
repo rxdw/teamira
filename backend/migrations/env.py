@@ -18,7 +18,12 @@ from app import models  # noqa: F401 — import populates Base.metadata
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False is load-bearing: the default (True)
+    # silently switches off every logger that already exists when this runs
+    # — uvicorn's access/error loggers and all of this app's own
+    # (`seenly.*`, adapters, routers) — and migrations run at app startup,
+    # so from that moment on the server logs nothing at all.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 config.set_main_option("sqlalchemy.url", settings.database_url)
 

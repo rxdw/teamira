@@ -64,8 +64,8 @@ _TAG_RE = re.compile(r"<[^>]+>")
 
 # Subject-scoped shelves for the Collections tab — Google Books has no
 # "top rated" browse endpoint like IGDB's sort=total_rating, so each shelf
-# pulls a wider pool via subject search and is re-sorted by averageRating
-# here, same "real data, filtered and ranked, not synthetic" approach as
+# pulls a wider pool via keyword search and is ranked here (books with
+# reader ratings first, then Google's own order), same "real data, filtered and ranked, not synthetic" approach as
 # the IGDB genre shelves.
 # (display_label_ru, display_label_en, subject query) — `title` on the
 # resulting Collection is always Russian, title_en the fallback, same
@@ -73,15 +73,24 @@ _TAG_RE = re.compile(r"<[^>]+>")
 # (see schemas.Collection.title / mobile/lib/models/collection.dart::
 # displayTitle).
 _SUBJECT_SHELVES = [
-    ("Популярная художественная литература", "Popular Fiction", "subject:fiction"),
-    ("Фантастика и фэнтези", "Sci-Fi & Fantasy", "subject:science+fiction+OR+subject:fantasy"),
-    ("Детективы и триллеры", "Mystery & Thriller", "subject:mystery+OR+subject:thriller"),
-    ("Нон-фикшн", "Non-Fiction Picks", "subject:nonfiction"),
-    ("Биографии и мемуары", "Biographies & Memoirs", "subject:biography"),
+    ("Популярная художественная литература", "Popular Fiction", "fiction bestseller"),
+    # Two queries, merged — see _shelf. "subject:science fiction" is the one
+    # `subject:` form that still returns hits for a genre this broad.
+    ("Фантастика и фэнтези", "Sci-Fi & Fantasy", ("subject:science fiction", "fantasy bestseller")),
+    ("Детективы и триллеры", "Mystery & Thriller", ("mystery bestseller", "thriller bestseller")),
+    ("Нон-фикшн", "Non-Fiction Picks", "nonfiction"),
+    ("Биографии и мемуары", "Biographies & Memoirs", "biography bestseller"),
     ("Саморазвитие", "Self-Help & Growth", "subject:self-help"),
 ]
 
-_MIN_RATINGS_COUNT = 5  # filters out books with a single stray 5-star rating
+# Why these are plain keyword queries and not `subject:X` for every shelf:
+# probed against the live API (see backend/check_books2.py) — `subject:fiction`,
+# `subject:mystery`, `subject:thriller`, `subject:nonfiction`,
+# `subject:biography` and `subject:fantasy` all return totalItems=0 now, while
+# the same words as plain keywords return hundreds of hits. Only
+# `subject:science fiction` and `subject:self-help` still work. Also: Google's
+# rating data is essentially gone (not one hit in the probe had >=5 ratings),
+# so shelves are no longer filtered on ratings — see _shelf.
 
 # Lightweight fields for the ru_supplement/en_supplement lookups below —
 # these are card-only overlays (title/description/cover), not a full
@@ -357,6 +366,8 @@ class GoogleBooksAdapter(MediaAdapter):
             item for r in raw
             if (item := _normalize(r.get("id"), r.get("volumeInfo") or {})) is not None
         ]
+        if raw and not items:
+            logger.warning("Google Books search %r: %d raw hits, none usable after normalising", query, len(raw))
         return items
 
     async def _language_supplement(self, title: str, lang: str) -> Optional[dict]:
@@ -429,23 +440,57 @@ class GoogleBooksAdapter(MediaAdapter):
         supplement = await self._language_supplement(title, "en")
         return supplement["description"] if supplement else None
 
-    async def _shelf(self, title_ru: str, title_en: str, subject_query: str) -> tuple:
-        raw = await self._query({
-            "q": subject_query,
-            "maxResults": 40,  # Google's per-request cap; over-fetch, then rank/trim below
-            "printType": "books",
-            "orderBy": "relevance",
-            "fields": _FIELDS,
-        })
-        candidates = []
+    async def _shelf(self, title_ru: str, title_en: str, subject_query) -> tuple:
+        """`subject_query` is one query string or a tuple of them (results
+        are merged, de-duplicated by volume id)."""
+        queries = (subject_query,) if isinstance(subject_query, str) else tuple(subject_query)
+        batches = await asyncio.gather(*[
+            self._query({
+                "q": q,
+                "maxResults": 40,  # Google's per-request cap; it may still answer with fewer
+                "printType": "books",
+                "orderBy": "relevance",
+                "fields": _FIELDS,
+            })
+            for q in queries
+        ])
+        raw: List[dict] = []
+        seen_ids: set = set()
+        for batch in batches:
+            for r in batch:
+                rid = r.get("id")
+                if rid and rid not in seen_ids:
+                    seen_ids.add(rid)
+                    raw.append(r)
+
+        # No ratings threshold any more (Google barely has ratings data now).
+        # A book needs a cover to make a shelf; among those, ones that do have
+        # reader ratings come first, and ties keep Google's own relevance order
+        # (list.sort is stable, also with reverse=True).
+        ranked = []
+        no_cover = 0
         for r in raw:
             info = r.get("volumeInfo") or {}
-            if (info.get("ratingsCount") or 0) < _MIN_RATINGS_COUNT:
-                continue
             item = _normalize(r.get("id"), info)
-            if item is not None:
-                candidates.append(item)
-        candidates.sort(key=lambda m: m.rating or 0, reverse=True)
+            if item is None:
+                continue
+            if not item.poster_url:
+                no_cover += 1
+                continue
+            ranked.append((info.get("ratingsCount") or 0, info.get("averageRating") or 0, item))
+        ranked.sort(key=lambda t: (t[0], t[1]), reverse=True)
+        candidates = [t[2] for t in ranked]
+
+        # An empty shelf is dropped silently one level up (named_collections
+        # filters on `r[2]`), so this is the only place that can say *why*:
+        # raw=0 means Google returned nothing (or the request failed — look
+        # for a "Google Books query failed" line just above); raw>0 with
+        # kept=0 means every hit was unusable (no cover / no title).
+        if not candidates:
+            logger.warning(
+                "Google Books shelf %r is empty: raw=%d, without cover=%d, q=%r",
+                title_en, len(raw), no_cover, subject_query,
+            )
         return (title_ru, title_en, candidates[:12])
 
     async def discover(self) -> List[MediaItem]:
@@ -475,7 +520,17 @@ class GoogleBooksAdapter(MediaAdapter):
             *[self._shelf(title_ru, title_en, q) for title_ru, title_en, q in _SUBJECT_SHELVES],
             return_exceptions=True,
         )
-        return [r for r in results if isinstance(r, tuple) and r[2]]
+        for (_ru, title_en, _q), r in zip(_SUBJECT_SHELVES, results):
+            if isinstance(r, BaseException):
+                logger.warning("Google Books shelf %r raised %s: %s", title_en, type(r).__name__, r)
+        built = [r for r in results if isinstance(r, tuple) and r[2]]
+        if not built:
+            logger.warning(
+                "Google Books: 0 of %d shelves built — books will be missing from "
+                "/feed/collections (that response is cached for up to 3h)",
+                len(_SUBJECT_SHELVES),
+            )
+        return built
 
     async def isbns(self, raw_id: str) -> Optional[dict]:
         """{"isbn_13": ..., "isbn_10": ...} (either may be None) for one

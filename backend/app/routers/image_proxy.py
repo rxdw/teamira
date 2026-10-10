@@ -53,7 +53,7 @@ import logging
 import mimetypes
 import os
 import time
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
@@ -71,7 +71,12 @@ router = APIRouter(prefix="/media", tags=["media"])
 # (Shikimori/IGDB/Open Library covers aren't known to be blocked
 # anywhere today, so they're not proxied — see config.py's
 # public_api_base_url docstring).
-_ALLOWED_HOSTS = {"image.tmdb.org"}
+_ALLOWED_HOSTS = {"image.tmdb.org", "books.google.com", "books.googleusercontent.com"}
+
+# Google Books covers sometimes answer with a 302 to another Google image
+# host (books.googleusercontent.com). Redirects are followed by hand, at
+# most this many hops, re-checking every hop against _ALLOWED_HOSTS.
+_MAX_REDIRECTS = 3
 
 # What this server tells the *client* it can cache for — separate from
 # the on-disk cache below, and necessarily shorter, since there's no
@@ -197,19 +202,27 @@ def _guess_media_type(url: str) -> str:
 
 async def _fetch_and_cache(url: str, path: str) -> bytes:
     try:
-        # follow_redirects intentionally left at its default (False) —
-        # image_proxy() below only checks _ALLOWED_HOSTS against this
-        # *initial* url. If httpx followed a redirect, whatever host it
-        # landed on would fetch without ever being checked against that
-        # allowlist itself — image.tmdb.org redirecting anywhere isn't
-        # something this server can prevent from happening, and a
-        # never-checked redirect target is exactly the gap an
-        # allowlisted proxy exists to not have. TMDB's image CDN is a
-        # static asset host and has no legitimate reason to redirect;
-        # if it ever does, failing here is the correct outcome, not
-        # silently following it.
+        # Redirects are followed manually (httpx's own following is off):
+        # every hop is re-checked against _ALLOWED_HOSTS, so an allowlisted
+        # host can never bounce this server to a host that was never
+        # checked (SSRF). Google Books covers need this; TMDB's CDN never
+        # redirects, and a redirect to a non-allowlisted host still fails.
+        current = url
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
-            upstream = await client.get(url)
+            for _hop in range(_MAX_REDIRECTS + 1):
+                upstream = await client.get(current)
+                if upstream.status_code not in (301, 302, 303, 307, 308):
+                    break
+                location = upstream.headers.get("location")
+                if not location:
+                    break
+                nxt = urlparse(urljoin(current, location))
+                if nxt.scheme != "https" or nxt.hostname not in _ALLOWED_HOSTS:
+                    logger.warning("image proxy refused redirect %s -> %s", current, nxt.geturl())
+                    raise HTTPException(status_code=502, detail="upstream redirect not allowed")
+                current = nxt.geturl()
+            else:
+                raise HTTPException(status_code=502, detail="too many redirects")
     except httpx.HTTPError as exc:
         logger.warning("image proxy fetch failed for %s: %s", url, exc)
         raise HTTPException(status_code=502, detail="upstream fetch failed") from exc
@@ -219,6 +232,12 @@ async def _fetch_and_cache(url: str, path: str) -> bytes:
     if upstream.status_code != 200:
         logger.warning("image proxy got %s from %s", upstream.status_code, url)
         raise HTTPException(status_code=502, detail="upstream error")
+
+    # Never cache (or serve) something that isn't an image — Google can
+    # answer 200 with an HTML error page.
+    if not upstream.headers.get("content-type", "image/jpeg").lower().startswith("image/"):
+        logger.warning("image proxy got non-image content from %s", url)
+        raise HTTPException(status_code=502, detail="upstream not an image")
 
     # Written to a temp path and renamed into place, so a request that
     # reads the cache file mid-write (or a container restart mid-write)

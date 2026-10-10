@@ -3578,10 +3578,11 @@ class _LanguageStepState extends State<_LanguageStep> with SingleTickerProviderS
 // AppSkinService/AppSkin the settings row reads and writes). Modeled
 // directly on the title-language step just above: a short heading, then
 // the choice itself — except here the "demo" isn't one card that
-// retitles itself, it's three mock diary cards side by side, filling
-// essentially the whole screen, since the whole point is comparing what
-// a page of the diary actually looks like in each skin, not reading a
-// description of one. The old two-up "open book" backdrop
+// retitles itself, it's three mock diary cards STACKED vertically (one
+// per row, mock on the left, name + radio on the right), filling the
+// whole screen. They used to sit side by side, but three columns are only
+// ~100px wide each — far too narrow for a diary card, which made the
+// text wrap one letter per line and the mocks overflow their cards. The old two-up "open book" backdrop
 // (_OpenDiarySpread, still below in case a future two-option step wants
 // it) doesn't extend to three panels, so this step's cards now carry
 // their own visual identity instead of sitting on a shared prop.
@@ -3643,7 +3644,7 @@ class _SkinStepState extends State<_SkinStep> with SingleTickerProviderStateMixi
             child: _StaggerIn(
               controller: _entrance,
               index: 2,
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
@@ -3655,7 +3656,7 @@ class _SkinStepState extends State<_SkinStep> with SingleTickerProviderStateMixi
                       onTap: () => _choose(AppSkin.classic),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: _SkinChoiceCard(
                       skin: AppSkin.cozy,
@@ -3665,7 +3666,7 @@ class _SkinStepState extends State<_SkinStep> with SingleTickerProviderStateMixi
                       onTap: () => _choose(AppSkin.cozy),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(height: 10),
                   Expanded(
                     child: _SkinChoiceCard(
                       skin: AppSkin.clay,
@@ -3807,6 +3808,7 @@ class _SkinChoiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 260),
         curve: Curves.easeOutCubic,
@@ -3819,33 +3821,55 @@ class _SkinChoiceCard extends StatelessWidget {
             width: 1.6,
           ),
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // The mock gets the full height and ~60% of the width; it
+            // scales itself to whichever of the two is the tighter fit
+            // (see _MiniDiaryMock), so it can never overflow.
             Expanded(
+              flex: 5,
               child: LayoutBuilder(
-                builder: (context, constraints) => ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: _MiniDiaryMock(skin: skin, height: constraints.maxHeight),
+                // Tight width: the mock card fills the column instead of
+                // shrink-wrapping its content (a Center alone would hand
+                // it loose constraints).
+                builder: (context, constraints) => Center(
+                  child: SizedBox(
+                    width: constraints.maxWidth,
+                    child: _MiniDiaryMock(
+                      skin: skin,
+                      height: constraints.maxHeight,
+                      width: constraints.maxWidth,
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: SeenlyText.serif(
-                  size: 13,
-                  weight: FontWeight.w600,
-                  color: selected ? _onboardingPaper : Colors.white.withOpacity(0.8),
-                )),
-            const SizedBox(height: 2),
-            Text(subtitle,
-                textAlign: TextAlign.center, style: SeenlyText.mono(size: 8.5, color: Colors.white.withOpacity(0.4))),
-            const SizedBox(height: 6),
-            Icon(
-              selected ? Icons.check_circle : Icons.radio_button_unchecked,
-              size: 16,
-              color: selected ? SeenlyPalette.accent : Colors.white.withOpacity(0.3),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(label,
+                      textAlign: TextAlign.center,
+                      style: SeenlyText.serif(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: selected ? _onboardingPaper : Colors.white.withOpacity(0.8),
+                      )),
+                  const SizedBox(height: 3),
+                  Text(subtitle,
+                      textAlign: TextAlign.center,
+                      style: SeenlyText.mono(size: 9.5, color: Colors.white.withOpacity(0.45))),
+                  const SizedBox(height: 10),
+                  Icon(
+                    selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                    size: 20,
+                    color: selected ? SeenlyPalette.accent : Colors.white.withOpacity(0.3),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -3872,7 +3896,13 @@ class _SkinChoiceCard extends StatelessWidget {
 class _MiniDiaryMock extends StatelessWidget {
   final AppSkin skin;
   final double height;
-  const _MiniDiaryMock({required this.skin, this.height = 128});
+
+  /// Width available to the mock. Every literal size below is drawn
+  /// against a 128-tall by ~150-wide reference card, and the scale is
+  /// whichever of height/width fits tighter — scaling by height alone is
+  /// what made the cards overflow once they got narrow.
+  final double width;
+  const _MiniDiaryMock({required this.skin, this.height = 128, this.width = 150});
 
   // Light-mode swatches lifted straight from SeenlyPalette's own private
   // color sets (_light / _cozyLight / _clayLight) — kept as plain
@@ -3906,7 +3936,9 @@ class _MiniDiaryMock extends StatelessWidget {
   Widget build(BuildContext context) {
     final cozy = skin == AppSkin.cozy;
     final clay = skin == AppSkin.clay;
-    final s = height / 128;
+    final sh = height / 128;
+    final sw = width / 150;
+    final s = sh < sw ? sh : sw;
 
     if (clay) return _buildClay(s);
 
@@ -3974,16 +4006,24 @@ class _MiniDiaryMock extends StatelessWidget {
     // standard skin, an actual cursive scrawl (Caveat, same face the
     // real cozy skin switches its headings to) for cozy, so the two
     // examples differ in *voice*, not just decoration.
-    Widget dateLine = cozy
-        ? Text('tuesday'.tr,
-            style: GoogleFonts.caveat(
-                fontSize: 17 * s, color: ink, fontWeight: FontWeight.w600, height: 1))
-        : Text('TUE · 9:14 PM'.tr,
-            style: GoogleFonts.comfortaa(
-                fontSize: 8 * s, color: inkMuted, fontWeight: FontWeight.w600, letterSpacing: 0.4));
+    Widget dateLine = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: cozy
+          ? Text('tuesday'.tr,
+              maxLines: 1,
+              softWrap: false,
+              style: GoogleFonts.caveat(
+                  fontSize: 17 * s, color: ink, fontWeight: FontWeight.w600, height: 1))
+          : Text('TUE · 9:14 PM'.tr,
+              maxLines: 1,
+              softWrap: false,
+              style: GoogleFonts.comfortaa(
+                  fontSize: 8 * s, color: inkMuted, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+    );
 
     Widget card = Container(
-      height: height,
+      height: 128 * s,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: bg,
@@ -4094,7 +4134,7 @@ class _MiniDiaryMock extends StatelessWidget {
                 height: 6 * s,
                 decoration: BoxDecoration(color: _clayInkMuted.withOpacity(0.7), borderRadius: BorderRadius.circular(999)),
               ),
-              SizedBox(height: 10 * s),
+              SizedBox(height: 8 * s),
               // The one accent, carrying the CTA — a raised pill.
               Container(width: 48 * s, height: 15 * s, decoration: blob(_clayAccent, 999, e: 0.7)),
             ],
@@ -4103,9 +4143,15 @@ class _MiniDiaryMock extends StatelessWidget {
       ],
     );
 
-    final dateLine = Text(
-      'tuesday'.tr,
-      style: GoogleFonts.nunito(fontSize: 15 * s, color: _clayInk, fontWeight: FontWeight.w900, height: 1),
+    final dateLine = FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: Text(
+        'tuesday'.tr,
+        maxLines: 1,
+        softWrap: false,
+        style: GoogleFonts.nunito(fontSize: 15 * s, color: _clayInk, fontWeight: FontWeight.w900, height: 1),
+      ),
     );
 
     final innerCard = Container(
@@ -4122,15 +4168,41 @@ class _MiniDiaryMock extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
-        children: [dateLine, SizedBox(height: 10 * s), content],
+        children: [dateLine, SizedBox(height: 8 * s), content],
       ),
     );
 
+    // Two big puffy blobs peeking out from behind the card — the thing
+    // that actually says "clay" at a glance (soft, fat, lit from the
+    // top-left), instead of one flat pale card on a pale frame.
     return Container(
-      height: height,
-      padding: EdgeInsets.all(10 * s),
+      height: 128 * s,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(color: _clayBg, borderRadius: BorderRadius.circular(28 * s)),
-      child: Center(child: innerCard),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            right: -8 * s,
+            top: -10 * s,
+            child: Container(width: 44 * s, height: 44 * s, decoration: blob(_clayPink.withOpacity(0.75), 999)),
+          ),
+          Positioned(
+            left: -10 * s,
+            bottom: -12 * s,
+            child: Container(width: 50 * s, height: 50 * s, decoration: blob(_claySage.withOpacity(0.7), 999)),
+          ),
+          Positioned(
+            left: 24 * s,
+            top: 4 * s,
+            child: Container(width: 14 * s, height: 14 * s, decoration: blob(const Color(0xFFFFD27A), 999, e: 0.5)),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 9 * s, vertical: 8 * s),
+            child: Center(child: innerCard),
+          ),
+        ],
+      ),
     );
   }
 }

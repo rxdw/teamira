@@ -77,3 +77,27 @@ def test_other_sources_are_left_untouched(foreign):
 def test_empty_values_pass_through():
     assert resolve_image_url(None, TMDB_POSTER_BASE) is None
     assert resolve_image_url("", TMDB_POSTER_BASE) == ""
+
+
+GBOOKS = "https://books.google.com/books/content?id=abc&printsec=frontcover&img=1&zoom=2&source=gbs_api"
+
+
+def test_google_books_cover_is_proxied():
+    out = resolve_image_url(GBOOKS, TMDB_POSTER_BASE)
+    assert out.startswith(f"{NEW_BASE}/media/image-proxy?")
+    assert _inner(out) == GBOOKS
+
+
+def test_legacy_http_google_books_cover_is_upgraded_and_proxied():
+    out = resolve_image_url(GBOOKS.replace("https://", "http://"), TMDB_POSTER_BASE)
+    assert _inner(out) == GBOOKS
+
+
+def test_google_books_cover_stays_direct_without_a_proxy(monkeypatch):
+    monkeypatch.setattr(settings, "public_api_base_url", "")
+    assert resolve_image_url(GBOOKS, TMDB_POSTER_BASE) == GBOOKS
+
+
+def test_other_google_urls_are_left_alone():
+    other = "https://books.google.com/books?id=abc"
+    assert resolve_image_url(other, TMDB_POSTER_BASE) == other

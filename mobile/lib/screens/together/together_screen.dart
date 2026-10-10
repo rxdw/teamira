@@ -127,7 +127,9 @@ class _TogetherScreenState extends State<TogetherScreen> {
   String _msgButtonLabel = '';
   VoidCallback? _msgAction;
 
-  static const _filters = [
+  // Getter, not a const/final field: `.tr` is a runtime lookup, so the list
+  // has to be rebuilt per access to follow the current language.
+  static List<(String, String)> get _filters => [
     ('all', 'all'),
     ('movie', 'movies'),
     ('series', 'series & anime'.tr),
